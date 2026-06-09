@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — Mehewara</title>
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://mehewara.edu.lk/privacy-policy" />
+    <link rel="icon" href="/image/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <style>
+        /* ── Theme variables (mirrors index.css exactly) ── */
+        html.dark,
+        html:not(.light) {
+            --color-page-bg: #030304;
+            --color-page-bg-alt: #0a0a0f;
+            --color-surface: #0c0c14;
+            --color-surface-hover: #111827;
+            --color-border: #1e293b;
+            --color-border-strong: #334155;
+            --color-text-primary: #f1f5f9;
+            --color-text-secondary: #94a3b8;
+            --color-text-muted: #475569;
+            --color-header-bg: rgba(3, 3, 4, 0.90);
+            --color-scrollbar-track: rgba(3, 3, 4, 0.4);
+            --color-scrollbar-thumb: rgba(255, 255, 255, 0.1);
+            --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+            --color-accent: #38bdf8;
+            --color-accent-dim: rgba(56, 189, 248, 0.1);
+            --color-accent-border: rgba(56, 189, 248, 0.2);
+        }
+
+        html.light {
+            --color-page-bg: #f0f4f8;
+            --color-page-bg-alt: #e2e8f0;
+            --color-surface: #ffffff;
+            --color-surface-hover: #f8fafc;
+            --color-border: #e2e8f0;
+            --color-border-strong: #cbd5e1;
+            --color-text-primary: #0f172a;
+            --color-text-secondary: #475569;
+            --color-text-muted: #94a3b8;
+            --color-header-bg: rgba(240, 244, 248, 0.90);
+            --color-scrollbar-track: rgba(148, 163, 184, 0.1);
+            --color-scrollbar-thumb: rgba(0, 0, 0, 0.15);
+            --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+            --color-accent: #0284c7;
+            --color-accent-dim: rgba(2, 132, 199, 0.08);
+            --color-accent-border: rgba(2, 132, 199, 0.2);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition-property: background-color, border-color, color;
+            transition-duration: 200ms;
+            transition-timing-function: ease;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--color-scrollbar-track);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-scrollbar-thumb);
+            border-radius: 99px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--color-scrollbar-thumb-hover);
+        }
+
+        body {
+            font-family: "Space Grotesk", "Noto Sans Sinhala", system-ui, sans-serif;
+            background-color: var(--color-page-bg);
+            color: var(--color-text-primary);
+            line-height: 1.7;
+            font-size: 15px;
+            min-height: 100vh;
+        }
+
+        /* ── Top nav bar ── */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: var(--color-header-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--color-border);
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            text-decoration: none;
+            letter-spacing: -0.3px;
+        }
+
+        .nav-brand span {
+            color: var(--color-accent);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .nav-back {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.15s;
+        }
+
+        .nav-back:hover {
+            color: var(--color-text-primary);
+        }
+
+        .theme-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            background: var(--color-surface);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .theme-btn:hover {
+            border-color: var(--color-border-strong);
+            background: var(--color-surface-hover);
+            color: var(--color-text-primary);
+        }
+
+        /* ── Page hero ── */
+        .hero {
+            background: var(--color-page-bg-alt);
+            border-bottom: 1px solid var(--color-border);
+            padding: 48px 24px 40px;
+            text-align: center;
+        }
+
+        .hero-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            background: var(--color-accent-dim);
+            border: 1px solid var(--color-accent-border);
+            padding: 4px 12px;
+            border-radius: 99px;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 {
+            font-size: clamp(24px, 4vw, 36px);
+            font-weight: 700;
+            color: var(--color-text-primary);
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            font-size: 14px;
+            color: var(--color-text-secondary);
+        }
+
+        .hero-date {
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+
+        /* ── Main layout ── */
+        main {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+        }
+
+        /* ── Section cards ── */
+        .section {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 26px 30px;
+            margin-bottom: 16px;
+        }
+
+        .section:hover {
+            border-color: var(--color-border-strong);
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: 12px;
+            letter-spacing: -0.2px;
+        }
+
+        p {
+            color: var(--color-text-secondary);
+            margin-bottom: 10px;
+            font-size: 14.5px;
+        }
+
+        p:last-child {
+            margin-bottom: 0;
+        }
+
+        p strong {
+            color: var(--color-text-primary);
+            font-weight: 600;
+        }
+
+        ul {
+            padding-left: 18px;
+            color: var(--color-text-secondary);
+            font-size: 14.5px;
+        }
+
+        ul li {
+            margin-bottom: 6px;
+        }
+
+        ul li strong {
+            color: var(--color-text-primary);
+            font-weight: 600;
+        }
+
+        code {
+            font-family: "JetBrains Mono", "Fira Code", monospace;
+            font-size: 12.5px;
+            background: var(--color-page-bg-alt);
+            border: 1px solid var(--color-border);
+            padding: 2px 6px;
+            border-radius: 5px;
+            color: var(--color-accent);
+        }
+
+        a {
+            color: var(--color-accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Divider ── */
+        .divider {
+            height: 1px;
+            background: var(--color-border);
+            margin: 8px 0 16px;
+        }
+
+        /* ── Contact box ── */
+        .contact-box {
+            background: var(--color-accent-dim);
+            border: 1px solid var(--color-accent-border);
+            border-radius: 12px;
+            padding: 28px 30px;
+            margin-top: 32px;
+            text-align: center;
+        }
+
+        .contact-box h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .contact-box p {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+        }
+
+        .contact-box a {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--color-accent);
+        }
+
+        /* ── Footer ── */
+        footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--color-text-muted);
+            font-size: 12.5px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        footer a {
+            color: var(--color-text-muted);
+        }
+
+        footer a:hover {
+            color: var(--color-text-secondary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="/">Mehewara<span>.</span></a>
+        <div class="nav-right">
+            <a class="nav-back" href="/">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M19 12H5M12 5l-7 7 7 7" />
+                </svg>
+                Back to home
+            </a>
+            <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">
+                <svg id="icon-sun" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"
+                    viewBox="0 0 24 24" style="display:none">
+                    <circle cx="12" cy="12" r="5" />
+                    <path
+                        d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
+                <svg id="icon-moon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"
+                    viewBox="0 0 24 24">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <div class="hero-tag">Legal</div>
+        <h1>Privacy Policy</h1>
+        <p>How Mehewara handles your data</p>
+        <div class="hero-date">Last updated: June 2025</div>
+    </div>
+
+    <main>
+
+        <div class="section">
+            <div class="section-label">Overview</div>
+            <h2>Introduction</h2>
+            <p>Mehewara (<strong>mehewara.edu.lk</strong>) is a free exam practice platform for Sri Lankan O/L and A/L
+                students. We are committed to protecting your privacy and being fully transparent about how we handle
+                data.</p>
+            <p>This Privacy Policy explains what information we collect when you use Mehewara, how we use it, and your
+                rights as a user.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Data Collection</div>
+            <h2>Information We Collect</h2>
+            <p><strong>No account required.</strong> Mehewara does not require registration or login. We do not collect
+                your name, email address, phone number, or any personally identifiable information.</p>
+            <p>We may automatically collect the following non-personal data:</p>
+            <ul>
+                <li>Browser type and version — for compatibility</li>
+                <li>IP address — processed by Cloudflare for security purposes only</li>
+                <li>Pages visited and links clicked — anonymous usage data</li>
+                <li>Device type — mobile or desktop</li>
+                <li>Country or region — for regional usage insights</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Data Use</div>
+            <h2>How We Use Your Data</h2>
+            <p>Any data collected is used solely to:</p>
+            <ul>
+                <li>Improve the platform's performance and user experience</li>
+                <li>Identify popular subjects to prioritize new quiz content</li>
+                <li>Maintain security and speed via Cloudflare</li>
+                <li>Manage search visibility via Google Search Console</li>
+            </ul>
+            <div class="divider"></div>
+            <p><strong>We do not sell your data.</strong> We do not share your data with advertisers or any third-party
+                marketing services.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Cookies</div>
+            <h2>Cookies &amp; Local Storage</h2>
+            <p>Mehewara uses only essential cookies and local storage:</p>
+            <ul>
+                <li><strong>Cloudflare cookies</strong> — required for security and performance, e.g.
+                    <code>__cf_bm</code></li>
+                <li><strong>Theme preference</strong> — stores your dark/light mode selection in localStorage</li>
+                <li><strong>Quiz session</strong> — temporarily tracks quiz progress during your session; cleared when
+                    you close the browser</li>
+            </ul>
+            <div class="divider"></div>
+            <p>We do <strong>not</strong> use Google Analytics, Facebook Pixel, or any third-party tracking cookies.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Third Parties</div>
+            <h2>Third-Party Services</h2>
+            <p><strong>Cloudflare</strong> — Mehewara is hosted and protected by Cloudflare. Cloudflare may process your
+                IP address and traffic data for DDoS protection and performance optimization. See <a
+                    href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare's Privacy
+                    Policy</a>.</p>
+            <p><strong>Google Search Console</strong> — We use GSC to monitor search indexing. No user personal data is
+                shared with Google through this tool.</p>
+            <p><strong>KaTeX CDN</strong> — Math equations are rendered using KaTeX loaded from
+                <code>cdn.jsdelivr.net</code>. No personal data is transmitted to this service.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Minors</div>
+            <h2>Children's Privacy</h2>
+            <p>Mehewara is designed for students of all ages. We do not knowingly collect personal data from children
+                under 13. If you are a parent and believe your child's data has been collected through our platform,
+                please contact us and we will promptly address the concern.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Your Rights</div>
+            <h2>User Rights</h2>
+            <p>Since we do not collect personally identifiable information, there is generally no personal data to
+                access, modify, or delete. If you have any concerns about data related to your usage, you may contact us
+                at any time and we will respond within 7 business days.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Updates</div>
+            <h2>Changes to This Policy</h2>
+            <p>We may update this Privacy Policy from time to time. When changes are made, the "Last updated" date at
+                the top of this page will be revised. We encourage you to review this page periodically.</p>
+        </div>
+
+        <div class="contact-box">
+            <h3>Contact Us</h3>
+            <p>For any privacy-related questions or concerns, reach us at:</p>
+            <p style="margin-top:10px;"><a href="mailto:contact@mehewara.edu.lk">contact@mehewara.edu.lk</a></p>
+        </div>
+
+    </main>
+
+    <footer>
+        &copy; 2026 Mehewara &nbsp;&middot;&nbsp;
+        <a href="/">mehewara.edu.lk</a> &nbsp;&middot;&nbsp;
+        <a href="/privacy-policy.html">Privacy Policy</a> &nbsp;&middot;&nbsp;
+        All rights reserved
+    </footer>
+
+    <script>
+        // Read saved preference from the main site ('m_theme') or fallback to system preference
+        let saved = localStorage.getItem('m_theme');
+        let isDark;
+        if (saved === 'dark' || saved === 'light') {
+            isDark = saved === 'dark';
+        } else {
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        applyTheme(isDark);
+
+        function applyTheme(dark) {
+            document.documentElement.classList.toggle('dark', dark);
+            document.documentElement.classList.toggle('light', !dark);
+            document.getElementById('icon-sun').style.display = dark ? 'block' : 'none';
+            document.getElementById('icon-moon').style.display = dark ? 'none' : 'block';
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            applyTheme(!isDark);
+            localStorage.setItem('m_theme', isDark ? 'light' : 'dark');
+        }
+    </script>
+
+</body>
+
+</html>
