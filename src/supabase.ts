@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Paper, Question, Subject } from './types';
 
-const SUPABASE_URL = 'https://nauqrdxrkxxnfgsnkpnt.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_fesJYs3uTKdIdM7B8etm4g_zGWUADe4';
+const SUPABASE_URL = 'https://znolstwxybjibumbghoa.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_hVP-N6zMPFGiy_aG85w65g_PfDKwRDQ';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
