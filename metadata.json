@@ -1,0 +1,6 @@
+{
+  "name": "Mehewara Past Papers",
+  "description": "Sri Lankan O/L and A/L Past Papers MCQ Practice Platform with Sleek Interactions",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
