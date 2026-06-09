@@ -804,7 +804,7 @@ export default function AdminPanel({
         </div>
 
         {/* TAB CONTENTS */}
-        {activeTab === 'papers' ? (
+        {activeTab === 'papers' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             {/* Create New Paper Form (Col-4) */}
@@ -1037,7 +1037,9 @@ export default function AdminPanel({
             </div>
 
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'add-question' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             {/* HTML Past Paper Form (Col-7) */}
