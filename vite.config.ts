@@ -17,21 +17,6 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('@tiptap')) return 'vendor-tiptap';
-              if (id.includes('katex')) return 'vendor-katex';
-              if (id.includes('@supabase')) return 'vendor-supabase';
-              if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'vendor-react';
-              if (id.includes('lucide-react')) return 'vendor-lucide';
-              if (id.includes('motion')) return 'vendor-motion';
-              return 'vendor'; // all other dependencies
-            }
-          }
-        }
-      },
       chunkSizeWarningLimit: 1000
     }
   };
