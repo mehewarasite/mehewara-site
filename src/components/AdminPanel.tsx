@@ -6,7 +6,7 @@ import {
   Lock,
   Unlock,
   Settings,
-  HelpCircle,
+  CircleHelp,
   Check,
   BookOpen,
   FileText,
@@ -1553,7 +1553,7 @@ export default function AdminPanel({
             <div className="lg:col-span-4 space-y-4 self-start">
               <div className={`${cardBg} border ${cardBdr} rounded-2xl p-5 space-y-4 ${isDark ? '' : 'shadow-md'}`}>
                 <h3 className={`text-sm font-bold flex items-center gap-1.5 border-b ${dividerBdr} pb-2 ${textPrimary}`}>
-                  <HelpCircle className="w-4 h-4 text-sky-400" />
+                  <CircleHelp className="w-4 h-4 text-sky-400" />
                   HTML &amp; Image Guidelines
                 </h3>
 

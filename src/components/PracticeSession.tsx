@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  CheckCircle2, 
-  XCircle, 
-  AlertCircle, 
+  CircleCheck, 
+  CircleX, 
+  CircleAlert, 
   ArrowLeft, 
   ArrowRight, 
   Clock, 
@@ -257,7 +257,7 @@ export default function PracticeSession({
   if (totalQuestions === 0) {
     return (
       <div className={`min-h-[80vh] flex flex-col items-center justify-center text-center p-4 ${pageBg}`}>
-        <AlertCircle className={`w-14 h-14 ${textFaint} mb-4 animate-bounce`} />
+        <CircleAlert className={`w-14 h-14 ${textFaint} mb-4 animate-bounce`} />
         <h2 className={`text-xl font-bold ${textPrimary} mb-2`}>ප්‍රශ්න කිසිවක් නැත</h2>
         <p className={`${textMuted} text-sm max-w-sm mb-6`}>
           මෙම ප්‍රශ්න පත්‍රය සඳහා ප්‍රශ්න කිසිවක් ඇතුළත් කර නොමැත. කරුණාකර පාලක පැනලයෙන් ප්‍රශ්න එකතු කරන්න.
@@ -411,21 +411,21 @@ export default function PracticeSession({
                 <div className={`${isDark ? 'bg-slate-900/40 border-slate-800/40' : 'bg-emerald-50 border-emerald-100'} border rounded-xl p-3 flex flex-col`}>
                   <span className={`text-[10px] ${textMuted} font-medium`}>නිවැරදි පිළිතුරු</span>
                   <span className="text-xl font-bold text-emerald-400 font-mono mt-1 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <CircleCheck className="w-4 h-4 text-emerald-400" />
                     {scoreDetails.correctCount}
                   </span>
                 </div>
                 <div className={`${isDark ? 'bg-slate-900/40 border-slate-800/40' : 'bg-red-50 border-red-100'} border rounded-xl p-3 flex flex-col`}>
                   <span className={`text-[10px] ${textMuted} font-medium`}>වැරදි පිළිතුරු</span>
                   <span className="text-xl font-bold text-red-400 font-mono mt-1 flex items-center gap-1.5">
-                    <XCircle className="w-4 h-4 text-red-400" />
+                    <CircleX className="w-4 h-4 text-red-400" />
                     {scoreDetails.incorrectCount}
                   </span>
                 </div>
                 <div className={`${isDark ? 'bg-slate-900/40 border-slate-800/40' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 flex flex-col`}>
                   <span className={`text-[10px] ${textMuted} font-medium`}>නොකළ ප්‍රශ්න</span>
                   <span className={`text-xl font-bold ${textMuted} font-mono mt-1 flex items-center gap-1.5`}>
-                    <AlertCircle className={`w-4 h-4 ${textMuted}`} />
+                    <CircleAlert className={`w-4 h-4 ${textMuted}`} />
                     {scoreDetails.unansweredCount}
                   </span>
                 </div>
@@ -863,7 +863,7 @@ export default function PracticeSession({
                 ) : (
                   <div className={`p-5 rounded-2xl border ${verifiedAnswers[qId] ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
                     <h4 className={`font-bold mb-3 flex items-center gap-2 ${verifiedAnswers[qId] ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {verifiedAnswers[qId] ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                      {verifiedAnswers[qId] ? <CircleCheck className="w-5 h-5" /> : <CircleX className="w-5 h-5" />}
                       {verifiedAnswers[qId] ? 'නිවැරදියි! (Correct!)' : 'වැරදියි! (Incorrect.)'}
                     </h4>
                     {activeQuestion.explanationHtml && (
