@@ -1875,8 +1875,9 @@ export default function AdminPanel({
                   if (error) throw error;
                   alert("About Us page updated live!");
                 } catch (err: any) {
+                  console.error("About Us Save Error:", err);
                   localStorage.setItem('m_about_us', JSON.stringify(aboutData));
-                  alert("Supabase error (Table might be missing). Saved locally as fallback. Please run about_us.sql in Supabase SQL editor.");
+                  alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
                 }
               }}
               className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98]"
