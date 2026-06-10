@@ -28,6 +28,7 @@ import { Subject, Paper, Question, UserAttempt } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
 import BootLoader from './components/BootLoader';
 import { useTheme } from './ThemeContext';
+import AboutUsModal from './components/AboutUsModal';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
@@ -35,7 +36,7 @@ import {
   dbLoadSubjects, dbSaveSubjects,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
   dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper,
-  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml
+  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs
 } from './supabase';
 
 const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
@@ -57,15 +58,18 @@ export default function App() {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [activePracticePaper, setActivePracticePaper] = useState<Paper | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
+  const [showAboutUs, setShowAboutUs] = useState<boolean>(false);
+  const [aboutData, setAboutData] = useState<any>(null);
 
   // Reusable sync function — pulls latest data from Supabase
   const syncFromSupabase = async () => {
     setIsSyncing(true);
     try {
-      const [remoteSubjects, remotePapers, remoteQuestions] = await Promise.all([
+      const [remoteSubjects, remotePapers, remoteQuestions, remoteAbout] = await Promise.all([
         dbLoadSubjects(),
         dbLoadPapers(),
         dbLoadQuestions(),
+        dbLoadAboutUs(),
       ]);
 
       if (remoteSubjects && remoteSubjects.length > 0) {
@@ -97,6 +101,13 @@ export default function App() {
         // First run — seed Supabase with initial questions
         await dbSaveQuestions(INITIAL_QUESTIONS);
         setQuestions(INITIAL_QUESTIONS);
+      }
+
+      if (remoteAbout) {
+        setAboutData(remoteAbout);
+      } else {
+        const localAbout = localStorage.getItem('m_about_us');
+        if (localAbout) setAboutData(JSON.parse(localAbout));
       }
     } catch (err) {
       console.error('Supabase load failed, falling back to localStorage:', err);
@@ -742,8 +753,17 @@ export default function App() {
         <div className="mt-0.5 text-[10px]">
           <span className={`hidden sm:inline ${footerSub}`}>by 26 E-FAC RUH - MADE WITH ❤️ &nbsp;&nbsp;&nbsp;&nbsp;</span>
           <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-sky-400 transition-colors">Privacy Policy</a>
+          <span className="mx-2 opacity-50">|</span>
+          <button onClick={() => setShowAboutUs(true)} className="hover:underline hover:text-sky-400 transition-colors cursor-pointer">About Us</button>
         </div>
       </footer>
+
+      {showAboutUs && (
+        <AboutUsModal
+          data={aboutData || { description: "Welcome to Mehewara!" }}
+          onClose={() => setShowAboutUs(false)}
+        />
+      )}
 
       {/* OVERLAY: RESTRICTED ADMIN DASHBOARD */}
       {showAdminPanel && (

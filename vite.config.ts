@@ -24,7 +24,7 @@ export default defineConfig(() => {
               if (id.includes('@tiptap')) return 'vendor-tiptap';
               if (id.includes('katex')) return 'vendor-katex';
               if (id.includes('@supabase')) return 'vendor-supabase';
-              if (id.includes('react/') || id.includes('react-dom/')) return 'vendor-react';
+              if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'vendor-react';
               if (id.includes('lucide-react')) return 'vendor-lucide';
               if (id.includes('motion')) return 'vendor-motion';
               return 'vendor'; // all other dependencies

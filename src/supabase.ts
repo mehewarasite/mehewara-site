@@ -113,3 +113,31 @@ export async function dbDeleteStudyHtml(paperId: string): Promise<void> {
   const { error } = await supabase.from('study_html').delete().eq('paper_id', paperId);
   if (error) console.error('deleteStudyHtml:', error);
 }
+
+// ─── About Us ────────────────────────────────────────────────────────────────
+
+export async function dbLoadAboutUs(): Promise<any | null> {
+  try {
+    const { data, error } = await supabase
+      .from('about_us')
+      .select('*')
+      .eq('id', 1)
+      .single();
+    if (error) return null;
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function dbSaveAboutUs(aboutData: any): Promise<{error?: Error} | null> {
+  try {
+    const { error } = await supabase
+      .from('about_us')
+      .upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
+    if (error) return { error: new Error(error.message) };
+    return null;
+  } catch (err: any) {
+    return { error: err };
+  }
+}

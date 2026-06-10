@@ -247,8 +247,18 @@ export default function AdminPanel({
 
   useEffect(() => {
     const fetchAboutData = async () => {
-      const { data } = await supabase.from('about_us').select('*').eq('id', 1).single();
-      if (data) setAboutData(data);
+      try {
+        const { data, error } = await supabase.from('about_us').select('*').eq('id', 1).single();
+        if (data && !error) {
+          setAboutData(data);
+        } else {
+          const local = localStorage.getItem('m_about_us');
+          if (local) setAboutData(JSON.parse(local));
+        }
+      } catch (err) {
+        const local = localStorage.getItem('m_about_us');
+        if (local) setAboutData(JSON.parse(local));
+      }
     };
     if (isAuthenticated) {
       fetchAboutData();
@@ -1860,9 +1870,14 @@ export default function AdminPanel({
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
             <button 
               onClick={async () => {
-                const { error } = await supabase.from('about_us').update(aboutData).eq('id', 1);
-                if (error) alert("Error saving: " + error.message);
-                else alert("About Us page updated live!");
+                try {
+                  const { error } = await supabase.from('about_us').upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
+                  if (error) throw error;
+                  alert("About Us page updated live!");
+                } catch (err: any) {
+                  localStorage.setItem('m_about_us', JSON.stringify(aboutData));
+                  alert("Supabase error (Table might be missing). Saved locally as fallback. Please run about_us.sql in Supabase SQL editor.");
+                }
               }}
               className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98]"
             >
