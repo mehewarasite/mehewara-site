@@ -857,6 +857,17 @@ export default function AdminPanel({
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
               Import Database
             </button>
+            {onSync && (
+              <button
+                onClick={onSync}
+                disabled={isSyncing}
+                className={`flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/30 rounded-xl text-xs font-semibold transition-colors ${isSyncing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                title="Sync database changes to cloud"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync Data'}
+              </button>
+            )}
             <button
               onClick={onResetToDefaults}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
@@ -923,20 +934,6 @@ export default function AdminPanel({
           </button>
           <button
             onClick={() => {
-              setActiveTab('manage-questions');
-              if (!targetPaperId && papers.length > 0) {
-                setTargetPaperId(papers[0].id);
-              }
-            }}
-            className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'manage-questions'
-              ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.25)]'
-              : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
-              }`}
-          >
-            <span className="whitespace-nowrap">ප්‍රශ්න මකන්න (Delete MCQs)</span>
-          </button>
-          <button
-            onClick={() => {
               setActiveTab('edit-questions');
               if (!targetPaperId && papers.length > 0) {
                 setTargetPaperId(papers[0].id);
@@ -949,6 +946,21 @@ export default function AdminPanel({
           >
             <span className="whitespace-nowrap">✎ ප්‍රශ්න සංස්කරණය (Edit MCQs)</span>
           </button>
+          <button
+            onClick={() => {
+              setActiveTab('manage-questions');
+              if (!targetPaperId && papers.length > 0) {
+                setTargetPaperId(papers[0].id);
+              }
+            }}
+            className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'manage-questions'
+              ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.25)]'
+              : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
+              }`}
+          >
+            <span className="whitespace-nowrap">ප්‍රශ්න මකන්න (Delete MCQs)</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('about')}
             className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'about'
