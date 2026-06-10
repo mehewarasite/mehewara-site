@@ -27,9 +27,10 @@ import {
 import { Subject, Paper, Question, UserAttempt } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
 import BootLoader from './components/BootLoader';
-import AdminPanel from './components/AdminPanel';
-import PracticeSession from './components/PracticeSession';
 import { useTheme } from './ThemeContext';
+
+const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
+const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
 import {
   dbLoadSubjects, dbSaveSubjects,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
@@ -466,13 +467,15 @@ export default function App() {
       }`}>
         
         {activePracticePaper ? (
-          <PracticeSession
-            paper={activePracticePaper}
-            questions={questions.filter(q => q.paperId === activePracticePaper.id)}
-            onSaveAttempt={handleSaveAttempt}
-            savedAttempt={attempts.find(a => a.paperId === activePracticePaper.id)}
-            onClose={() => setActivePracticePaper(null)}
-          />
+          <React.Suspense fallback={<div className="flex items-center justify-center p-20 w-full"><div className="w-8 h-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin"></div></div>}>
+            <PracticeSession
+              paper={activePracticePaper}
+              questions={questions.filter(q => q.paperId === activePracticePaper.id)}
+              onSaveAttempt={handleSaveAttempt}
+              savedAttempt={attempts.find(a => a.paperId === activePracticePaper.id)}
+              onClose={() => setActivePracticePaper(null)}
+            />
+          </React.Suspense>
         ) : (
           <div className="space-y-6 sm:space-y-8 flex-grow flex flex-col">
             
@@ -744,22 +747,24 @@ export default function App() {
 
       {/* OVERLAY: RESTRICTED ADMIN DASHBOARD */}
       {showAdminPanel && (
-        <AdminPanel
-          subjects={subjects}
-          papers={papers}
-          questions={questions}
-          onAddPaper={handleAddPaper}
-          onDeletePaper={handleDeletePaper}
-          onAddQuestion={handleAddQuestion}
-          onDeleteQuestion={handleDeleteQuestion}
-          onUpdateStudyHtml={handleUpdateStudyHtml}
-          onResetToDefaults={handleResetToDefaults}
-          onExportData={handleExportData}
-          onImportData={handleImportData}
-          onSync={syncFromSupabase}
-          isSyncing={isSyncing}
-          onClose={() => setShowAdminPanel(false)}
-        />
+        <React.Suspense fallback={<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"><div className="w-8 h-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin"></div></div>}>
+          <AdminPanel
+            subjects={subjects}
+            papers={papers}
+            questions={questions}
+            onAddPaper={handleAddPaper}
+            onDeletePaper={handleDeletePaper}
+            onAddQuestion={handleAddQuestion}
+            onDeleteQuestion={handleDeleteQuestion}
+            onUpdateStudyHtml={handleUpdateStudyHtml}
+            onResetToDefaults={handleResetToDefaults}
+            onExportData={handleExportData}
+            onImportData={handleImportData}
+            onSync={syncFromSupabase}
+            isSyncing={isSyncing}
+            onClose={() => setShowAdminPanel(false)}
+          />
+        </React.Suspense>
       )}
 
     </div>
