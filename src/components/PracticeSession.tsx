@@ -120,7 +120,7 @@ export default function PracticeSession({
   // Handle option selection
   const handleSelectOption = (optionIndex: number) => {
     if (isSubmitted) return;
-    const qId = activeQuestion.id;
+    const qId = activeQuestion.id || activeQuestion.qNumber.toString();
     setAnswers(prev => ({
       ...prev,
       [qId]: optionIndex
@@ -130,7 +130,7 @@ export default function PracticeSession({
   // Toggle flag/review status
   const toggleFlag = () => {
     if (isSubmitted) return;
-    const qId = activeQuestion.id;
+    const qId = activeQuestion.id || activeQuestion.qNumber.toString();
     setFlaggedQuestions(prev => ({
       ...prev,
       [qId]: !prev[qId]
@@ -140,7 +140,7 @@ export default function PracticeSession({
   // Clear answer
   const clearAnswer = () => {
     if (isSubmitted) return;
-    const qId = activeQuestion.id;
+    const qId = activeQuestion.id || activeQuestion.qNumber.toString();
     setAnswers(prev => {
       const copy = { ...prev };
       delete copy[qId];
@@ -196,12 +196,16 @@ export default function PracticeSession({
   const getScoreDetails = () => {
     let correctCount = 0;
     questions.forEach((q) => {
-      if (answers[q.id] === q.correctOption) {
+      const qId = q.id || q.qNumber.toString();
+      if (answers[qId] === q.correctOption) {
         correctCount++;
       }
     });
 
-    const unansweredCount = questions.filter(q => answers[q.id] === undefined).length;
+    const unansweredCount = questions.filter(q => {
+      const qId = q.id || q.qNumber.toString();
+      return answers[qId] === undefined;
+    }).length;
     const incorrectCount = totalQuestions - correctCount - unansweredCount;
     const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
@@ -346,24 +350,7 @@ export default function PracticeSession({
         </div>
       </div>
 
-      {/* TAB SWITCHER — only shows when study material exists and session is live */}
-      {paper.studyMaterialHtml && !isSubmitted && (
-        <div className={`sticky top-[72px] z-30 ${headerBg} backdrop-blur-md border-b ${headerBdr} px-3 sm:px-4 md:px-8`}>
-          <div className="max-w-6xl mx-auto flex gap-1 py-2">
-            <button
-              onClick={() => setActiveView('mcq')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeView === 'mcq'
-                  ? 'bg-sky-500 text-white'
-                  : `${textMuted} ${isDark ? 'hover:text-white hover:bg-slate-900' : 'hover:text-slate-900 hover:bg-white'}`
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              MCQ ප්‍රශ්න
-            </button>
-          </div>
-        </div>
-      )}
+
       {isSubmitted ? (
         <div className="max-w-4xl mx-auto px-3 sm:px-4 space-y-6 sm:space-y-8 animate-fade-in">
           
@@ -480,8 +467,9 @@ export default function PracticeSession({
               {/* Selection dots for reviewing questions */}
               <div className="flex flex-wrap gap-1.5">
                 {questions.map((q, idx) => {
-                  const isCorrect = answers[q.id] === q.correctOption;
-                  const isUnanswered = answers[q.id] === undefined;
+                  const qId = q.id || q.qNumber.toString();
+                  const isCorrect = answers[qId] === q.correctOption;
+                  const isUnanswered = answers[qId] === undefined;
                   
                   return (
                     <button
@@ -509,7 +497,8 @@ export default function PracticeSession({
             {/* Review Card active question details */}
             {questions[reviewQIndex] && (() => {
               const rQ = questions[reviewQIndex];
-              const userAns = answers[rQ.id];
+              const qId = rQ.id || rQ.qNumber.toString();
+              const userAns = answers[qId];
               const isCorrectAtReview = userAns === rQ.correctOption;
               
               return (
@@ -692,11 +681,12 @@ export default function PracticeSession({
 
               <div className="grid grid-cols-6 sm:grid-cols-5 gap-1.5 sm:gap-2.5">
                 {questions.map((q, idx) => {
+                  const qId = q.id || q.qNumber.toString();
                   const isCurrent = currentQIndex === idx;
-                  const isAnswered = answers[q.id] !== undefined;
-                  const isFlagged = flaggedQuestions[q.id];
-                  const isVerified = verifiedAnswers[q.id] !== undefined;
-                  const isCorrect = verifiedAnswers[q.id] === true;
+                  const isAnswered = answers[qId] !== undefined;
+                  const isFlagged = flaggedQuestions[qId];
+                  const isVerified = verifiedAnswers[qId] !== undefined;
+                  const isCorrect = verifiedAnswers[qId] === true;
 
                   let borderStyle = isDark 
                     ? 'border-slate-850 bg-slate-950 text-slate-500' 
@@ -807,8 +797,9 @@ export default function PracticeSession({
             {/* Answer Options cards - grid styled to match sketches */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {activeQuestion.optionsHtml.map((option, optIdx) => {
-                const isSelected = answers[activeQuestion.id] === optIdx;
-                const isVerified = verifiedAnswers[activeQuestion.id] !== undefined;
+                const qId = activeQuestion.id || activeQuestion.qNumber.toString();
+                const isSelected = answers[qId] === optIdx;
+                const isVerified = verifiedAnswers[qId] !== undefined;
                 const isCorrectAnswer = activeQuestion.correctOption === optIdx;
 
                 // Determine dynamic styles based on Practice Mode verification
@@ -837,6 +828,7 @@ export default function PracticeSession({
                 return (
                   <button
                     key={optIdx}
+                    type="button"
                     onClick={() => {
                       if (!isVerified || examMode !== 'practice') {
                         handleSelectOption(optIdx);
@@ -846,33 +838,36 @@ export default function PracticeSession({
                     className={`w-full text-left min-h-[52px] p-4 md:p-5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 sm:gap-4 ${isVerified && examMode === 'practice' ? '' : 'active:scale-[0.99]'} ${cardStyle}`}
                   >
                     {/* Glowing A/B/C/D key labels */}
-                    <span className={`w-9 h-9 sm:w-8 sm:h-8 shrink-0 rounded-lg font-mono text-sm font-bold flex items-center justify-center transition-all ${badgeStyle}`}>
+                    <span className={`w-9 h-9 sm:w-8 sm:h-8 shrink-0 rounded-lg font-mono text-sm font-bold flex items-center justify-center transition-all pointer-events-none ${badgeStyle}`}>
                       {String.fromCharCode(65 + optIdx)}
                     </span>
-                    <span className="text-[13px] md:text-[14px] leading-snug" dangerouslySetInnerHTML={{ __html: option }} />
+                    <span className="text-[13px] md:text-[14px] leading-snug pointer-events-none" dangerouslySetInnerHTML={{ __html: option }} />
                   </button>
                 );
               })}
             </div>
 
             {/* Practice Mode Check Button & Explanation */}
-            {examMode === 'practice' && (
+            {examMode === 'practice' && (() => {
+              const qId = activeQuestion.id || activeQuestion.qNumber.toString();
+              return (
               <div className="pt-2 animate-fade-in">
-                {verifiedAnswers[activeQuestion.id] === undefined ? (
+                {verifiedAnswers[qId] === undefined ? (
                   <button 
-                    onClick={() => handleCheckAnswer(activeQuestion.id, activeQuestion.correctOption)}
+                    type="button"
+                    onClick={() => handleCheckAnswer(qId, activeQuestion.correctOption)}
                     className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all active:scale-[0.98] cursor-pointer"
                   >
                     Check Answer
                   </button>
                 ) : (
-                  <div className={`p-5 rounded-2xl border ${verifiedAnswers[activeQuestion.id] ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
-                    <h4 className={`font-bold mb-3 flex items-center gap-2 ${verifiedAnswers[activeQuestion.id] ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {verifiedAnswers[activeQuestion.id] ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                      {verifiedAnswers[activeQuestion.id] ? 'නිවැරදියි! (Correct!)' : 'වැරදියි! (Incorrect.)'}
+                  <div className={`p-5 rounded-2xl border ${verifiedAnswers[qId] ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                    <h4 className={`font-bold mb-3 flex items-center gap-2 ${verifiedAnswers[qId] ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {verifiedAnswers[qId] ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                      {verifiedAnswers[qId] ? 'නිවැරදියි! (Correct!)' : 'වැරදියි! (Incorrect.)'}
                     </h4>
                     {activeQuestion.explanationHtml && (
-                      <div className={`mt-3 pt-4 border-t ${verifiedAnswers[activeQuestion.id] ? 'border-emerald-500/20' : 'border-red-500/20'}`}>
+                      <div className={`mt-3 pt-4 border-t ${verifiedAnswers[qId] ? 'border-emerald-500/20' : 'border-red-500/20'}`}>
                         <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>විවරණය (Explanation)</p>
                         <div 
                           className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
@@ -883,14 +878,14 @@ export default function PracticeSession({
                   </div>
                 )}
               </div>
-            )}
+            );})()}
 
             {/* Bottom Controls */}
             <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t ${dividerBdr}`}>
               <button
                 type="button"
                 onClick={clearAnswer}
-                disabled={answers[activeQuestion.id] === undefined}
+                disabled={answers[activeQuestion.id || activeQuestion.qNumber.toString()] === undefined}
                 className={`min-h-[44px] px-3.5 py-2 ${subtleBg} ${isDark ? 'hover:bg-slate-850' : 'hover:bg-slate-200'} border ${subtleBdr} disabled:opacity-30 disabled:pointer-events-none ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'} rounded-lg text-xs font-semibold tracking-wider transition-colors cursor-pointer`}
               >
                 පිළිතුර මකන්න (Clear)
