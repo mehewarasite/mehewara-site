@@ -248,7 +248,7 @@ export default function AdminPanel({
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
-        const { data, error } = await supabase.from('about_us').select('*').eq('id', 1).single();
+        const { data, error } = await supabase.from('about_us').select('*').eq('id', 1).maybeSingle();
         if (data && !error) {
           setAboutData(data);
         } else {

@@ -122,7 +122,7 @@ export async function dbLoadAboutUs(): Promise<any | null> {
       .from('about_us')
       .select('*')
       .eq('id', 1)
-      .single();
+      .maybeSingle();
     if (error) return null;
     return data;
   } catch (err) {
