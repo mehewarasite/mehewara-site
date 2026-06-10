@@ -55,6 +55,30 @@ export default function PracticeSession({
   // 'mcq' | 'study' — tab within the active practice view
   const [activeView, setActiveView] = useState<'mcq' | 'study'>('mcq');
 
+  // Practice Mode States
+  const [examMode, setExamMode] = useState<'strict' | 'practice'>('practice');
+  const [verifiedAnswers, setVerifiedAnswers] = useState<Record<string, boolean>>({});
+
+  // Practice Mode Live Score Calculations
+  const totalAttempted = Object.keys(verifiedAnswers).length;
+  const correctCountLive = Object.values(verifiedAnswers).filter(Boolean).length;
+  const percentageLive = totalAttempted > 0 ? Math.round((correctCountLive / totalAttempted) * 100) : 0;
+
+  const handleCheckAnswer = (questionId: string, correctOptionIndex: number) => {
+    const selectedOptionIndex = answers[questionId];
+    if (selectedOptionIndex === undefined) {
+      alert("කරුණාකර පිළිතුරක් තෝරන්න! (Please select an answer first!)");
+      return;
+    }
+    
+    const isCorrect = selectedOptionIndex === correctOptionIndex;
+    
+    setVerifiedAnswers(prev => ({
+      ...prev,
+      [questionId]: isCorrect
+    }));
+  };
+
   const activeQuestion = questions[currentQIndex];
   const totalQuestions = questions.length;
 
@@ -619,6 +643,47 @@ export default function PracticeSession({
           {/* Question map — shown first on mobile for quick navigation */}
           <div className="lg:col-span-4 order-1 lg:order-2 space-y-4 sm:space-y-6">
             
+            {/* Mode Toggle & Live Scoreboard */}
+            <div className={`${cardBg} border ${cardBdr} rounded-2xl sm:rounded-3xl p-4 sm:p-6 ${isDark ? 'shadow-lg' : 'shadow-md'} space-y-4`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${textPrimary}`}>
+                  <Award className="w-4 h-4 text-emerald-400" />
+                  Exam Mode
+                </span>
+                <div className={`flex p-1 ${isDark ? 'bg-slate-900' : 'bg-slate-100'} rounded-lg border ${subtleBdr}`}>
+                  <button
+                    onClick={() => setExamMode('strict')}
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${examMode === 'strict' ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/20' : `${textMuted} hover:text-slate-900 dark:hover:text-white`}`}
+                  >
+                    STRICT
+                  </button>
+                  <button
+                    onClick={() => setExamMode('practice')}
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${examMode === 'practice' ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20' : `${textMuted} hover:text-slate-900 dark:hover:text-white`}`}
+                  >
+                    PRACTICE
+                  </button>
+                </div>
+              </div>
+
+              {examMode === 'practice' && (
+                <div className={`flex items-center justify-between p-3.5 rounded-xl border ${subtleBdr} ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
+                  <div className="flex flex-col">
+                    <span className={`text-[10px] uppercase font-bold tracking-wider mb-0.5 ${textMuted}`}>Correct</span>
+                    <span className="text-xl font-bold font-mono text-emerald-400 leading-none">
+                      {correctCountLive} <span className={`text-sm ${textFaint}`}>/ {totalAttempted}</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-col text-right">
+                    <span className={`text-[10px] uppercase font-bold tracking-wider mb-0.5 ${textMuted}`}>Accuracy</span>
+                    <span className={`text-xl font-bold font-mono leading-none ${percentageLive >= 75 ? 'text-emerald-400' : percentageLive >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {percentageLive}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className={`${cardBg} border ${cardBdr} rounded-2xl sm:rounded-3xl p-4 sm:p-6 ${isDark ? 'shadow-lg' : 'shadow-md'}`}>
               <h3 className={`text-xs font-mono font-bold tracking-[0.2em] ${textMuted} uppercase mb-3 sm:mb-4 flex items-center gap-1`}>
                 <Bookmark className="w-4 h-4 text-sky-400 shrink-0" />
@@ -630,24 +695,32 @@ export default function PracticeSession({
                   const isCurrent = currentQIndex === idx;
                   const isAnswered = answers[q.id] !== undefined;
                   const isFlagged = flaggedQuestions[q.id];
+                  const isVerified = verifiedAnswers[q.id] !== undefined;
+                  const isCorrect = verifiedAnswers[q.id] === true;
 
                   let borderStyle = isDark 
                     ? 'border-slate-850 bg-slate-950 text-slate-500' 
                     : 'border-slate-200 bg-slate-50 text-slate-400';
                   
-                  if (isCurrent) {
-                    borderStyle = 'ring-2 ring-sky-500 border-sky-400 bg-sky-500/10 text-sky-350';
+                  if (examMode === 'practice' && isVerified) {
+                    if (isCorrect) {
+                      borderStyle = 'border-emerald-500/60 bg-emerald-500/15 text-emerald-400 font-bold';
+                    } else {
+                      borderStyle = 'border-red-500/60 bg-red-500/15 text-red-400 font-bold';
+                    }
                   } else if (isFlagged) {
                     borderStyle = 'border-amber-500/40 bg-amber-500/5 text-amber-400 animate-pulse';
                   } else if (isAnswered) {
-                    borderStyle = 'border-sky-500/20 bg-sky-500/10 text-sky-400 font-semibold';
+                    borderStyle = 'border-sky-500/30 bg-sky-500/10 text-sky-400 font-semibold';
                   }
 
                   return (
                     <button
                       key={q.id}
                       onClick={() => setCurrentQIndex(idx)}
-                      className={`min-h-[40px] sm:min-h-[44px] rounded-lg sm:rounded-xl font-mono text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${borderStyle}`}
+                      className={`min-h-[40px] sm:min-h-[44px] rounded-lg sm:rounded-xl font-mono text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${borderStyle} ${
+                        isCurrent ? `ring-2 ring-sky-500 ring-offset-2 ${isDark ? 'ring-offset-slate-950' : 'ring-offset-white'}` : ''
+                      }`}
                     >
                       {q.qNumber}
                     </button>
@@ -656,6 +729,14 @@ export default function PracticeSession({
               </div>
 
               <div className={`hidden sm:block mt-6 pt-4 border-t ${dividerBdr} text-[11px] ${textFaint} space-y-2`}>
+                {examMode === 'practice' && (
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-dashed border-slate-700/50">
+                    <span className="w-2.5 h-2.5 bg-emerald-500/20 border border-emerald-500/50 rounded-md" />
+                    <span>නිවැරදියි (Correct)</span>
+                    <span className="w-2.5 h-2.5 bg-red-500/20 border border-red-500/50 rounded-md ml-2" />
+                    <span>වැරදියි (Incorrect)</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 bg-sky-500/10 border border-sky-500/20 rounded-md" />
                   <span>පිළිතුරු සපයන ලද (Answered)</span>
@@ -727,23 +808,45 @@ export default function PracticeSession({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {activeQuestion.optionsHtml.map((option, optIdx) => {
                 const isSelected = answers[activeQuestion.id] === optIdx;
+                const isVerified = verifiedAnswers[activeQuestion.id] !== undefined;
+                const isCorrectAnswer = activeQuestion.correctOption === optIdx;
+
+                // Determine dynamic styles based on Practice Mode verification
+                let cardStyle = "";
+                let badgeStyle = "";
                 
+                if (isVerified && examMode === 'practice') {
+                  if (isCorrectAnswer) {
+                    cardStyle = `bg-emerald-500/10 border-emerald-500/80 ${isDark ? 'text-white' : 'text-emerald-900'} shadow-[0_0_20px_rgba(16,185,129,0.15)]`;
+                    badgeStyle = 'bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]Scale-95';
+                  } else if (isSelected && !isCorrectAnswer) {
+                    cardStyle = `bg-red-500/10 border-red-500/80 ${isDark ? 'text-white' : 'text-red-900'} shadow-[0_0_20px_rgba(239,68,68,0.15)]`;
+                    badgeStyle = 'bg-red-500 text-white shadow-[0_0_10px_rgba(239,68,68,0.3)]Scale-95';
+                  } else {
+                    cardStyle = `${ghostBg} ${ghostBdr} text-slate-500 opacity-50`;
+                    badgeStyle = `${subtleBg} ${textMuted}`;
+                  }
+                } else if (isSelected) {
+                  cardStyle = `bg-sky-500/10 border-sky-500/80 ${isDark ? 'text-white' : 'text-sky-900'} shadow-[0_0_20px_rgba(14,165,233,0.1)]`;
+                  badgeStyle = 'bg-sky-500 text-white shadow-[0_0_10px_rgba(14,165,233,0.3)]Scale-95';
+                } else {
+                  cardStyle = `${ghostBg} ${ghostBdr} ${isDark ? 'text-slate-300 hover:bg-slate-900 hover:border-slate-800' : 'text-slate-600 hover:bg-white hover:border-slate-300'}`;
+                  badgeStyle = `${subtleBg} ${textMuted}`;
+                }
+
                 return (
                   <button
                     key={optIdx}
-                    onClick={() => handleSelectOption(optIdx)}
-                    className={`w-full text-left min-h-[52px] p-4 md:p-5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 sm:gap-4 active:scale-[0.99] ${
-                      isSelected
-                        ? `bg-sky-500/10 border-sky-500/80 ${isDark ? 'text-white' : 'text-sky-900'} shadow-[0_0_20px_rgba(14,165,233,0.1)]`
-                        : `${ghostBg} ${ghostBdr} ${isDark ? 'text-slate-300 hover:bg-slate-900 hover:border-slate-800' : 'text-slate-600 hover:bg-white hover:border-slate-300'}`
-                    }`}
+                    onClick={() => {
+                      if (!isVerified || examMode !== 'practice') {
+                        handleSelectOption(optIdx);
+                      }
+                    }}
+                    disabled={isVerified && examMode === 'practice'}
+                    className={`w-full text-left min-h-[52px] p-4 md:p-5 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 sm:gap-4 ${isVerified && examMode === 'practice' ? '' : 'active:scale-[0.99]'} ${cardStyle}`}
                   >
                     {/* Glowing A/B/C/D key labels */}
-                    <span className={`w-9 h-9 sm:w-8 sm:h-8 shrink-0 rounded-lg font-mono text-sm font-bold flex items-center justify-center transition-all ${
-                      isSelected
-                        ? 'bg-sky-500 text-white shadow-[0_0_10px_rgba(14,165,233,0.3)]Scale-95'
-                        : `${subtleBg} ${textMuted}`
-                    }`}>
+                    <span className={`w-9 h-9 sm:w-8 sm:h-8 shrink-0 rounded-lg font-mono text-sm font-bold flex items-center justify-center transition-all ${badgeStyle}`}>
                       {String.fromCharCode(65 + optIdx)}
                     </span>
                     <span className="text-[13px] md:text-[14px] leading-snug" dangerouslySetInnerHTML={{ __html: option }} />
@@ -751,6 +854,36 @@ export default function PracticeSession({
                 );
               })}
             </div>
+
+            {/* Practice Mode Check Button & Explanation */}
+            {examMode === 'practice' && (
+              <div className="pt-2 animate-fade-in">
+                {verifiedAnswers[activeQuestion.id] === undefined ? (
+                  <button 
+                    onClick={() => handleCheckAnswer(activeQuestion.id, activeQuestion.correctOption)}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    Check Answer
+                  </button>
+                ) : (
+                  <div className={`p-5 rounded-2xl border ${verifiedAnswers[activeQuestion.id] ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                    <h4 className={`font-bold mb-3 flex items-center gap-2 ${verifiedAnswers[activeQuestion.id] ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {verifiedAnswers[activeQuestion.id] ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                      {verifiedAnswers[activeQuestion.id] ? 'නිවැරදියි! (Correct!)' : 'වැරදියි! (Incorrect.)'}
+                    </h4>
+                    {activeQuestion.explanationHtml && (
+                      <div className={`mt-3 pt-4 border-t ${verifiedAnswers[activeQuestion.id] ? 'border-emerald-500/20' : 'border-red-500/20'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>විවරණය (Explanation)</p>
+                        <div 
+                          className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
+                          dangerouslySetInnerHTML={{ __html: activeQuestion.explanationHtml }} 
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Bottom Controls */}
             <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t ${dividerBdr}`}>

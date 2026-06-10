@@ -23,6 +23,8 @@ import RichTextEditor from './RichTextEditor';
 import { appendHtml, fileToImgHtml, hasRealContent, optionHasContent } from '../utils/mediaUpload';
 import MathTextInput from './MathTextInput';
 import { useTheme } from '../ThemeContext';
+import { parseTxtToQuizData } from '../utils/parseTxt';
+import { supabase } from '../supabase';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
 const THEME_STYLE = `<style id="mehewara-theme">
 .mehewara-content *{font-family:var(--mhw-font,"Noto Sans Sinhala","Space Grotesk",system-ui,sans-serif)!important;color:var(--color-text-primary)!important;background-color:transparent!important;border-color:var(--color-border)!important}
@@ -163,8 +165,8 @@ interface AdminPanelProps {
   onResetToDefaults: () => void;
   onExportData: () => void;
   onImportData: (file: File) => void;
-  onSync: () => Promise<void>;
-  isSyncing: boolean;
+  onSync?: () => void;
+  isSyncing?: boolean;
   onClose: () => void;
 }
 
@@ -216,8 +218,8 @@ export default function AdminPanel({
   const [confirmAdminPw, setConfirmAdminPw] = useState('');
   const [pwFlash, setPwFlash] = useState('');
 
-  // Tab states: 'papers' | 'add-question' | 'manage-questions'
-  const [activeTab, setActiveTab] = useState<'papers' | 'add-question' | 'manage-questions'>('papers');
+  // Tab states: 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about'
+  const [activeTab, setActiveTab] = useState<'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about'>('papers');
 
   // Custom Paper Form
   const [selectedSubjectId, setSelectedSubjectId] = useState(subjects[0]?.id || '');
@@ -231,6 +233,27 @@ export default function AdminPanel({
     id: number; part?: number; question: string;
     code?: string; options: string[]; correctIndex: number; explanation?: string;
   }>>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingLiveId, setEditingLiveId] = useState<string | null>(null);
+  const [liveEditData, setLiveEditData] = useState<Question | null>(null);
+
+  const [aboutData, setAboutData] = useState({
+    description: '',
+    image_url: '',
+    facebook_link: '',
+    youtube_link: '',
+    telegram_link: ''
+  });
+
+  useEffect(() => {
+    const fetchAboutData = async () => {
+      const { data } = await supabase.from('about_us').select('*').eq('id', 1).single();
+      if (data) setAboutData(data);
+    };
+    if (isAuthenticated) {
+      fetchAboutData();
+    }
+  }, [isAuthenticated]);
 
   // Custom Question Form
   const [targetPaperId, setTargetPaperId] = useState(papers[0]?.id || '');
@@ -545,6 +568,113 @@ export default function AdminPanel({
     input.value = '';
   };
 
+  const handleTxtPaperUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rawText = ev.target?.result as string;
+      
+      try {
+        // 1. Run your new parser
+        const parsed = parseTxtToQuizData(rawText);
+        
+        if (parsed.length === 0) {
+          alert("No questions found. Please check your formatting tags like [EN], [SIN], or ---.");
+          return;
+        }
+
+        // 2. Feed it into your existing form state!
+        // This will automatically populate the question preview list in your UI
+        setParsedQuestions(parsed);
+        
+        alert(`Successfully loaded ${parsed.length} questions from text file!`);
+      } catch (error) {
+        console.error("Parsing error:", error);
+        alert("Failed to parse file. Make sure it follows the exact formatting rules.");
+      }
+    };
+
+    reader.readAsText(file);
+    input.value = ''; // Clear input so you can re-upload if needed
+  };
+
+  const handleQuestionImageUpload = async (file: File, index: number) => {
+    if (!file) return;
+
+    try {
+      // 1. Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `diagrams/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('question-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get the public URL of the uploaded image
+      const { data: { publicUrl } } = supabase.storage
+        .from('question-images')
+        .getPublicUrl(filePath);
+
+      // 3. Create the HTML img tag
+      const imgHtml = `<img src="${publicUrl}" alt="Question Diagram" class="max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
+
+      // 4. Update the specific question in your state
+      setParsedQuestions(prev => {
+        const updated = [...prev];
+        let currentQuestionText = updated[index].question;
+
+        // Check if there is a placeholder to replace. 
+        // If there is, replace it. If not, just append the image to the end of the question.
+        if (currentQuestionText.includes('class="image-placeholder')) {
+          // Regex to find and replace the placeholder div created by parseTxt.ts
+          currentQuestionText = currentQuestionText.replace(
+            /<div class="image-placeholder[^>]*>.*?<\/div>/i, 
+            imgHtml
+          );
+        } else {
+          currentQuestionText += imgHtml;
+        }
+
+        updated[index].question = currentQuestionText;
+        return updated;
+      });
+
+      alert("Image uploaded and added to question successfully!");
+
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("Failed to upload image. Check your Supabase storage permissions.");
+    }
+  };
+
+  const handleUpdateLiveQuestion = async (dbQuestionId: string, updatedQ: Question) => {
+    try {
+      // In this app architecture, the entire Question JSON is stored in the 'data' column
+      const { error } = await supabase
+        .from('questions')
+        .update({ data: updatedQ })
+        .eq('id', dbQuestionId);
+
+      if (error) throw error;
+      
+      alert("✅ Question updated successfully in the live database!");
+      
+      // Because we lack a specific onUpdateQuestion prop, we force a reload 
+      // so the parent App.tsx re-fetches the live data from Supabase.
+      window.location.reload();
+      
+    } catch (error) {
+      console.error("Error updating live question:", error);
+      alert("❌ Failed to update question in database.");
+    }
+  };
+
   // Authentication barrier
   if (!isAuthenticated) {
     // SUPERADMIN VIEW — change admin password
@@ -736,19 +866,6 @@ export default function AdminPanel({
               Reset to Factory Defaults
             </button>
             <button
-              onClick={onSync}
-              disabled={isSyncing}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-                isSyncing
-                  ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300 cursor-wait'
-                  : 'bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/30'
-              }`}
-              title="Pull the latest data from Supabase cloud database"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing…' : 'Sync from Cloud'}
-            </button>
-            <button
               onClick={toggleTheme}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               className={`flex items-center justify-center min-h-[32px] min-w-[32px] px-2 py-1.5 ${subtleBg} border ${subtleBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'} rounded-xl cursor-pointer transition-colors`}
@@ -818,10 +935,33 @@ export default function AdminPanel({
           >
             <span className="whitespace-nowrap">ප්‍රශ්න මකන්න (Delete MCQs)</span>
           </button>
+          <button
+            onClick={() => {
+              setActiveTab('edit-questions');
+              if (!targetPaperId && papers.length > 0) {
+                setTargetPaperId(papers[0].id);
+              }
+            }}
+            className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'edit-questions'
+              ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.25)]'
+              : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
+              }`}
+          >
+            <span className="whitespace-nowrap">✎ ප්‍රශ්න සංස්කරණය (Edit MCQs)</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('about')}
+            className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'about'
+              ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.25)]'
+              : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
+              }`}
+          >
+            <span className="whitespace-nowrap">ℹ️ About Us</span>
+          </button>
         </div>
 
         {/* TAB CONTENTS */}
-        {activeTab === 'papers' && (
+        {activeTab === 'papers' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             {/* Create New Paper Form (Col-4) */}
@@ -947,6 +1087,126 @@ export default function AdminPanel({
                   </label>
                 </div>
 
+                {/* Text Format Upload */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Import Paper via Text Format (.txt)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".txt"
+                    onChange={handleTxtPaperUpload}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-md file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100
+                      dark:file:bg-gray-800 dark:file:text-gray-300"
+                  />
+                </div>
+
+                {parsedQuestions.length > 0 && (
+                  <div className="mt-6 space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar border border-gray-200 dark:border-gray-800 rounded-xl p-4 bg-gray-50 dark:bg-gray-900/50">
+                    <h3 className="font-bold text-gray-700 dark:text-gray-300">Preview & Edit Parsed Questions</h3>
+                    {parsedQuestions.map((q, index) => (
+                      <div key={index} className="p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700">
+                        
+                        {/* ===== EDIT MODE ===== */}
+                        {editingIndex === index ? (
+                          <div className="space-y-4">
+                            <h4 className="font-bold text-lg text-blue-600">Editing Question {q.id || index + 1}</h4>
+                            
+                            {/* Question Text Input */}
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Question Body (HTML allowed)</label>
+                              <textarea 
+                                value={q.question}
+                                onChange={(e) => {
+                                  const updated = [...parsedQuestions];
+                                  updated[index].question = e.target.value;
+                                  setParsedQuestions(updated);
+                                }}
+                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                                rows={4}
+                              />
+                            </div>
+
+                            {/* Manual Image Upload for this specific question */}
+                            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-300 dark:border-gray-600 rounded-md">
+                              <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
+                                🖼️ Upload Missing Diagram/Image
+                              </label>
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                className="block w-full text-sm text-gray-500 dark:text-gray-400
+                                  file:mr-4 file:py-2 file:px-4
+                                  file:rounded-md file:border-0
+                                  file:text-sm file:font-semibold
+                                  file:bg-blue-50 file:text-blue-700
+                                  hover:file:bg-blue-100
+                                  dark:file:bg-blue-900/30 dark:file:text-blue-400
+                                  dark:hover:file:bg-blue-900/50 cursor-pointer"
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    handleQuestionImageUpload(e.target.files[0], index);
+                                  }
+                                }}
+                              />
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                This will automatically replace the image placeholder.
+                              </p>
+                            </div>
+
+                            <button 
+                              type="button"
+                              onClick={() => setEditingIndex(null)}
+                              className="px-4 py-2 bg-emerald-500 text-white font-semibold text-sm rounded-lg hover:bg-emerald-600 transition-colors"
+                            >
+                              Done Editing
+                            </button>
+                          </div>
+                        ) : (
+                          
+                          /* ===== PREVIEW MODE ===== */
+                          <div>
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-bold text-lg text-gray-500">Q{q.id || index + 1}</h4>
+                              <button 
+                                type="button"
+                                onClick={() => setEditingIndex(index)}
+                                className="px-3 py-1 text-xs font-semibold bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 dark:bg-sky-500/10 dark:text-sky-400 dark:hover:bg-sky-500/20 transition-colors"
+                              >
+                                Edit Question
+                              </button>
+                            </div>
+                            
+                            {/* Safely render the question HTML so you can see if the image works */}
+                            <div 
+                              className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300"
+                              dangerouslySetInnerHTML={{ __html: q.question }} 
+                            />
+                            
+                            <div className="mt-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-1">
+                              {q.options.map((opt, oIdx) => (
+                                <p key={oIdx} className={`text-sm ${q.correctIndex === oIdx ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-600 dark:text-gray-400"}`}>
+                                  {String.fromCharCode(65 + oIdx)}. {opt}
+                                </p>
+                              ))}
+                            </div>
+                            {q.explanation && (
+                              <div className="mt-3 p-3 bg-blue-50 dark:bg-sky-900/20 rounded-md text-xs">
+                                <strong>Explanation:</strong> {q.explanation}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   className="w-full py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-bold text-xs tracking-wider transition-all shadow-[0_0_10px_rgba(14,165,233,0.1)] hover:shadow-[0_0_15px_rgba(14,165,233,0.25)] cursor-pointer"
@@ -1054,9 +1314,7 @@ export default function AdminPanel({
             </div>
 
           </div>
-        )}
-
-        {activeTab === 'add-question' && (
+        ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             {/* HTML Past Paper Form (Col-7) */}
@@ -1354,23 +1612,248 @@ export default function AdminPanel({
                     <div key={q.id} className={`flex items-start justify-between p-4 rounded-xl border ${subtleBdr} ${subtleBg}`}>
                       <div className="flex-1 min-w-0 pr-4">
                         <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
-                        <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
+                        <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
+                        <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
+                          {q.optionsHtml.map((opt, oIdx) => (
+                            <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
+                              {String.fromCharCode(65 + oIdx)}. {opt}
+                            </p>
+                          ))}
+                        </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete Question ${q.qNumber}?`)) {
-                            onDeleteQuestion(q.id);
-                            showFlash(`Question ${q.qNumber} deleted!`);
-                          }
-                        }}
-                        className="shrink-0 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-600 border border-red-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                      >
-                        Delete
-                      </button>
+
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete Question ${q.qNumber}?`)) {
+                              onDeleteQuestion(q.id);
+                              showFlash(`Question ${q.qNumber} deleted!`);
+                            }
+                          }}
+                          className="shrink-0 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-600 border border-red-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'edit-questions' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className={`lg:col-span-12 ${cardBg} border ${cardBdr} rounded-2xl p-6 space-y-6 ${isDark ? '' : 'shadow-md'}`}>
+            <div className={`flex items-center justify-between border-b ${dividerBdr} pb-4`}>
+              <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
+                ✎ ප්‍රශ්න සංස්කරණය (Edit Questions)
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
+                <select
+                  value={targetPaperId}
+                  onChange={(e) => setTargetPaperId(e.target.value)}
+                  className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-blue-500 cursor-pointer`}
+                >
+                  {papers.map(p => (
+                    <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {questions.filter(q => q.paperId === targetPaperId).length === 0 ? (
+                <p className={`text-sm ${textMuted} text-center py-8`}>මෙම ප්‍රශ්න පත්‍රයේ ප්‍රශ්න නොමැත. (No questions found in this paper.)</p>
+              ) : (
+                questions
+                  .filter(q => q.paperId === targetPaperId)
+                  .sort((a, b) => a.qNumber - b.qNumber)
+                  .map(q => (
+                    <div key={q.id} className={`flex items-start justify-between p-4 rounded-xl border ${subtleBdr} ${subtleBg}`}>
+                      {/* ===== LIVE EDIT MODE ===== */}
+                      {editingLiveId === q.id && liveEditData ? (
+                        <div className="space-y-4 w-full">
+                          <h4 className="font-bold text-lg text-blue-600">Editing Question {liveEditData.qNumber}</h4>
+                          
+                          {/* Question Text Input */}
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Question Body (HTML allowed)</label>
+                            <textarea 
+                              value={liveEditData.questionHtml}
+                              onChange={(e) => setLiveEditData({ ...liveEditData, questionHtml: e.target.value })}
+                              className={`w-full p-2 border rounded ${inputBg} ${inputBdr}`}
+                              rows={4}
+                            />
+                          </div>
+                          
+                          {/* Options */}
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium mb-1">Options (Check the radio button for correct answer)</label>
+                            {liveEditData.optionsHtml.map((opt, oIdx) => (
+                              <div key={oIdx} className="flex gap-2 items-center">
+                                <span className="font-bold w-4">{String.fromCharCode(65 + oIdx)}.</span>
+                                <input
+                                  type="text"
+                                  value={opt}
+                                  onChange={(e) => {
+                                    const newOpts = [...liveEditData.optionsHtml];
+                                    newOpts[oIdx] = e.target.value;
+                                    setLiveEditData({ ...liveEditData, optionsHtml: newOpts as any });
+                                  }}
+                                  className={`flex-1 p-1.5 border rounded text-sm ${inputBg} ${inputBdr}`}
+                                />
+                                <input 
+                                  type="radio" 
+                                  name={`correctOption_${q.id}`} 
+                                  checked={liveEditData.correctOption === oIdx}
+                                  onChange={() => setLiveEditData({ ...liveEditData, correctOption: oIdx as any })}
+                                  className="w-4 h-4 cursor-pointer"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Explanation */}
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Explanation (Optional)</label>
+                            <textarea 
+                              value={liveEditData.explanationHtml || ''}
+                              onChange={(e) => setLiveEditData({ ...liveEditData, explanationHtml: e.target.value })}
+                              className={`w-full p-2 border rounded text-sm ${inputBg} ${inputBdr}`}
+                              rows={2}
+                            />
+                          </div>
+
+                          <div className="flex gap-2 pt-2">
+                            <button 
+                              type="button"
+                              onClick={() => handleUpdateLiveQuestion(q.id, liveEditData)}
+                              className="px-4 py-2 bg-blue-600 text-white font-semibold text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Save Changes to Database
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => { setEditingLiveId(null); setLiveEditData(null); }}
+                              className="px-4 py-2 bg-slate-500 text-white font-semibold text-sm rounded-lg hover:bg-slate-600 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-1 min-w-0 pr-4">
+                          <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
+                          <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
+                          <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
+                            {q.optionsHtml.map((opt, oIdx) => (
+                              <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-blue-500 font-bold' : textMuted}`}>
+                                {String.fromCharCode(65 + oIdx)}. {opt}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Buttons: only show if not currently editing this specific question */}
+                      {editingLiveId !== q.id && (
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingLiveId(q.id);
+                              setLiveEditData({ ...q });
+                            }}
+                            className="shrink-0 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 hover:text-blue-600 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            Edit Question
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ABOUT US EDIT TAB */}
+      {activeTab === 'about' && (
+        <div className={`space-y-6 p-6 ${cardBg} rounded-2xl border ${cardBdr}`}>
+          <h3 className={`text-xl font-bold ${textPrimary}`}>Edit "About Us" Page</h3>
+
+          {/* Description Text */}
+          <div>
+            <label className={`block text-sm font-medium ${textMuted} mb-2`}>Description / Story</label>
+            <textarea 
+              value={aboutData.description}
+              onChange={(e) => setAboutData({...aboutData, description: e.target.value})}
+              className={`w-full p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
+              rows={6}
+            />
+          </div>
+
+          {/* Image Upload */}
+          <div className={`p-4 border border-dashed ${surfaceBdr} rounded-xl ${subtleBg}`}>
+            <label className={`block text-sm font-medium ${textMuted} mb-2`}>Upload Profile/Team Photo</label>
+            {aboutData.image_url && (
+              <img src={aboutData.image_url} alt="Current" className="h-32 object-cover rounded-lg mb-4 shadow-md" />
+            )}
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                
+                const fileExt = file.name.split('.').pop();
+                const fileName = `about-${Date.now()}.${fileExt}`;
+                const { data, error } = await supabase.storage.from('question-images').upload(fileName, file);
+                
+                if (!error) {
+                  const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
+                  setAboutData({...aboutData, image_url: publicUrl});
+                  alert("Image uploaded!");
+                } else {
+                  alert("Error uploading image: " + error.message);
+                }
+              }}
+              className={`block w-full text-sm ${textMuted} file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-sky-500/10 file:text-sky-500 hover:file:bg-sky-500/20`}
+            />
+          </div>
+
+          {/* Social Links */}
+          <div className="space-y-4">
+            <h4 className={`font-bold ${textPrimary}`}>Social Media Links</h4>
+            {['facebook_link', 'youtube_link', 'telegram_link'].map((platform) => (
+              <div key={platform} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <span className={`w-32 text-sm ${textMuted} uppercase tracking-wider font-bold`}>{platform.split('_')[0]}</span>
+                <input 
+                  type="text" 
+                  placeholder="https://"
+                  value={aboutData[platform as keyof typeof aboutData] as string}
+                  onChange={(e) => setAboutData({...aboutData, [platform]: e.target.value})}
+                  className={`flex-1 p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Save Button */}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+            <button 
+              onClick={async () => {
+                const { error } = await supabase.from('about_us').update(aboutData).eq('id', 1);
+                if (error) alert("Error saving: " + error.message);
+                else alert("About Us page updated live!");
+              }}
+              className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98]"
+            >
+              Save Changes Live
+            </button>
           </div>
         </div>
       )}
