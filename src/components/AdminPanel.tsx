@@ -163,6 +163,8 @@ interface AdminPanelProps {
   onResetToDefaults: () => void;
   onExportData: () => void;
   onImportData: (file: File) => void;
+  onSync: () => Promise<void>;
+  isSyncing: boolean;
   onClose: () => void;
 }
 
@@ -178,6 +180,8 @@ export default function AdminPanel({
   onResetToDefaults,
   onExportData,
   onImportData,
+  onSync,
+  isSyncing,
   onClose
 }: AdminPanelProps) {
   const { theme, toggleTheme } = useTheme();
@@ -730,6 +734,19 @@ export default function AdminPanel({
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Reset to Factory Defaults
+            </button>
+            <button
+              onClick={onSync}
+              disabled={isSyncing}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                isSyncing
+                  ? 'bg-violet-500/20 border border-violet-500/30 text-violet-300 cursor-wait'
+                  : 'bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/30'
+              }`}
+              title="Pull the latest data from Supabase cloud database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing…' : 'Sync from Cloud'}
             </button>
             <button
               onClick={toggleTheme}

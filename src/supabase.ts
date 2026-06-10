@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Paper, Question, Subject } from './types';
 
-const SUPABASE_URL = 'https://znolstwxybjibumbghoa.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_hVP-N6zMPFGiy_aG85w65g_PfDKwRDQ';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    'Missing Supabase credentials. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
+  );
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

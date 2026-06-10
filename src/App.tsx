@@ -57,77 +57,77 @@ export default function App() {
   const [activePracticePaper, setActivePracticePaper] = useState<Paper | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
 
+  // Reusable sync function — pulls latest data from Supabase
+  const syncFromSupabase = async () => {
+    setIsSyncing(true);
+    try {
+      const [remoteSubjects, remotePapers, remoteQuestions] = await Promise.all([
+        dbLoadSubjects(),
+        dbLoadPapers(),
+        dbLoadQuestions(),
+      ]);
+
+      if (remoteSubjects && remoteSubjects.length > 0) {
+        setSubjects(remoteSubjects);
+      } else {
+        // First run — seed Supabase with initial data
+        await dbSaveSubjects(INITIAL_SUBJECTS);
+        setSubjects(INITIAL_SUBJECTS);
+      }
+
+      if (remotePapers && remotePapers.length > 0) {
+        // Load study HTML for each paper from Supabase
+        const withHtml = await Promise.all(
+          remotePapers.map(async (p) => {
+            const html = await dbLoadStudyHtml(p.id);
+            return html ? { ...p, studyMaterialHtml: html } : p;
+          })
+        );
+        setPapers(withHtml);
+      } else {
+        // First run — seed Supabase with initial papers
+        await Promise.all(INITIAL_PAPERS.map(p => dbSavePaper(p)));
+        setPapers(INITIAL_PAPERS);
+      }
+
+      if (remoteQuestions && remoteQuestions.length > 0) {
+        setQuestions(remoteQuestions);
+      } else {
+        // First run — seed Supabase with initial questions
+        await dbSaveQuestions(INITIAL_QUESTIONS);
+        setQuestions(INITIAL_QUESTIONS);
+      }
+    } catch (err) {
+      console.error('Supabase load failed, falling back to localStorage:', err);
+      // Offline fallback
+      const storedSubjects = localStorage.getItem('m_subjects');
+      setSubjects(storedSubjects ? JSON.parse(storedSubjects) : INITIAL_SUBJECTS);
+
+      const storedPapers = localStorage.getItem('m_papers');
+      if (storedPapers) {
+        const parsed: Paper[] = JSON.parse(storedPapers);
+        const rehydrated = parsed.map(p => {
+          const html = localStorage.getItem(`m_study_${p.id}`);
+          return html ? { ...p, studyMaterialHtml: html } : p;
+        });
+        setPapers(rehydrated);
+      } else {
+        setPapers(INITIAL_PAPERS);
+      }
+
+      const storedQuestions = localStorage.getItem('m_questions');
+      setQuestions(storedQuestions ? JSON.parse(storedQuestions) : INITIAL_QUESTIONS);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     // Attempts are always local (per-user)
     const storedAttempts = localStorage.getItem('m_attempts');
     if (storedAttempts) { setAttempts(JSON.parse(storedAttempts)); }
 
-    // Load shared content from Supabase; fall back to localStorage if offline
-    const loadFromSupabase = async () => {
-      setIsSyncing(true);
-      try {
-        const [remoteSubjects, remotePapers, remoteQuestions] = await Promise.all([
-          dbLoadSubjects(),
-          dbLoadPapers(),
-          dbLoadQuestions(),
-        ]);
-
-        if (remoteSubjects && remoteSubjects.length > 0) {
-          setSubjects(remoteSubjects);
-        } else {
-          // First run — seed Supabase with initial data
-          await dbSaveSubjects(INITIAL_SUBJECTS);
-          setSubjects(INITIAL_SUBJECTS);
-        }
-
-        if (remotePapers && remotePapers.length > 0) {
-          // Load study HTML for each paper from Supabase
-          const withHtml = await Promise.all(
-            remotePapers.map(async (p) => {
-              const html = await dbLoadStudyHtml(p.id);
-              return html ? { ...p, studyMaterialHtml: html } : p;
-            })
-          );
-          setPapers(withHtml);
-        } else {
-          // First run — seed Supabase with initial papers
-          await Promise.all(INITIAL_PAPERS.map(p => dbSavePaper(p)));
-          setPapers(INITIAL_PAPERS);
-        }
-
-        if (remoteQuestions && remoteQuestions.length > 0) {
-          setQuestions(remoteQuestions);
-        } else {
-          // First run — seed Supabase with initial questions
-          await dbSaveQuestions(INITIAL_QUESTIONS);
-          setQuestions(INITIAL_QUESTIONS);
-        }
-      } catch (err) {
-        console.error('Supabase load failed, falling back to localStorage:', err);
-        // Offline fallback
-        const storedSubjects = localStorage.getItem('m_subjects');
-        setSubjects(storedSubjects ? JSON.parse(storedSubjects) : INITIAL_SUBJECTS);
-
-        const storedPapers = localStorage.getItem('m_papers');
-        if (storedPapers) {
-          const parsed: Paper[] = JSON.parse(storedPapers);
-          const rehydrated = parsed.map(p => {
-            const html = localStorage.getItem(`m_study_${p.id}`);
-            return html ? { ...p, studyMaterialHtml: html } : p;
-          });
-          setPapers(rehydrated);
-        } else {
-          setPapers(INITIAL_PAPERS);
-        }
-
-        const storedQuestions = localStorage.getItem('m_questions');
-        setQuestions(storedQuestions ? JSON.parse(storedQuestions) : INITIAL_QUESTIONS);
-      } finally {
-        setIsSyncing(false);
-      }
-    };
-
-    loadFromSupabase();
+    syncFromSupabase();
   }, []);
 
   const handleSaveAttempt = (newAttempt: UserAttempt) => {
@@ -756,6 +756,8 @@ export default function App() {
           onResetToDefaults={handleResetToDefaults}
           onExportData={handleExportData}
           onImportData={handleImportData}
+          onSync={syncFromSupabase}
+          isSyncing={isSyncing}
           onClose={() => setShowAdminPanel(false)}
         />
       )}
