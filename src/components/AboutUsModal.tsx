@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Facebook, Youtube, Send, Info } from 'lucide-react';
+import { X, Facebook, Youtube, Linkedin, Info } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 
 interface AboutData {
@@ -7,7 +7,7 @@ interface AboutData {
   image_url: string;
   facebook_link: string;
   youtube_link: string;
-  telegram_link: string;
+  linkedin_link: string;
 }
 
 interface AboutUsModalProps {
@@ -77,9 +77,9 @@ export default function AboutUsModal({ data, onClose }: AboutUsModalProps) {
                     <Youtube className="w-5 h-5" />
                   </a>
                 )}
-                {data.telegram_link && (
-                  <a href={data.telegram_link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-500 text-white hover:bg-sky-600 hover:scale-110 transition-all shadow-lg shadow-sky-500/30">
-                    <Send className="w-5 h-5 ml-[-2px]" />
+                {data.linkedin_link && (
+                  <a href={data.linkedin_link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-10 h-10 rounded-full bg-[#0A66C2] text-white hover:bg-[#004182] hover:scale-110 transition-all shadow-lg shadow-[#0A66C2]/30">
+                    <Linkedin className="w-5 h-5" />
                   </a>
                 )}
               </div>

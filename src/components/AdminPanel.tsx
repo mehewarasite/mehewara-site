@@ -25,6 +25,7 @@ import MathTextInput from './MathTextInput';
 import { useTheme } from '../ThemeContext';
 import { parseTxtToQuizData } from '../utils/parseTxt';
 import { supabase } from '../supabase';
+import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
 const THEME_STYLE = `<style id="mehewara-theme">
 .mehewara-content *{font-family:var(--mhw-font,"Noto Sans Sinhala","Space Grotesk",system-ui,sans-serif)!important;color:var(--color-text-primary)!important;background-color:transparent!important;border-color:var(--color-border)!important}
@@ -167,6 +168,7 @@ interface AdminPanelProps {
   onImportData: (file: File) => void;
   onSync?: () => void;
   isSyncing?: boolean;
+  onAboutUpdate?: (data: any) => void;
   onClose: () => void;
 }
 
@@ -184,6 +186,7 @@ export default function AdminPanel({
   onImportData,
   onSync,
   isSyncing,
+  onAboutUpdate,
   onClose
 }: AdminPanelProps) {
   const { theme, toggleTheme } = useTheme();
@@ -242,7 +245,9 @@ export default function AdminPanel({
     image_url: '',
     facebook_link: '',
     youtube_link: '',
-    telegram_link: ''
+    linkedin_link: '',
+    privacy_policy_statement: '',
+    full_privacy_policy_html: ''
   });
 
   useEffect(() => {
@@ -266,7 +271,9 @@ export default function AdminPanel({
   }, [isAuthenticated]);
 
   // Custom Question Form
-  const [targetPaperId, setTargetPaperId] = useState(papers[0]?.id || '');
+  const [targetPaperId, setTargetPaperId] = useState<string>('');
+  const [showPrivacyEditor, setShowPrivacyEditor] = useState<boolean>(false);
+
   const [qNumber, setQNumber] = useState<number>(1);
   const [questionHtml, setQuestionHtml] = useState('');
   const [optA, setOptA] = useState('');
@@ -950,11 +957,11 @@ export default function AdminPanel({
               }
             }}
             className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'edit-questions'
-              ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.25)]'
+              ? 'bg-sky-500 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)]'
               : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
               }`}
           >
-            <span className="whitespace-nowrap">✎ ප්‍රශ්න සංස්කරණය (Edit MCQs)</span>
+            <span className="whitespace-nowrap">ප්‍රශ්න සංස්කරණය (Edit MCQs)</span>
           </button>
           <button
             onClick={() => {
@@ -974,11 +981,11 @@ export default function AdminPanel({
           <button
             onClick={() => setActiveTab('about')}
             className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'about'
-              ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.25)]'
+              ? 'bg-sky-500 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)]'
               : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
               }`}
           >
-            <span className="whitespace-nowrap">ℹ️ About Us</span>
+            <span className="whitespace-nowrap">About Us</span>
           </button>
         </div>
 
@@ -1672,7 +1679,7 @@ export default function AdminPanel({
           <div className={`lg:col-span-12 ${cardBg} border ${cardBdr} rounded-2xl p-6 space-y-6 ${isDark ? '' : 'shadow-md'}`}>
             <div className={`flex items-center justify-between border-b ${dividerBdr} pb-4`}>
               <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
-                ✎ ප්‍රශ්න සංස්කරණය (Edit Questions)
+                ප්‍රශ්න සංස්කරණය (Edit Questions)
               </h2>
               <div className="flex items-center gap-2">
                 <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
@@ -1824,7 +1831,32 @@ export default function AdminPanel({
           <div className={`p-4 border border-dashed ${surfaceBdr} rounded-xl ${subtleBg}`}>
             <label className={`block text-sm font-medium ${textMuted} mb-2`}>Upload Profile/Team Photo</label>
             {aboutData.image_url && (
-              <img src={aboutData.image_url} alt="Current" className="h-32 object-cover rounded-lg mb-4 shadow-md" />
+              <div className="mb-4 relative inline-block">
+                <img src={aboutData.image_url} alt="Current" className="h-32 object-cover rounded-lg shadow-md" />
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    const url = aboutData.image_url;
+                    if (url && url.includes('supabase.co/storage/v1/object/public/question-images/')) {
+                      const fileName = url.split('question-images/')[1];
+                      if (fileName) {
+                        try {
+                          await supabase.storage.from('question-images').remove([fileName]);
+                        } catch (e) {
+                          console.error("Failed to delete from storage", e);
+                        }
+                      }
+                    }
+                    setAboutData({...aboutData, image_url: ''});
+                  }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 shadow-md transition-colors"
+                  title="Remove Image"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             )}
             <input 
               type="file" 
@@ -1849,10 +1881,23 @@ export default function AdminPanel({
             />
           </div>
 
+          {/* Privacy Policy Statement */}
+          <div>
+            <label className={`block text-sm font-medium ${textMuted} mb-2`}>Privacy Policy Additional Statement (Optional)</label>
+            <p className={`text-xs ${textMuted} mb-2`}>This text will be injected at the top of the privacy policy HTML page.</p>
+            <textarea 
+              value={aboutData.privacy_policy_statement || ''}
+              onChange={(e) => setAboutData({...aboutData, privacy_policy_statement: e.target.value})}
+              className={`w-full p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
+              rows={4}
+              placeholder="e.g. We have recently updated our policy regarding data collection..."
+            />
+          </div>
+
           {/* Social Links */}
           <div className="space-y-4">
             <h4 className={`font-bold ${textPrimary}`}>Social Media Links</h4>
-            {['facebook_link', 'youtube_link', 'telegram_link'].map((platform) => (
+            {['facebook_link', 'youtube_link', 'linkedin_link'].map((platform) => (
               <div key={platform} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                 <span className={`w-32 text-sm ${textMuted} uppercase tracking-wider font-bold`}>{platform.split('_')[0]}</span>
                 <input 
@@ -1866,17 +1911,20 @@ export default function AdminPanel({
             ))}
           </div>
 
-          {/* Save Button */}
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+          {/* Save Button & Advanced Editors */}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex gap-4 flex-wrap">
             <button 
               onClick={async () => {
                 try {
                   const { error } = await supabase.from('about_us').upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
                   if (error) throw error;
+                  localStorage.setItem('m_about_us', JSON.stringify(aboutData));
+                  onAboutUpdate?.(aboutData);
                   alert("About Us page updated live!");
                 } catch (err: any) {
                   console.error("About Us Save Error:", err);
                   localStorage.setItem('m_about_us', JSON.stringify(aboutData));
+                  onAboutUpdate?.(aboutData);
                   alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
                 }
               }}
@@ -1884,6 +1932,40 @@ export default function AdminPanel({
             >
               Save Changes Live
             </button>
+            <button 
+              onClick={() => {
+                if (!aboutData.full_privacy_policy_html) {
+                  setAboutData({...aboutData, full_privacy_policy_html: DEFAULT_PRIVACY_POLICY});
+                }
+                setShowPrivacyEditor(true);
+              }}
+              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98]"
+            >
+              Open Full Privacy Policy Editor
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full Privacy Policy Modal */}
+      {showPrivacyEditor && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className={`w-full max-w-5xl h-[90vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Full Privacy Policy Editor</h2>
+              <button onClick={() => setShowPrivacyEditor(false)} className={`px-4 py-2 rounded-lg font-semibold ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'}`}>Done</button>
+            </div>
+            <div className={`flex-1 overflow-y-auto p-6 custom-scrollbar ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+              <RichTextEditor 
+                value={aboutData.full_privacy_policy_html || ''}
+                onChange={(html) => setAboutData(prev => ({ ...prev, full_privacy_policy_html: html }))}
+                placeholder="Write the full privacy policy here... Leave blank to use the default text."
+                minHeight="500px"
+              />
+            </div>
+            <div className={`p-4 border-t ${isDark ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-600'} text-sm font-medium`}>
+              Click 'Done' above to close this dialog, and then use the <b>'Save Changes Live'</b> button on the main panel to apply your changes.
+            </div>
           </div>
         </div>
       )}

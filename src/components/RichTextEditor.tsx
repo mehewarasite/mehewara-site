@@ -217,6 +217,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
   // Track whether the last change came from the parent (external reset) or from user typing
   const isExternalUpdate = useRef(false);
 
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -236,7 +241,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     },
     onUpdate: ({ editor: ed }) => {
       if (!isExternalUpdate.current) {
-        onChange(ed.getHTML());
+        onChangeRef.current(ed.getHTML());
       }
     },
   });

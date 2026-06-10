@@ -32,6 +32,7 @@ import AboutUsModal from './components/AboutUsModal';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
+const PrivacyPolicyPage = React.lazy(() => import('./components/PrivacyPolicyPage'));
 import {
   dbLoadSubjects, dbSaveSubjects,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
@@ -105,6 +106,7 @@ export default function App() {
 
       if (remoteAbout) {
         setAboutData(remoteAbout);
+        localStorage.setItem('m_about_us', JSON.stringify(remoteAbout));
       } else {
         const localAbout = localStorage.getItem('m_about_us');
         if (localAbout) setAboutData(JSON.parse(localAbout));
@@ -375,6 +377,14 @@ export default function App() {
     };
     reader.readAsText(file);
   };
+
+  if (window.location.pathname === '/privacy-policy' || window.location.pathname === '/privacy-policy.html') {
+    return (
+      <React.Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-950 text-sky-500">Loading Privacy Policy...</div>}>
+        <PrivacyPolicyPage />
+      </React.Suspense>
+    );
+  }
 
   if (!hasBooted) {
     return <BootLoader onBootComplete={() => setHasBooted(true)} />;
@@ -782,6 +792,7 @@ export default function App() {
             onImportData={handleImportData}
             onSync={syncFromSupabase}
             isSyncing={isSyncing}
+            onAboutUpdate={setAboutData}
             onClose={() => setShowAdminPanel(false)}
           />
         </React.Suspense>
