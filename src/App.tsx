@@ -35,7 +35,6 @@ import AboutUsModal from './components/AboutUsModal';
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
 const PrivacyPolicyPage = React.lazy(() => import('./components/PrivacyPolicyPage'));
-const StatsDashboard = React.lazy(() => import('./components/StatsDashboard'));
 import {
   dbLoadSubjects, dbSaveSubjects,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
@@ -64,7 +63,6 @@ export default function App() {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [activePracticePaper, setActivePracticePaper] = useState<Paper | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
-  const [showStatsDashboard, setShowStatsDashboard] = useState<boolean>(false);
   const [showAboutUs, setShowAboutUs] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
 
@@ -485,16 +483,6 @@ export default function App() {
               {isEn ? 'EN' : 'SI'}
             </button>
 
-            {/* STATS DASHBOARD TRIGGER BUTTON */}
-            <button
-              onClick={() => setShowStatsDashboard(true)}
-              aria-label="Stats for Nerds"
-              className={`flex items-center justify-center min-h-[44px] min-w-[44px] px-3 py-2 ${surfaceBg} hover:bg-slate-100 dark:hover:bg-slate-800 ${surfaceBdr} border text-xs text-fuchsia-500 hover:text-fuchsia-400 rounded-xl transition-all shadow-sm cursor-pointer select-none`}
-              title="Stats for Nerds"
-            >
-              <BarChart2 className="w-4 h-4" />
-            </button>
-
             <button
               onClick={() => setShowAdminPanel(true)}
               aria-label="Admin panel"
@@ -827,17 +815,6 @@ export default function App() {
         </React.Suspense>
       )}
 
-      {/* OVERLAY: STATS DASHBOARD */}
-      {showStatsDashboard && (
-        <React.Suspense fallback={<div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center"><div className="w-8 h-8 border-4 border-fuchsia-500/30 border-t-fuchsia-500 rounded-full animate-spin"></div></div>}>
-          <StatsDashboard
-            subjects={subjects}
-            papers={papers}
-            questions={questions}
-            onClose={() => setShowStatsDashboard(false)}
-          />
-        </React.Suspense>
-      )}
 
     </div>
   );

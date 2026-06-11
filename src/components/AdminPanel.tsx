@@ -16,7 +16,12 @@ import {
   ShieldCheck,
   Image,
   Sun,
-  Moon
+  Moon,
+  BarChart2,
+  TrendingUp,
+  Activity,
+  Globe,
+  HelpCircle
 } from 'lucide-react';
 import { Subject, Paper, Question } from '../types';
 import RichTextEditor from './RichTextEditor';
@@ -223,8 +228,45 @@ export default function AdminPanel({
   const [confirmAdminPw, setConfirmAdminPw] = useState('');
   const [pwFlash, setPwFlash] = useState('');
 
-  // Tab states: 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about'
-  const [activeTab, setActiveTab] = useState<'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about'>('papers');
+  // Tab states: 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats'
+  const [activeTab, setActiveTab] = useState<'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats'>('papers');
+
+  // Stats Calculations
+  const stats = React.useMemo(() => {
+    const olSubjects = subjects.filter(s => s.examType === 'ol').length;
+    const alSubjects = subjects.filter(s => s.examType === 'al').length;
+    
+    const enPapers = papers.filter(p => p.language === 'en').length;
+    const siPapers = papers.filter(p => !p.language || p.language === 'si').length;
+
+    const avgQuestions = papers.length > 0 ? (questions.length / papers.length).toFixed(1) : '0';
+
+    // Subject with most papers
+    const subjectCounts = papers.reduce((acc, p) => {
+      acc[p.subjectId] = (acc[p.subjectId] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    let topSubjectId = '';
+    let topSubjectCount = 0;
+    for (const [sId, count] of Object.entries(subjectCounts)) {
+      if (count > topSubjectCount) {
+        topSubjectCount = count;
+        topSubjectId = sId;
+      }
+    }
+    const topSubject = subjects.find(s => s.id === topSubjectId);
+
+    return {
+      olSubjects,
+      alSubjects,
+      enPapers,
+      siPapers,
+      avgQuestions,
+      topSubject: topSubject ? topSubject.name : 'N/A',
+      topSubjectCount
+    };
+  }, [subjects, papers, questions]);
 
   // Custom Paper Form
   const [selectedSubjectId, setSelectedSubjectId] = useState(subjects[0]?.id || '');
@@ -991,6 +1033,16 @@ export default function AdminPanel({
               }`}
           >
             <span className="whitespace-nowrap">About Us</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'stats'
+              ? 'bg-fuchsia-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.4)]'
+              : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
+              }`}
+          >
+            <BarChart2 className="w-4 h-4 shrink-0" />
+            <span className="whitespace-nowrap">Stats</span>
           </button>
         </div>
 
@@ -2075,6 +2127,129 @@ export default function AdminPanel({
               </div>
               <div className={`p-4 border-t ${isDark ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-600'} text-sm font-medium`}>
                 Click 'Done' above to close this dialog, and then use the <b>'Save Changes Live'</b> button on the main panel to apply your changes.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stats Tab Content */}
+        {activeTab === 'stats' && (
+          <div className="space-y-6">
+            <div className={`p-6 md:p-8 ${cardBg} border ${cardBdr} rounded-3xl ${isDark ? '' : 'shadow-md'}`}>
+              <div className={`flex flex-col md:flex-row md:items-center justify-between border-b ${dividerBdr} pb-6 mb-8 gap-4`}>
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-2xl ${isDark ? 'bg-fuchsia-500/10' : 'bg-fuchsia-100'} border ${isDark ? 'border-fuchsia-500/20' : 'border-fuchsia-200'}`}>
+                    <BarChart2 className={`w-6 h-6 ${isDark ? 'text-fuchsia-400' : 'text-fuchsia-600'}`} />
+                  </div>
+                  <div>
+                    <h1 className={`text-2xl md:text-3xl font-extrabold ${textPrimary} font-display tracking-wide leading-tight`}>
+                      Stats for Nerds
+                    </h1>
+                    <p className={`text-sm ${textMuted} font-mono mt-1`}>Global Content Metrics & System Health</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bento Grid from StatsDashboard */}
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                
+                {/* Total Questions - Hero Card */}
+                <div className={`col-span-1 md:col-span-2 lg:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between`}>
+                  <div className="absolute top-0 right-0 p-8 opacity-10">
+                    <HelpCircle className="w-32 h-32 text-fuchsia-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 text-fuchsia-500 font-bold text-sm mb-2">
+                      <Activity className="w-4 h-4" />
+                      TOTAL QUESTION BANK
+                    </div>
+                    <h2 className={`text-6xl md:text-7xl font-black ${textPrimary} font-display tracking-tighter`}>
+                      {questions.length.toLocaleString()}
+                    </h2>
+                  </div>
+                  <p className={`text-sm ${textMuted} mt-6 max-w-[80%]`}>
+                    Total number of multiple-choice questions actively loaded across all available past papers and practice tests.
+                  </p>
+                </div>
+
+                {/* Average Questions per Paper */}
+                <div className={`col-span-1 lg:col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 flex flex-col justify-between`}>
+                  <div>
+                    <div className="flex items-center gap-2 text-indigo-500 font-bold text-sm mb-2">
+                      <TrendingUp className="w-4 h-4" />
+                      AVG Q / PAPER
+                    </div>
+                    <h2 className={`text-5xl font-black ${textPrimary} font-display tracking-tighter`}>
+                      {stats.avgQuestions}
+                    </h2>
+                  </div>
+                  <p className={`text-xs ${textMuted} mt-4`}>Average questions loaded per active paper.</p>
+                </div>
+
+                {/* Top Subject */}
+                <div className={`col-span-1 lg:col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 flex flex-col justify-between`}>
+                  <div>
+                    <div className="flex items-center gap-2 text-amber-500 font-bold text-sm mb-2">
+                      <Activity className="w-4 h-4" />
+                      TOP SUBJECT
+                    </div>
+                    <h2 className={`text-2xl font-black ${textPrimary} font-display leading-tight truncate`} title={stats.topSubject}>
+                      {stats.topSubject}
+                    </h2>
+                    <p className={`text-xl font-bold ${textMuted} font-mono mt-1`}>
+                      {stats.topSubjectCount} Papers
+                    </p>
+                  </div>
+                </div>
+
+                {/* Total Papers - Split */}
+                <div className={`col-span-1 md:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2 text-sky-500 font-bold text-sm">
+                      <FileText className="w-4 h-4" />
+                      TOTAL PAPERS
+                    </div>
+                    <span className={`text-3xl font-black ${textPrimary} font-display`}>{papers.length}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-500 mb-1">
+                        <Globe className="w-3.5 h-3.5" /> SINHALA (SI)
+                      </div>
+                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.siPapers}</div>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className="flex items-center gap-2 text-xs font-bold text-indigo-500 mb-1">
+                        <Globe className="w-3.5 h-3.5" /> ENGLISH (EN)
+                      </div>
+                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.enPapers}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total Subjects - Split */}
+                <div className={`col-span-1 md:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm">
+                      <BookOpen className="w-4 h-4" />
+                      TOTAL SUBJECTS
+                    </div>
+                    <span className={`text-3xl font-black ${textPrimary} font-display`}>{subjects.length}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className={`text-xs font-bold ${textMuted} mb-1 tracking-wider`}>O/L STREAM</div>
+                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.olSubjects}</div>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className={`text-xs font-bold ${textMuted} mb-1 tracking-wider`}>A/L STREAM</div>
+                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.alSubjects}</div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
