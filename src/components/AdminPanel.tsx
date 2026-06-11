@@ -593,11 +593,11 @@ export default function AdminPanel({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const rawText = ev.target?.result as string;
-      
+
       try {
         // 1. Run your new parser
         const parsed = parseTxtToQuizData(rawText);
-        
+
         if (parsed.length === 0) {
           alert("No questions found. Please check your formatting tags like [EN], [SIN], or ---.");
           return;
@@ -606,7 +606,7 @@ export default function AdminPanel({
         // 2. Feed it into your existing form state!
         // This will automatically populate the question preview list in your UI
         setParsedQuestions(parsed);
-        
+
         alert(`Successfully loaded ${parsed.length} questions from text file!`);
       } catch (error) {
         console.error("Parsing error:", error);
@@ -651,7 +651,7 @@ export default function AdminPanel({
         if (currentQuestionText.includes('class="image-placeholder')) {
           // Regex to find and replace the placeholder div created by parseTxt.ts
           currentQuestionText = currentQuestionText.replace(
-            /<div class="image-placeholder[^>]*>.*?<\/div>/i, 
+            /<div class="image-placeholder[^>]*>.*?<\/div>/i,
             imgHtml
           );
         } else {
@@ -679,13 +679,13 @@ export default function AdminPanel({
         .eq('id', dbQuestionId);
 
       if (error) throw error;
-      
+
       alert("✅ Question updated successfully in the live database!");
-      
+
       // Because we lack a specific onUpdateQuestion prop, we force a reload 
       // so the parent App.tsx re-fetches the live data from Supabase.
       window.location.reload();
-      
+
     } catch (error) {
       console.error("Error updating live question:", error);
       alert("❌ Failed to update question in database.");
@@ -1140,16 +1140,16 @@ export default function AdminPanel({
                     <h3 className="font-bold text-gray-700 dark:text-gray-300">Preview & Edit Parsed Questions</h3>
                     {parsedQuestions.map((q, index) => (
                       <div key={index} className="p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700">
-                        
+
                         {/* ===== EDIT MODE ===== */}
                         {editingIndex === index ? (
                           <div className="space-y-4">
                             <h4 className="font-bold text-lg text-blue-600">Editing Question {q.id || index + 1}</h4>
-                            
+
                             {/* Question Text Input */}
                             <div>
                               <label className="block text-sm font-medium mb-1">Question Body (HTML allowed)</label>
-                              <textarea 
+                              <textarea
                                 value={q.question}
                                 onChange={(e) => {
                                   const updated = [...parsedQuestions];
@@ -1166,8 +1166,8 @@ export default function AdminPanel({
                               <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
                                 🖼️ Upload Missing Diagram/Image
                               </label>
-                              <input 
-                                type="file" 
+                              <input
+                                type="file"
                                 accept="image/*"
                                 className="block w-full text-sm text-gray-500 dark:text-gray-400
                                   file:mr-4 file:py-2 file:px-4
@@ -1188,7 +1188,7 @@ export default function AdminPanel({
                               </p>
                             </div>
 
-                            <button 
+                            <button
                               type="button"
                               onClick={() => setEditingIndex(null)}
                               className="px-4 py-2 bg-emerald-500 text-white font-semibold text-sm rounded-lg hover:bg-emerald-600 transition-colors"
@@ -1197,12 +1197,12 @@ export default function AdminPanel({
                             </button>
                           </div>
                         ) : (
-                          
+
                           /* ===== PREVIEW MODE ===== */
                           <div>
                             <div className="flex justify-between items-start mb-2">
                               <h4 className="font-bold text-lg text-gray-500">Q{q.id || index + 1}</h4>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => setEditingIndex(index)}
                                 className="px-3 py-1 text-xs font-semibold bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 dark:bg-sky-500/10 dark:text-sky-400 dark:hover:bg-sky-500/20 transition-colors"
@@ -1210,13 +1210,13 @@ export default function AdminPanel({
                                 Edit Question
                               </button>
                             </div>
-                            
+
                             {/* Safely render the question HTML so you can see if the image works */}
-                            <div 
+                            <div
                               className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300"
-                              dangerouslySetInnerHTML={{ __html: q.question }} 
+                              dangerouslySetInnerHTML={{ __html: q.question }}
                             />
-                            
+
                             <div className="mt-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-1">
                               {q.options.map((opt, oIdx) => (
                                 <p key={oIdx} className={`text-sm ${q.correctIndex === oIdx ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-600 dark:text-gray-400"}`}>
@@ -1344,7 +1344,7 @@ export default function AdminPanel({
 
           </div>
         )}
-        
+
         {activeTab === 'add-question' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
@@ -1611,366 +1611,366 @@ export default function AdminPanel({
           </div>
         )}
 
-      {activeTab === 'manage-questions' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className={`lg:col-span-12 ${cardBg} border ${cardBdr} rounded-2xl p-6 space-y-6 ${isDark ? '' : 'shadow-md'}`}>
-            <div className={`flex items-center justify-between border-b ${dividerBdr} pb-4`}>
-              <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
-                ප්‍රශ්න මකන්න (Delete Questions)
-              </h2>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
-                <select
-                  value={targetPaperId}
-                  onChange={(e) => setTargetPaperId(e.target.value)}
-                  className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-red-500 cursor-pointer`}
-                >
-                  {papers.map(p => (
-                    <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
-                  ))}
-                </select>
+        {activeTab === 'manage-questions' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className={`lg:col-span-12 ${cardBg} border ${cardBdr} rounded-2xl p-6 space-y-6 ${isDark ? '' : 'shadow-md'}`}>
+              <div className={`flex items-center justify-between border-b ${dividerBdr} pb-4`}>
+                <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
+                  ප්‍රශ්න මකන්න (Delete Questions)
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
+                  <select
+                    value={targetPaperId}
+                    onChange={(e) => setTargetPaperId(e.target.value)}
+                    className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-red-500 cursor-pointer`}
+                  >
+                    {papers.map(p => (
+                      <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-3">
-              {questions.filter(q => q.paperId === targetPaperId).length === 0 ? (
-                <p className={`text-sm ${textMuted} text-center py-8`}>මෙම ප්‍රශ්න පත්‍රයේ ප්‍රශ්න නොමැත. (No questions found in this paper.)</p>
-              ) : (
-                questions
-                  .filter(q => q.paperId === targetPaperId)
-                  .sort((a, b) => a.qNumber - b.qNumber)
-                  .map(q => (
-                    <div key={q.id} className={`flex items-start justify-between p-4 rounded-xl border ${subtleBdr} ${subtleBg}`}>
-                      <div className="flex-1 min-w-0 pr-4">
-                        <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
-                        <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
-                        <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
-                          {q.optionsHtml.map((opt, oIdx) => (
-                            <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
-                              {String.fromCharCode(65 + oIdx)}. {opt}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to delete Question ${q.qNumber}?`)) {
-                              onDeleteQuestion(q.id);
-                              showFlash(`Question ${q.qNumber} deleted!`);
-                            }
-                          }}
-                          className="shrink-0 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-600 border border-red-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'edit-questions' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className={`lg:col-span-12 ${cardBg} border ${cardBdr} rounded-2xl p-6 space-y-6 ${isDark ? '' : 'shadow-md'}`}>
-            <div className={`flex items-center justify-between border-b ${dividerBdr} pb-4`}>
-              <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
-                ප්‍රශ්න සංස්කරණය (Edit Questions)
-              </h2>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
-                <select
-                  value={targetPaperId}
-                  onChange={(e) => setTargetPaperId(e.target.value)}
-                  className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-blue-500 cursor-pointer`}
-                >
-                  {papers.map(p => (
-                    <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {questions.filter(q => q.paperId === targetPaperId).length === 0 ? (
-                <p className={`text-sm ${textMuted} text-center py-8`}>මෙම ප්‍රශ්න පත්‍රයේ ප්‍රශ්න නොමැත. (No questions found in this paper.)</p>
-              ) : (
-                questions
-                  .filter(q => q.paperId === targetPaperId)
-                  .sort((a, b) => a.qNumber - b.qNumber)
-                  .map(q => (
-                    <div key={q.id} className={`flex items-start justify-between p-4 rounded-xl border ${subtleBdr} ${subtleBg}`}>
-                      {/* ===== LIVE EDIT MODE ===== */}
-                      {editingLiveId === q.id && liveEditData ? (
-                        <div className="space-y-4 w-full">
-                          <h4 className="font-bold text-lg text-blue-600">Editing Question {liveEditData.qNumber}</h4>
-                          
-                          {/* Question Text Input */}
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Question Body (HTML allowed)</label>
-                            <textarea 
-                              value={liveEditData.questionHtml}
-                              onChange={(e) => setLiveEditData({ ...liveEditData, questionHtml: e.target.value })}
-                              className={`w-full p-2 border rounded ${inputBg} ${inputBdr}`}
-                              rows={4}
-                            />
-                          </div>
-                          
-                          {/* Options */}
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium mb-1">Options (Check the radio button for correct answer)</label>
-                            {liveEditData.optionsHtml.map((opt, oIdx) => (
-                              <div key={oIdx} className="flex gap-2 items-center">
-                                <span className="font-bold w-4">{String.fromCharCode(65 + oIdx)}.</span>
-                                <input
-                                  type="text"
-                                  value={opt}
-                                  onChange={(e) => {
-                                    const newOpts = [...liveEditData.optionsHtml];
-                                    newOpts[oIdx] = e.target.value;
-                                    setLiveEditData({ ...liveEditData, optionsHtml: newOpts as any });
-                                  }}
-                                  className={`flex-1 p-1.5 border rounded text-sm ${inputBg} ${inputBdr}`}
-                                />
-                                <input 
-                                  type="radio" 
-                                  name={`correctOption_${q.id}`} 
-                                  checked={liveEditData.correctOption === oIdx}
-                                  onChange={() => setLiveEditData({ ...liveEditData, correctOption: oIdx as any })}
-                                  className="w-4 h-4 cursor-pointer"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {/* Explanation */}
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Explanation (Optional)</label>
-                            <textarea 
-                              value={liveEditData.explanationHtml || ''}
-                              onChange={(e) => setLiveEditData({ ...liveEditData, explanationHtml: e.target.value })}
-                              className={`w-full p-2 border rounded text-sm ${inputBg} ${inputBdr}`}
-                              rows={2}
-                            />
-                          </div>
-
-                          <div className="flex gap-2 pt-2">
-                            <button 
-                              type="button"
-                              onClick={() => handleUpdateLiveQuestion(q.id, liveEditData)}
-                              className="px-4 py-2 bg-blue-600 text-white font-semibold text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              Save Changes to Database
-                            </button>
-                            <button 
-                              type="button"
-                              onClick={() => { setEditingLiveId(null); setLiveEditData(null); }}
-                              className="px-4 py-2 bg-slate-500 text-white font-semibold text-sm rounded-lg hover:bg-slate-600 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
+              <div className="space-y-3">
+                {questions.filter(q => q.paperId === targetPaperId).length === 0 ? (
+                  <p className={`text-sm ${textMuted} text-center py-8`}>මෙම ප්‍රශ්න පත්‍රයේ ප්‍රශ්න නොමැත. (No questions found in this paper.)</p>
+                ) : (
+                  questions
+                    .filter(q => q.paperId === targetPaperId)
+                    .sort((a, b) => a.qNumber - b.qNumber)
+                    .map(q => (
+                      <div key={q.id} className={`flex items-start justify-between p-4 rounded-xl border ${subtleBdr} ${subtleBg}`}>
                         <div className="flex-1 min-w-0 pr-4">
                           <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
                           <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
                           <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
                             {q.optionsHtml.map((opt, oIdx) => (
-                              <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-blue-500 font-bold' : textMuted}`}>
+                              <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
                                 {String.fromCharCode(65 + oIdx)}. {opt}
                               </p>
                             ))}
                           </div>
                         </div>
-                      )}
 
-                      {/* Buttons: only show if not currently editing this specific question */}
-                      {editingLiveId !== q.id && (
                         <div className="flex flex-col gap-2">
                           <button
                             onClick={() => {
-                              setEditingLiveId(q.id);
-                              setLiveEditData({ ...q });
+                              if (window.confirm(`Are you sure you want to delete Question ${q.qNumber}?`)) {
+                                onDeleteQuestion(q.id);
+                                showFlash(`Question ${q.qNumber} deleted!`);
+                              }
                             }}
-                            className="shrink-0 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 hover:text-blue-600 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            className="shrink-0 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-600 border border-red-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                           >
-                            Edit Question
+                            Delete
                           </button>
                         </div>
-                      )}
-                    </div>
-                  ))
-              )}
+                      </div>
+                    ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ABOUT US EDIT TAB */}
-      {activeTab === 'about' && (
-        <div className={`space-y-6 p-6 ${cardBg} rounded-2xl border ${cardBdr}`}>
-          <h3 className={`text-xl font-bold ${textPrimary}`}>Edit "About Us" Page</h3>
-
-          {/* Description Text */}
-          <div>
-            <label className={`block text-sm font-medium ${textMuted} mb-2`}>Description / Story</label>
-            <textarea 
-              value={aboutData.description}
-              onChange={(e) => setAboutData({...aboutData, description: e.target.value})}
-              className={`w-full p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
-              rows={6}
-            />
-          </div>
-
-          {/* Image Upload */}
-          <div className={`p-4 border border-dashed ${surfaceBdr} rounded-xl ${subtleBg}`}>
-            <label className={`block text-sm font-medium ${textMuted} mb-2`}>Upload Profile/Team Photo</label>
-            {aboutData.image_url && (
-              <div className="mb-4 relative inline-block">
-                <img src={aboutData.image_url} alt="Current" className="h-32 object-cover rounded-lg shadow-md" />
-                <button 
-                  type="button"
-                  onClick={async () => {
-                    const url = aboutData.image_url;
-                    if (url && url.includes('supabase.co/storage/v1/object/public/question-images/')) {
-                      const fileName = url.split('question-images/')[1];
-                      if (fileName) {
-                        try {
-                          await supabase.storage.from('question-images').remove([fileName]);
-                        } catch (e) {
-                          console.error("Failed to delete from storage", e);
-                        }
-                      }
-                    }
-                    setAboutData({...aboutData, image_url: ''});
-                  }}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 shadow-md transition-colors"
-                  title="Remove Image"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        {activeTab === 'edit-questions' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className={`lg:col-span-12 ${cardBg} border ${cardBdr} rounded-2xl p-6 space-y-6 ${isDark ? '' : 'shadow-md'}`}>
+              <div className={`flex items-center justify-between border-b ${dividerBdr} pb-4`}>
+                <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
+                  ප්‍රශ්න සංස්කරණය (Edit Questions)
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
+                  <select
+                    value={targetPaperId}
+                    onChange={(e) => setTargetPaperId(e.target.value)}
+                    className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-blue-500 cursor-pointer`}
+                  >
+                    {papers.map(p => (
+                      <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            )}
-            <input 
-              type="file" 
-              accept="image/*"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                
-                const fileExt = file.name.split('.').pop();
-                const fileName = `about-${Date.now()}.${fileExt}`;
-                const { data, error } = await supabase.storage.from('question-images').upload(fileName, file);
-                
-                if (!error) {
-                  const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
-                  setAboutData({...aboutData, image_url: publicUrl});
-                  alert("Image uploaded!");
-                } else {
-                  alert("Error uploading image: " + error.message);
-                }
-              }}
-              className={`block w-full text-sm ${textMuted} file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-sky-500/10 file:text-sky-500 hover:file:bg-sky-500/20`}
-            />
-          </div>
 
-          {/* Privacy Policy Statement */}
-          <div>
-            <label className={`block text-sm font-medium ${textMuted} mb-2`}>Privacy Policy Additional Statement (Optional)</label>
-            <p className={`text-xs ${textMuted} mb-2`}>This text will be injected at the top of the privacy policy HTML page.</p>
-            <textarea 
-              value={aboutData.privacy_policy_statement || ''}
-              onChange={(e) => setAboutData({...aboutData, privacy_policy_statement: e.target.value})}
-              className={`w-full p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
-              rows={4}
-              placeholder="e.g. We have recently updated our policy regarding data collection..."
-            />
-          </div>
+              <div className="space-y-3">
+                {questions.filter(q => q.paperId === targetPaperId).length === 0 ? (
+                  <p className={`text-sm ${textMuted} text-center py-8`}>මෙම ප්‍රශ්න පත්‍රයේ ප්‍රශ්න නොමැත. (No questions found in this paper.)</p>
+                ) : (
+                  questions
+                    .filter(q => q.paperId === targetPaperId)
+                    .sort((a, b) => a.qNumber - b.qNumber)
+                    .map(q => (
+                      <div key={q.id} className={`flex items-start justify-between p-4 rounded-xl border ${subtleBdr} ${subtleBg}`}>
+                        {/* ===== LIVE EDIT MODE ===== */}
+                        {editingLiveId === q.id && liveEditData ? (
+                          <div className="space-y-4 w-full">
+                            <h4 className="font-bold text-lg text-blue-600">Editing Question {liveEditData.qNumber}</h4>
 
-          {/* Social Links */}
-          <div className="space-y-4">
-            <h4 className={`font-bold ${textPrimary}`}>Social Media Links</h4>
-            {['facebook_link', 'youtube_link', 'linkedin_link'].map((platform) => (
-              <div key={platform} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <span className={`w-32 text-sm ${textMuted} uppercase tracking-wider font-bold`}>{platform.split('_')[0]}</span>
-                <input 
-                  type="text" 
-                  placeholder="https://"
-                  value={aboutData[platform as keyof typeof aboutData] as string}
-                  onChange={(e) => setAboutData({...aboutData, [platform]: e.target.value})}
-                  className={`flex-1 p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
-                />
+                            {/* Question Text Input */}
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Question Body (HTML allowed)</label>
+                              <textarea
+                                value={liveEditData.questionHtml}
+                                onChange={(e) => setLiveEditData({ ...liveEditData, questionHtml: e.target.value })}
+                                className={`w-full p-2 border rounded ${inputBg} ${inputBdr}`}
+                                rows={4}
+                              />
+                            </div>
+
+                            {/* Options */}
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium mb-1">Options (Check the radio button for correct answer)</label>
+                              {liveEditData.optionsHtml.map((opt, oIdx) => (
+                                <div key={oIdx} className="flex gap-2 items-center">
+                                  <span className="font-bold w-4">{String.fromCharCode(65 + oIdx)}.</span>
+                                  <input
+                                    type="text"
+                                    value={opt}
+                                    onChange={(e) => {
+                                      const newOpts = [...liveEditData.optionsHtml];
+                                      newOpts[oIdx] = e.target.value;
+                                      setLiveEditData({ ...liveEditData, optionsHtml: newOpts as any });
+                                    }}
+                                    className={`flex-1 p-1.5 border rounded text-sm ${inputBg} ${inputBdr}`}
+                                  />
+                                  <input
+                                    type="radio"
+                                    name={`correctOption_${q.id}`}
+                                    checked={liveEditData.correctOption === oIdx}
+                                    onChange={() => setLiveEditData({ ...liveEditData, correctOption: oIdx as any })}
+                                    className="w-4 h-4 cursor-pointer"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Explanation */}
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Explanation (Optional)</label>
+                              <textarea
+                                value={liveEditData.explanationHtml || ''}
+                                onChange={(e) => setLiveEditData({ ...liveEditData, explanationHtml: e.target.value })}
+                                className={`w-full p-2 border rounded text-sm ${inputBg} ${inputBdr}`}
+                                rows={2}
+                              />
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateLiveQuestion(q.id, liveEditData)}
+                                className="px-4 py-2 bg-blue-600 text-white font-semibold text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Save Changes to Database
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setEditingLiveId(null); setLiveEditData(null); }}
+                                className="px-4 py-2 bg-slate-500 text-white font-semibold text-sm rounded-lg hover:bg-slate-600 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex-1 min-w-0 pr-4">
+                            <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
+                            <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
+                            <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
+                              {q.optionsHtml.map((opt, oIdx) => (
+                                <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-blue-500 font-bold' : textMuted}`}>
+                                  {String.fromCharCode(65 + oIdx)}. {opt}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Buttons: only show if not currently editing this specific question */}
+                        {editingLiveId !== q.id && (
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingLiveId(q.id);
+                                setLiveEditData({ ...q });
+                              }}
+                              className="shrink-0 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 hover:text-blue-600 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              Edit Question
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                )}
               </div>
-            ))}
-          </div>
-
-          {/* Save Button & Advanced Editors */}
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex gap-4 flex-wrap">
-            <button 
-              onClick={async () => {
-                try {
-                  const { error } = await supabase.from('about_us').upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
-                  if (error) throw error;
-                  localStorage.setItem('m_about_us', JSON.stringify(aboutData));
-                  onAboutUpdate?.(aboutData);
-                  alert("About Us page updated live!");
-                } catch (err: any) {
-                  console.error("About Us Save Error:", err);
-                  localStorage.setItem('m_about_us', JSON.stringify(aboutData));
-                  onAboutUpdate?.(aboutData);
-                  alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
-                }
-              }}
-              className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98]"
-            >
-              Save Changes Live
-            </button>
-            <button 
-              onClick={() => {
-                if (!aboutData.full_privacy_policy_html) {
-                  setAboutData({...aboutData, full_privacy_policy_html: DEFAULT_PRIVACY_POLICY});
-                }
-                setShowPrivacyEditor(true);
-              }}
-              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98]"
-            >
-              Open Full Privacy Policy Editor
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Full Privacy Policy Modal */}
-      {showPrivacyEditor && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className={`w-full max-w-5xl h-[90vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
-            <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800">
-              <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Full Privacy Policy Editor</h2>
-              <button onClick={() => setShowPrivacyEditor(false)} className={`px-4 py-2 rounded-lg font-semibold ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'}`}>Done</button>
             </div>
-            <div className={`flex-1 overflow-y-auto p-6 custom-scrollbar ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
-              <RichTextEditor 
-                value={aboutData.full_privacy_policy_html || ''}
-                onChange={(html) => setAboutData(prev => ({ ...prev, full_privacy_policy_html: html }))}
-                placeholder="Write the full privacy policy here... Leave blank to use the default text."
-                minHeight="500px"
+          </div>
+        )}
+
+        {/* ABOUT US EDIT TAB */}
+        {activeTab === 'about' && (
+          <div className={`space-y-6 p-6 ${cardBg} rounded-2xl border ${cardBdr}`}>
+            <h3 className={`text-xl font-bold ${textPrimary}`}>Edit "About Us" Page</h3>
+
+            {/* Description Text */}
+            <div>
+              <label className={`block text-sm font-medium ${textMuted} mb-2`}>Description / Story</label>
+              <textarea
+                value={aboutData.description}
+                onChange={(e) => setAboutData({ ...aboutData, description: e.target.value })}
+                className={`w-full p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
+                rows={6}
               />
             </div>
-            <div className={`p-4 border-t ${isDark ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-600'} text-sm font-medium`}>
-              Click 'Done' above to close this dialog, and then use the <b>'Save Changes Live'</b> button on the main panel to apply your changes.
+
+            {/* Image Upload */}
+            <div className={`p-4 border border-dashed ${surfaceBdr} rounded-xl ${subtleBg}`}>
+              <label className={`block text-sm font-medium ${textMuted} mb-2`}>Upload Profile/Team Photo</label>
+              {aboutData.image_url && (
+                <div className="mb-4 relative inline-block">
+                  <img src={aboutData.image_url} alt="Current" className="h-32 object-cover rounded-lg shadow-md" />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const url = aboutData.image_url;
+                      if (url && url.includes('supabase.co/storage/v1/object/public/question-images/')) {
+                        const fileName = url.split('question-images/')[1];
+                        if (fileName) {
+                          try {
+                            await supabase.storage.from('question-images').remove([fileName]);
+                          } catch (e) {
+                            console.error("Failed to delete from storage", e);
+                          }
+                        }
+                      }
+                      setAboutData({ ...aboutData, image_url: '' });
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 shadow-md transition-colors"
+                    title="Remove Image"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  const fileExt = file.name.split('.').pop();
+                  const fileName = `about-${Date.now()}.${fileExt}`;
+                  const { data, error } = await supabase.storage.from('question-images').upload(fileName, file);
+
+                  if (!error) {
+                    const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
+                    setAboutData({ ...aboutData, image_url: publicUrl });
+                    alert("Image uploaded!");
+                  } else {
+                    alert("Error uploading image: " + error.message);
+                  }
+                }}
+                className={`block w-full text-sm ${textMuted} file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-sky-500/10 file:text-sky-500 hover:file:bg-sky-500/20`}
+              />
+            </div>
+
+            {/* Privacy Policy Statement */}
+            <div>
+              <label className={`block text-sm font-medium ${textMuted} mb-2`}>Privacy Policy Additional Statement (Optional)</label>
+              <p className={`text-xs ${textMuted} mb-2`}>This text will be injected at the top of the privacy policy HTML page.</p>
+              <textarea
+                value={aboutData.privacy_policy_statement || ''}
+                onChange={(e) => setAboutData({ ...aboutData, privacy_policy_statement: e.target.value })}
+                className={`w-full p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
+                rows={4}
+                placeholder="e.g. We have recently updated our policy regarding data collection..."
+              />
+            </div>
+
+            {/* Social Links */}
+            <div className="space-y-4">
+              <h4 className={`font-bold ${textPrimary}`}>Social Media Links</h4>
+              {['facebook_link', 'youtube_link', 'linkedin_link'].map((platform) => (
+                <div key={platform} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <span className={`w-32 text-sm ${textMuted} uppercase tracking-wider font-bold`}>{platform.split('_')[0]}</span>
+                  <input
+                    type="text"
+                    placeholder="https://"
+                    value={aboutData[platform as keyof typeof aboutData] as string}
+                    onChange={(e) => setAboutData({ ...aboutData, [platform]: e.target.value })}
+                    className={`flex-1 p-3 ${inputBg} border ${inputBdr} rounded-xl ${textPrimary} focus:ring-2 focus:ring-sky-500`}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Save Button & Advanced Editors */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex gap-4 flex-wrap">
+              <button
+                onClick={async () => {
+                  try {
+                    const { error } = await supabase.from('about_us').upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
+                    if (error) throw error;
+                    localStorage.setItem('m_about_us', JSON.stringify(aboutData));
+                    onAboutUpdate?.(aboutData);
+                    alert("About Us page updated live!");
+                  } catch (err: any) {
+                    console.error("About Us Save Error:", err);
+                    localStorage.setItem('m_about_us', JSON.stringify(aboutData));
+                    onAboutUpdate?.(aboutData);
+                    alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
+                  }
+                }}
+                className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98]"
+              >
+                Save Changes Live
+              </button>
+              <button
+                onClick={() => {
+                  if (!aboutData.full_privacy_policy_html) {
+                    setAboutData({ ...aboutData, full_privacy_policy_html: DEFAULT_PRIVACY_POLICY });
+                  }
+                  setShowPrivacyEditor(true);
+                }}
+                className="px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98]"
+              >
+                Open Full Privacy Policy Editor
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-    </div>
+        {/* Full Privacy Policy Modal */}
+        {showPrivacyEditor && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className={`w-full max-w-5xl h-[90vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800">
+                <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Full Privacy Policy Editor</h2>
+                <button onClick={() => setShowPrivacyEditor(false)} className={`px-4 py-2 rounded-lg font-semibold ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'}`}>Done</button>
+              </div>
+              <div className={`flex-1 overflow-y-auto p-6 custom-scrollbar ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+                <RichTextEditor
+                  value={aboutData.full_privacy_policy_html || ''}
+                  onChange={(html) => setAboutData(prev => ({ ...prev, full_privacy_policy_html: html }))}
+                  placeholder="Write the full privacy policy here... Leave blank to use the default text."
+                  minHeight="500px"
+                />
+              </div>
+              <div className={`p-4 border-t ${isDark ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-100 text-slate-600'} text-sm font-medium`}>
+                Click 'Done' above to close this dialog, and then use the <b>'Save Changes Live'</b> button on the main panel to apply your changes.
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div >
   );
 }

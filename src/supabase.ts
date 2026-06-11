@@ -97,7 +97,7 @@ export async function dbLoadStudyHtml(paperId: string): Promise<string | null> {
     .from('study_html')
     .select('html')
     .eq('paper_id', paperId)
-    .single();
+    .maybeSingle();
   if (error) { return null; }
   return data?.html ?? null;
 }
