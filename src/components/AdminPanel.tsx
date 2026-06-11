@@ -1729,7 +1729,23 @@ export default function AdminPanel({
 
                             {/* Question Text Input */}
                             <div>
-                              <label className="block text-sm font-medium mb-1">Question Body (HTML allowed)</label>
+                              <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium">Question Body (HTML allowed)</label>
+                                <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors">
+                                  <Image className="w-3 h-3" />
+                                  Ref image
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleImageFileUpload(file, (html) => setLiveEditData({ ...liveEditData, questionHtml: appendHtml(liveEditData.questionHtml, html) }));
+                                      e.target.value = '';
+                                    }}
+                                  />
+                                </label>
+                              </div>
                               <textarea
                                 value={liveEditData.questionHtml}
                                 onChange={(e) => setLiveEditData({ ...liveEditData, questionHtml: e.target.value })}
@@ -1744,6 +1760,24 @@ export default function AdminPanel({
                               {liveEditData.optionsHtml.map((opt, oIdx) => (
                                 <div key={oIdx} className="flex gap-2 items-center">
                                   <span className="font-bold w-4">{String.fromCharCode(65 + oIdx)}.</span>
+                                  <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors shrink-0">
+                                    <Image className="w-3 h-3" />
+                                    Image
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="sr-only"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleImageFileUpload(file, (html) => {
+                                          const newOpts = [...liveEditData.optionsHtml];
+                                          newOpts[oIdx] = appendHtml(newOpts[oIdx], html);
+                                          setLiveEditData({ ...liveEditData, optionsHtml: newOpts as any });
+                                        }, 'mhw-opt-img');
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                  </label>
                                   <input
                                     type="text"
                                     value={opt}
@@ -1767,7 +1801,23 @@ export default function AdminPanel({
 
                             {/* Explanation */}
                             <div>
-                              <label className="block text-sm font-medium mb-1">Explanation (Optional)</label>
+                              <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium">Explanation (Optional)</label>
+                                <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors">
+                                  <Image className="w-3 h-3" />
+                                  Image
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleImageFileUpload(file, (html) => setLiveEditData({ ...liveEditData, explanationHtml: appendHtml(liveEditData.explanationHtml || '', html) }));
+                                      e.target.value = '';
+                                    }}
+                                  />
+                                </label>
+                              </div>
                               <textarea
                                 value={liveEditData.explanationHtml || ''}
                                 onChange={(e) => setLiveEditData({ ...liveEditData, explanationHtml: e.target.value })}
