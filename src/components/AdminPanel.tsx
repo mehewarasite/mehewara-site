@@ -1847,7 +1847,17 @@ export default function AdminPanel({
                           }
                         }
                       }
-                      setAboutData({ ...aboutData, image_url: '' });
+                      const newAboutData = { ...aboutData, image_url: '' };
+                      setAboutData(newAboutData);
+                      
+                      // Auto-save the deletion
+                      try {
+                        await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
+                        localStorage.setItem('m_about_us', JSON.stringify(newAboutData));
+                        onAboutUpdate?.(newAboutData);
+                      } catch (err) {
+                        console.error("Failed to update about us table", err);
+                      }
                     }}
                     className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 shadow-md transition-colors"
                     title="Remove Image"
@@ -1865,17 +1875,47 @@ export default function AdminPanel({
                   const file = e.target.files?.[0];
                   if (!file) return;
 
+                  // 1. If an image already exists, delete it first to prevent orphaned files
+                  if (aboutData.image_url) {
+                    const url = aboutData.image_url;
+                    if (url && url.includes('supabase.co/storage/v1/object/public/question-images/')) {
+                      const oldFileName = url.split('question-images/')[1];
+                      if (oldFileName) {
+                        try {
+                          await supabase.storage.from('question-images').remove([oldFileName]);
+                        } catch (err) {
+                          console.error("Error removing old image", err);
+                        }
+                      }
+                    }
+                  }
+
+                  // 2. Upload new image
                   const fileExt = file.name.split('.').pop();
                   const fileName = `about-${Date.now()}.${fileExt}`;
                   const { data, error } = await supabase.storage.from('question-images').upload(fileName, file);
 
                   if (!error) {
                     const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
-                    setAboutData({ ...aboutData, image_url: publicUrl });
-                    alert("Image uploaded!");
+                    const newAboutData = { ...aboutData, image_url: publicUrl };
+                    setAboutData(newAboutData);
+                    
+                    // 3. Auto-save the new image URL to the database immediately
+                    try {
+                      await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
+                      localStorage.setItem('m_about_us', JSON.stringify(newAboutData));
+                      onAboutUpdate?.(newAboutData);
+                      alert("Image uploaded and saved successfully!");
+                    } catch (err: any) {
+                      console.error("Failed to save to database", err);
+                      alert("Image uploaded but failed to save to database: " + err.message);
+                    }
                   } else {
                     alert("Error uploading image: " + error.message);
                   }
+                  
+                  // Reset input
+                  e.target.value = '';
                 }}
                 className={`block w-full text-sm ${textMuted} file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-sky-500/10 file:text-sky-500 hover:file:bg-sky-500/20`}
               />
