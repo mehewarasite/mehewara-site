@@ -23,7 +23,7 @@ import RichTextEditor from './RichTextEditor';
 import { appendHtml, fileToImgHtml, hasRealContent, optionHasContent } from '../utils/mediaUpload';
 import MathTextInput from './MathTextInput';
 import { useTheme } from '../ThemeContext';
-import { parseTxtToQuizData } from '../utils/parseTxt';
+import { parseTxtToQuizData, renderMathInHtml } from '../utils/parseTxt';
 import { supabase } from '../supabase';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
@@ -1119,11 +1119,11 @@ export default function AdminPanel({
                 {/* Text Format Upload */}
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Import Paper via Text Format (.txt)
+                    Import Paper via Text Format (.txt, .json)
                   </label>
                   <input
                     type="file"
-                    accept=".txt"
+                    accept=".txt,.json"
                     onChange={handleTxtPaperUpload}
                     className="block w-full text-sm text-gray-500
                       file:mr-4 file:py-2 file:px-4
@@ -1214,7 +1214,7 @@ export default function AdminPanel({
                             {/* Safely render the question HTML so you can see if the image works */}
                             <div
                               className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300"
-                              dangerouslySetInnerHTML={{ __html: q.question }}
+                              dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.question) }}
                             />
 
                             <div className="mt-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-1">
@@ -1496,7 +1496,7 @@ export default function AdminPanel({
                       <div className="mt-1.5 flex items-center gap-2">
                         <div
                           className={`p-1.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'} border rounded-lg overflow-hidden max-h-20`}
-                          dangerouslySetInnerHTML={{ __html: value }}
+                          dangerouslySetInnerHTML={{ __html: renderMathInHtml(value) }}
                         />
                         <button
                           type="button"
@@ -1643,7 +1643,7 @@ export default function AdminPanel({
                       <div key={q.id} className={`flex items-start justify-between p-4 rounded-xl border ${subtleBdr} ${subtleBg}`}>
                         <div className="flex-1 min-w-0 pr-4">
                           <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
-                          <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
+                          <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
                           <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
                             {q.optionsHtml.map((opt, oIdx) => (
                               <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
@@ -1778,7 +1778,7 @@ export default function AdminPanel({
                         ) : (
                           <div className="flex-1 min-w-0 pr-4">
                             <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
-                            <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: q.questionHtml }} />
+                            <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
                             <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
                               {q.optionsHtml.map((opt, oIdx) => (
                                 <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-blue-500 font-bold' : textMuted}`}>
@@ -1849,7 +1849,7 @@ export default function AdminPanel({
                       }
                       const newAboutData = { ...aboutData, image_url: '' };
                       setAboutData(newAboutData);
-                      
+
                       // Auto-save the deletion
                       try {
                         await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
@@ -1899,7 +1899,7 @@ export default function AdminPanel({
                     const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
                     const newAboutData = { ...aboutData, image_url: publicUrl };
                     setAboutData(newAboutData);
-                    
+
                     // 3. Auto-save the new image URL to the database immediately
                     try {
                       await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
@@ -1913,7 +1913,7 @@ export default function AdminPanel({
                   } else {
                     alert("Error uploading image: " + error.message);
                   }
-                  
+
                   // Reset input
                   e.target.value = '';
                 }}

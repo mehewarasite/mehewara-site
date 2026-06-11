@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Paper, Question, UserAttempt } from '../types';
 import { useTheme } from '../ThemeContext';
+import { renderMathInHtml } from '../utils/parseTxt';
 
 interface PracticeSessionProps {
   paper: Paper;
@@ -526,7 +527,7 @@ export default function PracticeSession({
 
                   {/* Question HTML Area */}
                   <div className={`${isDark ? 'bg-slate-900/35 border-slate-900' : 'bg-slate-50 border-slate-200'} border rounded-2xl p-5 text-[15px] leading-relaxed ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                    <div dangerouslySetInnerHTML={{ __html: rQ.questionHtml }} />
+                    <div dangerouslySetInnerHTML={{ __html: renderMathInHtml(rQ.questionHtml) }} />
                   </div>
 
                   {/* MCQ Options with detailed highlighting */}
@@ -568,7 +569,7 @@ export default function PracticeSession({
                           <span className={`w-6 h-6 rounded-lg text-[11px] font-bold font-mono flex items-center justify-center ${labelStyle}`}>
                             {String.fromCharCode(65 + optIdx)}
                           </span>
-                          <span className={textColor} dangerouslySetInnerHTML={{ __html: opt }} />
+                          <span className={textColor} dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
                           {badge}
                         </div>
                       );
@@ -584,7 +585,7 @@ export default function PracticeSession({
                       </div>
                       <div 
                         className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'} leading-relaxed font-sans`}
-                        dangerouslySetInnerHTML={{ __html: rQ.explanationHtml }}
+                        dangerouslySetInnerHTML={{ __html: renderMathInHtml(rQ.explanationHtml) }}
                       />
                     </div>
                   )}
@@ -790,7 +791,7 @@ export default function PracticeSession({
               </div>
 
               <div className={`relative z-10 text-[15px] sm:text-[16px] md:text-[17px] leading-relaxed ${isDark ? 'text-slate-100' : 'text-slate-800'} font-sans break-words`}>
-                <div dangerouslySetInnerHTML={{ __html: activeQuestion.questionHtml }} />
+                <div dangerouslySetInnerHTML={{ __html: renderMathInHtml(activeQuestion.questionHtml) }} />
               </div>
             </div>
 
@@ -841,7 +842,7 @@ export default function PracticeSession({
                     <span className={`w-9 h-9 sm:w-8 sm:h-8 shrink-0 rounded-lg font-mono text-sm font-bold flex items-center justify-center transition-all pointer-events-none ${badgeStyle}`}>
                       {String.fromCharCode(65 + optIdx)}
                     </span>
-                    <span className="text-[13px] md:text-[14px] leading-snug pointer-events-none" dangerouslySetInnerHTML={{ __html: option }} />
+                    <span className="text-[13px] md:text-[14px] leading-snug pointer-events-none" dangerouslySetInnerHTML={{ __html: renderMathInHtml(option) }} />
                   </button>
                 );
               })}
@@ -871,7 +872,7 @@ export default function PracticeSession({
                         <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>විවරණය (Explanation)</p>
                         <div 
                           className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
-                          dangerouslySetInnerHTML={{ __html: activeQuestion.explanationHtml }} 
+                          dangerouslySetInnerHTML={{ __html: renderMathInHtml(activeQuestion.explanationHtml) }}
                         />
                       </div>
                     )}

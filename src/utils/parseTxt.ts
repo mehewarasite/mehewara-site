@@ -1,3 +1,18 @@
+import katex from 'katex';
+
+export function renderMathInHtml(text: string): string {
+  if (!text) return text;
+  return text.replace(/\$(.*?)\$/g, (match, latex) => {
+    try {
+      const rendered = katex.renderToString(latex.trim(), { throwOnError: false, displayMode: false });
+      return `<span class="mhw-eq">${rendered}</span>`;
+    } catch (e) {
+      console.warn("KaTeX render error for:", latex);
+      return match;
+    }
+  });
+}
+
 export function parseTxtToQuizData(text: string): Array<{
   id: number;
   part?: number;
@@ -9,8 +24,33 @@ export function parseTxtToQuizData(text: string): Array<{
 }> {
   if (!text) return [];
 
+  // 1. Try parsing as JSON first (New JSON format support)
+  try {
+    const jsonObj = JSON.parse(text);
+    if (Array.isArray(jsonObj) && jsonObj.length > 0) {
+      // Map JSON to the expected QuizData format
+      return jsonObj.map((item, index) => ({
+        id: item.question_number ?? (index + 1),
+        part: item.part,
+        question: renderMathInHtml(item.question_text ?? item.question ?? '').replace(/\n/g, '<br/>'),
+        code: item.code,
+        options: (item.options ?? []).map((o: string) => renderMathInHtml(o)),
+        correctIndex: item.correct_option_index ?? 0,
+        explanation: renderMathInHtml(item.explanation ?? '').replace(/\n/g, '<br/>')
+      }));
+    }
+  } catch (e) {
+    // Not JSON, continue to parse as text
+  }
+
+  // 2. Pre-process the text to convert [EN], [/EN], [SIN], [/SIN] into separators
+  // This cleanly splits language blocks without merging them.
+  let preprocessed = text
+    .replace(/\[\/?EN\]/gi, '\n---\n')
+    .replace(/\[\/?SIN\]/gi, '\n---\n');
+
   // Split by '---' which acts as a question separator
-  const blocks = text.split(/^---$/m).map(b => b.trim()).filter(Boolean);
+  const blocks = preprocessed.split(/^---$/m).map(b => b.trim()).filter(Boolean);
   
   const parsed = [];
   let idCounter = 1;
@@ -28,7 +68,8 @@ export function parseTxtToQuizData(text: string): Array<{
 
     for (const line of lines) {
       const lower = line.toLowerCase();
-      // Parse Answer
+      
+      // Parse Answer (Explicit line e.g. "Answer: C")
       if (lower.startsWith('correct:') || lower.startsWith('answer:')) {
         const val = line.split(':')[1].trim().toUpperCase();
         const charCode = val.charCodeAt(0);
@@ -50,11 +91,26 @@ export function parseTxtToQuizData(text: string): Array<{
         continue;
       }
 
-      // Parse Options
-      if (/^([A-Ea-e]|\d+)[\)\.]\s+/.test(line)) {
+      // Parse Options with optional * indicator for correct answer
+      // Matches: "A) Option", "A: Option", "A. Option", "*B: Option", "1) Option"
+      const optMatch = line.match(/^(\*?)([A-Ea-e]|\d+)[\):\.]\s+(.*)/);
+      if (optMatch) {
         isParsingOptions = true;
-        const optText = line.replace(/^([A-Ea-e]|\d+)[\)\.]\s*/, '').trim();
+        isParsingExplanation = false;
+        const isCorrect = optMatch[1] === '*';
+        const optLetter = optMatch[2].toUpperCase();
+        const optText = optMatch[3].trim();
+        
         options.push(optText);
+        
+        if (isCorrect) {
+          const charCode = optLetter.charCodeAt(0);
+          if (charCode >= 65 && charCode <= 69) {
+            correctIndex = charCode - 65;
+          } else if (charCode >= 49 && charCode <= 53) {
+            correctIndex = charCode - 49;
+          }
+        }
         continue;
       }
 
@@ -62,17 +118,35 @@ export function parseTxtToQuizData(text: string): Array<{
       if (isParsingExplanation) {
         explanation += '\n' + line;
       } else if (!isParsingOptions) {
-        questionText += (questionText ? '\n' : '') + line;
+        let cleanedLine = line;
+        
+        // Strip Q1:, 1. from the first line of the question text to avoid duplication
+        if (!questionText) {
+          cleanedLine = cleanedLine.replace(/^(Q\d+[:\.]\s*|\d+[\)\.]\s+)/i, '');
+        }
+
+        // Handle Image Placeholders
+        // e.g. [IMAGE: A simple series...] -> <div class="image-placeholder...">...</div>
+        const imgMatch = cleanedLine.match(/\[IMAGE:\s*(.*?)\]/i);
+        if (imgMatch) {
+          const altText = imgMatch[1] || 'Image';
+          cleanedLine = cleanedLine.replace(
+            imgMatch[0],
+            `<div class="image-placeholder bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500 my-4 font-mono text-sm">Image Placeholder: ${altText}<br/><span class="text-xs">Upload image in Edit mode</span></div>`
+          );
+        }
+
+        questionText += (questionText ? '\n' : '') + cleanedLine;
       }
     }
 
     if (questionText && options.length > 0) {
       parsed.push({
         id: idCounter++,
-        question: questionText.replace(/\n/g, '<br/>'),
-        options,
+        question: renderMathInHtml(questionText).replace(/\n/g, '<br/>'),
+        options: options.map(o => renderMathInHtml(o)),
         correctIndex,
-        explanation: explanation ? explanation.replace(/\n/g, '<br/>') : undefined
+        explanation: explanation ? renderMathInHtml(explanation).replace(/\n/g, '<br/>') : undefined
       });
     }
   }
