@@ -243,7 +243,9 @@ export default function App() {
     }
   };
 
-
+  const handleUpdateQuestion = (updatedQuestion: Question) => {
+    setQuestions(prev => prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
+  };
 
   const handleDeleteQuestion = async (questionId: string) => {
     const questionToDelete = questions.find(q => q.id === questionId);
@@ -811,6 +813,7 @@ export default function App() {
             onAddPaper={handleAddPaper}
             onDeletePaper={handleDeletePaper}
             onAddQuestion={handleAddQuestion}
+            onUpdateQuestion={handleUpdateQuestion}
             onDeleteQuestion={handleDeleteQuestion}
             onUpdateStudyHtml={handleUpdateStudyHtml}
             onResetToDefaults={handleResetToDefaults}

@@ -161,6 +161,7 @@ interface AdminPanelProps {
   onAddPaper: (paper: Paper, importQuestions?: Question[]) => void;
   onDeletePaper: (paperId: string) => void;
   onAddQuestion: (question: Question) => void;
+  onUpdateQuestion: (question: Question) => void;
   onDeleteQuestion: (questionId: string) => void;
   onUpdateStudyHtml: (paperId: string, html: string) => void;
   onResetToDefaults: () => void;
@@ -179,6 +180,7 @@ export default function AdminPanel({
   onAddPaper,
   onDeletePaper,
   onAddQuestion,
+  onUpdateQuestion,
   onDeleteQuestion,
   onUpdateStudyHtml,
   onResetToDefaults,
@@ -685,9 +687,9 @@ export default function AdminPanel({
 
       alert("✅ Question updated successfully in the live database!");
 
-      // Because we lack a specific onUpdateQuestion prop, we force a reload 
-      // so the parent App.tsx re-fetches the live data from Supabase.
-      window.location.reload();
+      onUpdateQuestion(updatedQ);
+      setEditingLiveId(null);
+      setLiveEditData(null);
 
     } catch (error) {
       console.error("Error updating live question:", error);
