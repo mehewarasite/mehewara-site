@@ -28,6 +28,7 @@ import { Subject, Paper, Question, UserAttempt } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
 import BootLoader from './components/BootLoader';
 import { useTheme } from './ThemeContext';
+import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
@@ -48,6 +49,8 @@ const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
+  const { language, toggleLanguage } = useLanguage();
+  const isEn = language === 'en';
 
   const [hasBooted, setHasBooted] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -467,6 +470,16 @@ export default function App() {
               }
             </button>
 
+            {/* LANGUAGE TOGGLE BUTTON */}
+            <button
+              onClick={toggleLanguage}
+              aria-label="Toggle language"
+              className={`flex items-center justify-center min-h-[44px] min-w-[44px] px-3 py-2 ${surfaceBg} hover:bg-slate-100 dark:hover:bg-slate-800 ${surfaceBdr} border text-xs font-extrabold ${isEn ? 'text-sky-500' : 'text-emerald-500'} hover:opacity-80 rounded-xl transition-all shadow-sm cursor-pointer select-none`}
+              title="Change Language"
+            >
+              {isEn ? 'EN' : 'SI'}
+            </button>
+
             <button
               onClick={() => setShowAdminPanel(true)}
               aria-label="Admin panel"
@@ -517,13 +530,13 @@ export default function App() {
                       <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-emerald-400 transition-colors`}>
-                      සාමාන්‍ය පෙළ (O/L)
+                      {isEn ? 'Ordinary Level (O/L)' : 'සාමාන්‍ය පෙළ (O/L)'}
                     </h3>
                     <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
-                      සාමාන්‍ය පෙළ විද්‍යාව, ගණිතය ඇතුළු ප්‍රධාන විෂයන්හි බහුවරණ ප්‍රශ්න පත්‍ර මෙහිදී සිංහල මාධ්‍යයෙන් පුහුණුවන්න.
+                      {isEn ? 'Practice Ordinary Level MCQ past papers for Science, Mathematics, and other main subjects.' : 'සාමාන්‍ය පෙළ විද්‍යාව, ගණිතය ඇතුළු ප්‍රධාන විෂයන්හි බහුවරණ ප්‍රශ්න පත්‍ර මෙහිදී සිංහල මාධ්‍යයෙන් පුහුණුවන්න.'}
                     </p>
                     <div className={`mt-5 sm:mt-8 flex items-center gap-1.5 text-xs font-bold ${textFaint} group-hover:text-emerald-400 transition-all`}>
-                      <span>සක්‍රිය විෂයන් අධ්‍යයනය කරන්න</span>
+                      <span>{isEn ? 'Study active subjects' : 'සක්‍රිය විෂයන් අධ්‍යයනය කරන්න'}</span>
                       <ChevronRight className="w-4 h-4 shrink-0 transform group-hover:translate-x-1 transition-transform" />
                     </div>
                   </button>
@@ -540,13 +553,13 @@ export default function App() {
                       <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-sky-400 transition-colors`}>
-                      උසස් පෙළ (A/L)
+                      {isEn ? 'Advanced Level (A/L)' : 'උසස් පෙළ (A/L)'}
                     </h3>
                     <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
-                      භෞතික විද්‍යාව, රසායන විද්‍යාව සහ ජීව විද්‍යාව ඇතුළු උසස් පෙළ විද්‍යා/ගණිත/තාක්ෂණ විෂයන්හි MCQ පත්‍ර මෙහිදී විසඳන්න.
+                      {isEn ? 'Solve Advanced Level Science, Maths, and Tech MCQ past papers.' : 'භෞතික විද්‍යාව, රසායන විද්‍යාව සහ ජීව විද්‍යාව ඇතුළු උසස් පෙළ විද්‍යා/ගණිත/තාක්ෂණ විෂයන්හි MCQ පත්‍ර මෙහිදී විසඳන්න.'}
                     </p>
                     <div className={`mt-5 sm:mt-8 flex items-center gap-1.5 text-xs font-bold ${textFaint} group-hover:text-sky-400 transition-all`}>
-                      <span>සක්‍රිය විෂයන් අධ්‍යයනය කරන්න</span>
+                      <span>{isEn ? 'Study active subjects' : 'සක්‍රිය විෂයන් අධ්‍යයනය කරන්න'}</span>
                       <ChevronRight className="w-4 h-4 shrink-0 transform group-hover:translate-x-1 transition-transform" />
                     </div>
                   </button>
@@ -563,16 +576,16 @@ export default function App() {
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-                    <span className="sm:hidden">ආපසු</span>
-                    <span className="hidden sm:inline">ආපසු (Change exam level)</span>
+                    <span className="sm:hidden">{isEn ? 'Back' : 'ආපසු'}</span>
+                    <span className="hidden sm:inline">{isEn ? 'Back (Change exam level)' : 'ආපසු (Change exam level)'}</span>
                   </button>
                 </div>
 
                 <div className={`space-y-2 border-b ${dividerBdr} pb-3 sm:pb-4`}>
                   <span className="text-[10px] tracking-widest text-sky-400 font-mono font-bold uppercase">
-                    {selectedLevel === 'ol' ? 'Ordinary Level' : 'Advanced Level'} විෂයන්
+                    {selectedLevel === 'ol' ? 'Ordinary Level' : 'Advanced Level'} {isEn ? 'Subjects' : 'විෂයන්'}
                   </span>
-                  <h2 className={`text-xl sm:text-2xl md:text-3xl font-extrabold ${textPrimary} leading-snug`}>විෂයන් තෝරාගන්න (Select Subject)</h2>
+                  <h2 className={`text-xl sm:text-2xl md:text-3xl font-extrabold ${textPrimary} leading-snug`}>{isEn ? 'Select Subject' : 'විෂයන් තෝරාගන්න (Select Subject)'}</h2>
                 </div>
 
                 {(() => {
@@ -580,7 +593,7 @@ export default function App() {
                   if (filteredSubjects.length === 0) {
                     return (
                       <div className={`text-center py-12 ${textFaint} text-xs`}>
-                        මෙම මට්ටම යටතේ විෂයන් කිසිවක් සක්‍රිය නැත.
+                        {isEn ? 'No active subjects found for this level.' : 'මෙම මට්ටම යටතේ විෂයන් කිසිවක් සක්‍රිය නැත.'}
                       </div>
                     );
                   }
@@ -588,7 +601,7 @@ export default function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                       {filteredSubjects.map((sub) => {
                         const IconComponent = ICON_MAP[sub.icon] || BookOpen;
-                        const paperCount = papers.filter(p => p.subjectId === sub.id).length;
+                        const paperCount = papers.filter(p => p.subjectId === sub.id && (p.language || 'si') === language).length;
                         return (
                           <button
                             key={sub.id}
@@ -603,10 +616,10 @@ export default function App() {
                                 {sub.code}
                               </span>
                             </div>
-                            <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2">{sub.sinhalaName}</h3>
+                            <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2">{isEn ? sub.name : sub.sinhalaName}</h3>
                             <p className="text-xs text-white/70 font-mono mt-0.5 leading-normal">{sub.name}</p>
                             <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-white/80">
-                              <span>⏱️ ක්‍රියාකාරි MCQ පත්‍ර: <strong className="font-mono bg-white/10 px-1.5 py-0.5 rounded text-[10px]">{paperCount}</strong></span>
+                              <span>{isEn ? '⏱️ Active MCQ Papers: ' : '⏱️ ක්‍රියාකාරි MCQ පත්‍ර: '}<strong className="font-mono bg-white/10 px-1.5 py-0.5 rounded text-[10px]">{paperCount}</strong></span>
                               <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform text-white/50 group-hover:text-white" />
                             </div>
                           </button>
@@ -627,8 +640,8 @@ export default function App() {
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-                    <span className="sm:hidden">ආපසු</span>
-                    <span className="hidden sm:inline">ආපසු විෂයන් වෙත (Back to Subjects)</span>
+                    <span className="sm:hidden">{isEn ? 'Back' : 'ආපසු'}</span>
+                    <span className="hidden sm:inline">{isEn ? 'Back to Subjects' : 'ආපසු විෂයන් වෙත (Back to Subjects)'}</span>
                   </button>
                 </div>
 
@@ -637,29 +650,29 @@ export default function App() {
                     <span className="text-[10px] tracking-widest text-sky-400 font-mono font-bold uppercase">
                       {selectedLevel?.toUpperCase()} Exam &bull; {selectedSubject.name}
                     </span>
-                    <h2 className={`text-xl sm:text-2xl font-extrabold ${textPrimary} leading-snug`}>{selectedSubject.sinhalaName} පසුගිය ප්‍රශ්න පත්‍ර</h2>
+                    <h2 className={`text-xl sm:text-2xl font-extrabold ${textPrimary} leading-snug`}>{isEn ? `${selectedSubject.name} Past Papers` : `${selectedSubject.sinhalaName} පසුගිය ප්‍රශ්න පත්‍ර`}</h2>
                     <p className={`text-xs ${textMuted} leading-relaxed max-w-xl`}>
-                      විභාග කාල නියමයන්ට අනුකූලව පසුගිය විභාග බහුවරණ ප්‍රශ්න පත්‍ර (පැරණි සහ නව නිර්දේශ) මෙහිදී විසඳන්න.
+                      {isEn ? 'Solve past papers (old and new syllabus) matching actual exam timing.' : 'විභාග කාල නියමයන්ට අනුකූලව පසුගිය විභාග බහුවරණ ප්‍රශ්න පත්‍ර (පැරණි සහ නව නිර්දේශ) මෙහිදී විසඳන්න.'}
                     </p>
                   </div>
                   <div className={`flex items-center ${statBox} p-3 rounded-xl border self-start md:self-auto`}>
                     <BookMarked className="w-8 h-8 text-sky-400 opacity-80 mr-3" />
                     <div className="text-xs text-slate-350">
-                      <span className={textMuted}>සම්පූර්ණ ප්‍රශ්න පත්‍ර ගණන</span>
+                      <span className={textMuted}>{isEn ? 'Total Papers' : 'සම්පූර්ණ ප්‍රශ්න පත්‍ර ගණන'}</span>
                       <p className={`text-lg font-bold ${textPrimary} font-mono mt-0.5`}>
-                        {papers.filter(p => p.subjectId === selectedSubject.id).length} Active papers
+                        {papers.filter(p => p.subjectId === selectedSubject.id && (p.language || 'si') === language).length} Active papers
                       </p>
                     </div>
                   </div>
                 </div>
 
                 {(() => {
-                  const subjectPapers = papers.filter(p => p.subjectId === selectedSubject.id);
+                  const subjectPapers = papers.filter(p => p.subjectId === selectedSubject.id && (p.language || 'si') === language);
                   if (subjectPapers.length === 0) {
                     return (
                       <div className={`text-center py-12 ${isDark ? 'bg-slate-950/20' : 'bg-slate-50'} rounded-2xl border border-dashed ${cardBdr} ${textFaint} text-xs`}>
-                        මෙම විෂයට අදාළ ප්‍රශ්න පත්‍ර කිසිවක් දැනට සක්‍රිය නැත.
-                        <p className="mt-1 text-[10px]">කරුණාකර පාලක පැනලයෙන් නව ප්‍රශ්න පත්‍ර එක් කිරීමට සහාය වන්න.</p>
+                        {isEn ? 'No active papers found for this subject.' : 'මෙම විෂයට අදාළ ප්‍රශ්න පත්‍ර කිසිවක් දැනට සක්‍රිය නැත.'}
+                        <p className="mt-1 text-[10px]">{isEn ? 'Please add new papers via the Admin Panel.' : 'කරුණාකර පාලක පැනලයෙන් නව ප්‍රශ්න පත්‍ර එක් කිරීමට සහාය වන්න.'}</p>
                       </div>
                     );
                   }
@@ -698,7 +711,7 @@ export default function App() {
                                   className={`text-sm sm:text-base font-bold ${textPrimary} hover:text-sky-400 cursor-pointer transition-colors leading-snug flex-1 min-w-0`}
                                   onClick={() => setActivePracticePaper(paper)}
                                 >
-                                  {paper.sinhalaTitle}
+                                  {isEn ? paper.title : paper.sinhalaTitle}
                                 </h3>
                                 <span className={`text-xs ${isDark ? 'bg-slate-900' : 'bg-slate-100'} text-sky-400 px-2 py-0.5 rounded-md font-mono font-bold`}>
                                   {paper.year}
@@ -707,11 +720,11 @@ export default function App() {
                               <div className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs ${textMuted}`}>
                                 <span className="flex items-center gap-1">
                                   <Clock className={`w-3.5 h-3.5 ${textFaint}`} />
-                                  විනාඩි {paper.durationMinutes}
+                                  {paper.durationMinutes} {isEn ? 'Mins' : 'විනාඩි'}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Layers className={`w-3.5 h-3.5 ${textFaint}`} />
-                                  ප්‍රශ්න {paperQuestions.length} ක් අඩංගුයි
+                                  {isEn ? `${paperQuestions.length} Questions` : `ප්‍රශ්න ${paperQuestions.length} ක් අඩංගුයි`}
                                 </span>
                                 {scoreBadge}
                               </div>
@@ -724,13 +737,13 @@ export default function App() {
                                 >
                                   {previousAttempt.isCompleted ? (
                                     <>
-                                      <span className="sm:hidden">සමාලෝචනය</span>
-                                      <span className="hidden sm:inline">පිළිතුරු සමාලෝචනය (Review Answers)</span>
+                                      <span className="sm:hidden">{isEn ? 'Review' : 'සමාලෝචනය'}</span>
+                                      <span className="hidden sm:inline">{isEn ? 'Review Answers' : 'පිළිතුරු සමාලෝචනය (Review Answers)'}</span>
                                     </>
                                   ) : (
                                     <>
-                                      <span className="sm:hidden">ඉදිරියට ගෙනයන්න →</span>
-                                      <span className="hidden sm:inline">වැඩ කටයුතු ඉදිරියට ගෙනයන්න →</span>
+                                      <span className="sm:hidden">{isEn ? 'Continue →' : 'ඉදිරියට ගෙනයන්න →'}</span>
+                                      <span className="hidden sm:inline">{isEn ? 'Continue Working →' : 'වැඩ කටයුතු ඉදිරියට ගෙනයන්න →'}</span>
                                     </>
                                   )}
                                 </button>
@@ -741,7 +754,7 @@ export default function App() {
                                 onClick={() => setActivePracticePaper(paper)}
                                 className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 sm:py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold font-sans tracking-wide transition-all cursor-pointer active:scale-[0.98]"
                               >
-                                {previousAttempt ? 'නැවත අරඹන්න' : 'පිළිතුරු ලියන්න (Practice)'}
+                                {previousAttempt ? (isEn ? 'Restart' : 'නැවත අරඹන්න') : (isEn ? 'Practice' : 'පිළිතුරු ලියන්න (Practice)')}
                               </button>
                             </div>
                           </div>

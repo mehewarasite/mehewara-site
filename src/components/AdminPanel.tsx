@@ -228,6 +228,7 @@ export default function AdminPanel({
   const [selectedSubjectId, setSelectedSubjectId] = useState(subjects[0]?.id || '');
   const [newPaperTitle, setNewPaperTitle] = useState('');
   const [newPaperSinhalaTitle, setNewPaperSinhalaTitle] = useState('');
+  const [newPaperLanguage, setNewPaperLanguage] = useState<'si' | 'en'>('si');
   const [newPaperYear, setNewPaperYear] = useState<number>(2026);
   const [newPaperDuration, setNewPaperDuration] = useState<number>(120);
   const [studyMaterialHtml, setStudyMaterialHtml] = useState<string>('');
@@ -434,6 +435,7 @@ export default function AdminPanel({
       durationMinutes: newPaperDuration,
       questionCount: 0,
       studyMaterialHtml: studyMaterialHtml || undefined,
+      language: newPaperLanguage,
     };
 
     // Build imported questions first so we can pass them atomically with the paper
@@ -462,6 +464,7 @@ export default function AdminPanel({
 
     setNewPaperTitle('');
     setNewPaperSinhalaTitle('');
+    setNewPaperLanguage('si');
     setStudyMaterialHtml('');
     setStudyFileName('');
     setParsedQuestions([]);
@@ -1038,6 +1041,18 @@ export default function AdminPanel({
                   />
                 </div>
 
+                <div>
+                  <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>භාෂාව (Language)</label>
+                  <select
+                    value={newPaperLanguage}
+                    onChange={(e) => setNewPaperLanguage(e.target.value as 'si' | 'en')}
+                    className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
+                  >
+                    <option value="si">Sinhala (සිංහල)</option>
+                    <option value="en">English (English)</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>වසර (Year)</label>
@@ -1270,6 +1285,9 @@ export default function AdminPanel({
                             </span>
                             <span className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold">
                               {sub?.name || 'Subject'}
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-semibold ${p.language === 'en' ? 'bg-indigo-500/15 text-indigo-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
+                              {p.language === 'en' ? 'EN' : 'SI'}
                             </span>
                           </div>
                           <p className={`text-sm font-semibold ${textPrimary}`}>{p.sinhalaTitle}</p>

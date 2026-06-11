@@ -20,6 +20,7 @@ export interface Paper {
   durationMinutes: number;
   questionCount: number;
   studyMaterialHtml?: string; // Themed HTML content uploaded by admin
+  language?: 'si' | 'en';     // Paper language
 }
 
 export interface Question {
