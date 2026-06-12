@@ -634,7 +634,7 @@ export default function PracticeSession({
         <div className="max-w-6xl mx-auto px-3 sm:px-4 flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
           
           {/* Question map — shown first on mobile for quick navigation */}
-          <div className="lg:col-span-4 order-1 lg:order-2 space-y-4 sm:space-y-6">
+          <div className="lg:col-span-4 order-2 space-y-4 sm:space-y-6">
             
             {/* Mode Toggle & Live Scoreboard */}
             <div className={`${cardBg} border ${cardBdr} rounded-2xl sm:rounded-3xl p-4 sm:p-6 ${isDark ? 'shadow-lg' : 'shadow-md'} space-y-4`}>
@@ -754,7 +754,7 @@ export default function PracticeSession({
           </div>
 
           {/* Main Question Panel (Col-8) */}
-          <div className="lg:col-span-8 order-2 lg:order-1 space-y-4 sm:space-y-6">
+          <div className="lg:col-span-8 order-1 space-y-4 sm:space-y-6">
             
             {/* Nav metadata */}
             <div className="flex items-center justify-between">

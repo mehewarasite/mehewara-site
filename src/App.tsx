@@ -31,6 +31,7 @@ import BootLoader from './components/BootLoader';
 import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
+import DotMatrixBackground from './components/DotMatrixBackground';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
@@ -425,6 +426,9 @@ export default function App() {
       
       {/* GLOWING HEADER ACCENT */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[800px] h-32 bg-sky-500/5 blur-3xl rounded-full pointer-events-none" />
+
+      {/* DOT MATRIX BACKGROUND FOR HOME SCREEN */}
+      {selectedLevel === null && <DotMatrixBackground />}
 
       {/* GLOBAL SITE TOP HEAD BAR */}
       <header
