@@ -1296,7 +1296,7 @@ export default function AdminPanel({
                             </div>
                             {q.explanation && (
                               <div className="mt-3 p-3 bg-blue-50 dark:bg-sky-900/20 rounded-md text-xs">
-                                <strong>Explanation:</strong> {q.explanation}
+                                <strong>Explanation:</strong> <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.explanation) }} />
                               </div>
                             )}
                           </div>
