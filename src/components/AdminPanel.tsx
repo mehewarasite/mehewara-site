@@ -1288,9 +1288,10 @@ export default function AdminPanel({
 
                             <div className="mt-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-1">
                               {q.options.map((opt, oIdx) => (
-                                <p key={oIdx} className={`text-sm ${q.correctIndex === oIdx ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-600 dark:text-gray-400"}`}>
-                                  {String.fromCharCode(65 + oIdx)}. {opt}
-                                </p>
+                                <div key={oIdx} className={`text-sm flex gap-1 items-start ${q.correctIndex === oIdx ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-600 dark:text-gray-400"}`}>
+                                  <span>{String.fromCharCode(65 + oIdx)}.</span>
+                                  <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
+                                </div>
                               ))}
                             </div>
                             {q.explanation && (
@@ -1716,11 +1717,12 @@ export default function AdminPanel({
                         <div className="flex-1 min-w-0 pr-4">
                           <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
                           <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
-                          <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
+                          <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700 space-y-1">
                             {q.optionsHtml.map((opt, oIdx) => (
-                              <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
-                                {String.fromCharCode(65 + oIdx)}. {opt}
-                              </p>
+                              <div key={oIdx} className={`text-xs flex gap-1 items-start ${q.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
+                                <span>{String.fromCharCode(65 + oIdx)}.</span>
+                                <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -1901,11 +1903,12 @@ export default function AdminPanel({
                           <div className="flex-1 min-w-0 pr-4">
                             <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
                             <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
-                            <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700">
+                            <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700 space-y-1">
                               {q.optionsHtml.map((opt, oIdx) => (
-                                <p key={oIdx} className={`text-xs ${q.correctOption === oIdx ? 'text-blue-500 font-bold' : textMuted}`}>
-                                  {String.fromCharCode(65 + oIdx)}. {opt}
-                                </p>
+                                <div key={oIdx} className={`text-xs flex gap-1 items-start ${q.correctOption === oIdx ? 'text-blue-500 font-bold' : textMuted}`}>
+                                  <span>{String.fromCharCode(65 + oIdx)}.</span>
+                                  <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
+                                </div>
                               ))}
                             </div>
                           </div>

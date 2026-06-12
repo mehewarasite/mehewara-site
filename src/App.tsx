@@ -474,14 +474,16 @@ export default function App() {
             </button>
 
             {/* LANGUAGE TOGGLE BUTTON */}
-            <button
-              onClick={toggleLanguage}
-              aria-label="Toggle language"
-              className={`flex items-center justify-center min-h-[44px] min-w-[44px] px-3 py-2 ${surfaceBg} hover:bg-slate-100 dark:hover:bg-slate-800 ${surfaceBdr} border text-xs font-extrabold ${isEn ? 'text-sky-500' : 'text-emerald-500'} hover:opacity-80 rounded-xl transition-all shadow-sm cursor-pointer select-none`}
-              title="Change Language"
-            >
-              {isEn ? 'EN' : 'SI'}
-            </button>
+            {selectedLevel === null && (
+              <button
+                onClick={toggleLanguage}
+                aria-label="Toggle language"
+                className={`flex items-center justify-center min-h-[44px] min-w-[44px] px-3 py-2 ${surfaceBg} hover:bg-slate-100 dark:hover:bg-slate-800 ${surfaceBdr} border text-xs font-extrabold ${isEn ? 'text-sky-500' : 'text-emerald-500'} hover:opacity-80 rounded-xl transition-all shadow-sm cursor-pointer select-none`}
+                title="Change Language"
+              >
+                {isEn ? 'EN' : 'SI'}
+              </button>
+            )}
 
             <button
               onClick={() => setShowAdminPanel(true)}
