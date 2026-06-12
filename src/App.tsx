@@ -539,7 +539,7 @@ export default function App() {
                       <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-emerald-400 transition-colors`}>
-                      {isEn ? 'Ordinary Level (O/L)' : 'සාමාන්‍ය පෙළ (O/L)'}
+                      {isEn ? 'Ordinary Level (O/L)' : 'සාමාන්‍ය පෙළ'}
                     </h3>
                     <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
                       {isEn ? 'Practice Ordinary Level MCQ past papers for Science, Mathematics, and other main subjects.' : 'සාමාන්‍ය පෙළ විද්‍යාව, ගණිතය ඇතුළු ප්‍රධාන විෂයන්හි බහුවරණ ප්‍රශ්න පත්‍ර මෙහිදී සිංහල මාධ්‍යයෙන් පුහුණුවන්න.'}
@@ -562,7 +562,7 @@ export default function App() {
                       <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-sky-400 transition-colors`}>
-                      {isEn ? 'Advanced Level (A/L)' : 'උසස් පෙළ (A/L)'}
+                      {isEn ? 'Advanced Level (A/L)' : 'උසස් පෙළ'}
                     </h3>
                     <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
                       {isEn ? 'Solve Advanced Level Science, Maths, and Tech MCQ past papers.' : 'භෞතික විද්‍යාව, රසායන විද්‍යාව සහ ජීව විද්‍යාව ඇතුළු උසස් පෙළ විද්‍යා/ගණිත/තාක්ෂණ විෂයන්හි MCQ පත්‍ර මෙහිදී විසඳන්න.'}
@@ -586,7 +586,7 @@ export default function App() {
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
                     <span className="sm:hidden">{isEn ? 'Back' : 'ආපසු'}</span>
-                    <span className="hidden sm:inline">{isEn ? 'Back (Change exam level)' : 'ආපසු (Change exam level)'}</span>
+                    <span className="hidden sm:inline">{isEn ? 'Back (Change exam level)' : 'ආපසු'}</span>
                   </button>
                 </div>
 
@@ -594,7 +594,7 @@ export default function App() {
                   <span className="text-[10px] tracking-widest text-sky-400 font-mono font-bold uppercase">
                     {selectedLevel === 'ol' ? 'Ordinary Level' : 'Advanced Level'} {isEn ? 'Subjects' : 'විෂයන්'}
                   </span>
-                  <h2 className={`text-xl sm:text-2xl md:text-3xl font-extrabold ${textPrimary} leading-snug`}>{isEn ? 'Select Subject' : 'විෂයන් තෝරාගන්න (Select Subject)'}</h2>
+                  <h2 className={`text-xl sm:text-2xl md:text-3xl font-extrabold ${textPrimary} leading-snug`}>{isEn ? 'Select Subject' : 'විෂයන් තෝරාගන්න'}</h2>
                 </div>
 
                 {(() => {
@@ -650,7 +650,7 @@ export default function App() {
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
                     <span className="sm:hidden">{isEn ? 'Back' : 'ආපසු'}</span>
-                    <span className="hidden sm:inline">{isEn ? 'Back to Subjects' : 'ආපසු විෂයන් වෙත (Back to Subjects)'}</span>
+                    <span className="hidden sm:inline">{isEn ? 'Back to Subjects' : 'ආපසු විෂයන් වෙත'}</span>
                   </button>
                 </div>
 
@@ -747,7 +747,7 @@ export default function App() {
                                   {previousAttempt.isCompleted ? (
                                     <>
                                       <span className="sm:hidden">{isEn ? 'Review' : 'සමාලෝචනය'}</span>
-                                      <span className="hidden sm:inline">{isEn ? 'Review Answers' : 'පිළිතුරු සමාලෝචනය (Review Answers)'}</span>
+                                      <span className="hidden sm:inline">{isEn ? 'Review Answers' : 'පිළිතුරු සමාලෝචනය'}</span>
                                     </>
                                   ) : (
                                     <>
@@ -763,7 +763,7 @@ export default function App() {
                                 onClick={() => setActivePracticePaper(paper)}
                                 className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 sm:py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold font-sans tracking-wide transition-all cursor-pointer active:scale-[0.98]"
                               >
-                                {previousAttempt ? (isEn ? 'Restart' : 'නැවත අරඹන්න') : (isEn ? 'Practice' : 'පිළිතුරු ලියන්න (Practice)')}
+                                {previousAttempt ? (isEn ? 'Restart' : 'නැවත අරඹන්න') : (isEn ? 'Practice' : 'පිළිතුරු ලියන්න')}
                               </button>
                             </div>
                           </div>

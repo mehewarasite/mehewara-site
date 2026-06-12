@@ -71,7 +71,7 @@ export default function PracticeSession({
   const handleCheckAnswer = (questionId: string, correctOptionIndex: number) => {
     const selectedOptionIndex = answers[questionId];
     if (selectedOptionIndex === undefined) {
-      alert(isEn ? "Please select an answer first!" : "කරුණාකර පිළිතුරක් තෝරන්න! (Please select an answer first!)");
+      alert(isEn ? "Please select an answer first!" : "කරුණාකර පිළිතුරක් තෝරන්න!");
       return;
     }
     
@@ -185,7 +185,7 @@ export default function PracticeSession({
 
   // Reset / Retry
   const handleRetry = () => {
-    if (confirm(isEn ? 'Are you sure you want to retry this paper? All answers will be cleared.' : 'ඔබට මෙම ප්‍රශ්න පත්‍රය නැවත කිරීමට අවශ්‍යද? සියලුම පිළිතුරු මකා දැමෙනු ඇත. (Are you sure you want to retry this paper?)')) {
+    if (confirm(isEn ? 'Are you sure you want to retry this paper? All answers will be cleared.' : 'ඔබට මෙම ප්‍රශ්න පත්‍රය නැවත කිරීමට අවශ්‍යද? සියලුම පිළිතුරු මකා දැමෙනු ඇත.')) {
       setAnswers({});
       setFlaggedQuestions({});
       setTimeLeft(paper.durationMinutes * 60);
@@ -217,17 +217,17 @@ export default function PracticeSession({
     let performanceColor = '';
 
     if (percentage >= 75) {
-      performanceMessage = isEn ? 'Excellent! You are doing great.' : 'විශිෂ්ටයි! ඔබ විශිෂ්ට මට්ටමක පසුවේ. (Excellent representation!)';
+      performanceMessage = isEn ? 'Excellent! You are doing great.' : 'විශිෂ්ටයි! ඔබ විශිෂ්ට මට්ටමක පසුවේ.';
       performanceColor = isDark
         ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
         : 'text-emerald-700 bg-emerald-50 border-emerald-200';
     } else if (percentage >= 50) {
-      performanceMessage = isEn ? 'Very good effort! Keep practicing.' : 'ඉතා හොඳයි. තව උත්සාහය වැඩි කරන්න. (Very good effort!)';
+      performanceMessage = isEn ? 'Very good effort! Keep practicing.' : 'ඉතා හොඳයි. තව උත්සාහය වැඩි කරන්න.';
       performanceColor = isDark
         ? 'text-sky-400 bg-sky-500/10 border-sky-500/20'
         : 'text-sky-700 bg-sky-50 border-sky-200';
     } else {
-      performanceMessage = isEn ? 'Keep practicing! You can do better.' : 'වැඩිපුර පුහුණු වන්න. ඔබට මීට වඩා දක්ෂ විය හැක. (Keep practicing!)';
+      performanceMessage = isEn ? 'Keep practicing! You can do better.' : 'වැඩිපුර පුහුණු වන්න. ඔබට මීට වඩා දක්ෂ විය හැක.';
       performanceColor = isDark
         ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
         : 'text-amber-700 bg-amber-50 border-amber-200';
@@ -270,7 +270,7 @@ export default function PracticeSession({
           onClick={onClose}
           className={`px-6 py-2.5 ${subtleBg} hover:opacity-80 border ${subtleBdr} rounded-xl text-xs font-bold ${textMuted} transition-all cursor-pointer`}
         >
-          {isEn ? 'Back to Papers' : 'ආපසු යන්න (Back to Papers)'}
+          {isEn ? 'Back to Papers' : 'ආපසු යන්න'}
         </button>
       </div>
     );
@@ -337,7 +337,7 @@ export default function PracticeSession({
                 className="shrink-0 min-h-[44px] px-3 sm:px-5 py-2.5 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-450 hover:to-sky-500 text-white rounded-xl text-[11px] sm:text-xs font-bold font-sans sm:tracking-widest shadow-[0_0_15px_rgba(56,189,248,0.2)] hover:shadow-[0_0_20px_rgba(56,189,248,0.35)] transition-all cursor-pointer active:scale-[0.98]"
               >
                 <span className="sm:hidden">{isEn ? 'Submit' : 'ඉදිරිපත් කරන්න'}</span>
-                <span className="hidden sm:inline">{isEn ? 'Submit Paper' : 'ප්‍රකාශ කරන්න (Submit Paper)'}</span>
+                <span className="hidden sm:inline">{isEn ? 'Submit Paper' : 'ප්‍රකාශ කරන්න'}</span>
               </button>
             ) : (
                 <button
@@ -345,7 +345,7 @@ export default function PracticeSession({
                   className={`flex items-center gap-1.5 min-h-[44px] px-3 py-2 ${subtleBg} ${isDark ? 'hover:bg-slate-850' : 'hover:bg-slate-200'} border ${subtleBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'} rounded-xl text-xs font-semibold cursor-pointer transition-colors`}
                 >
                   <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">{isEn ? 'Retry Test' : 'නැවත කරන්න (Retry Test)'}</span>
+                  <span className="hidden sm:inline">{isEn ? 'Retry Test' : 'නැවත කරන්න'}</span>
                   <span className="sm:hidden">{isEn ? 'Retry' : 'නැවත'}</span>
                 </button>
             )}
@@ -368,7 +368,7 @@ export default function PracticeSession({
 
             {/* Score circle (Col 5) */}
             <div className={`md:col-span-5 flex flex-col items-center justify-center text-center p-4 border-b md:border-b-0 md:border-r ${dividerBdr}`}>
-              <span className={`text-[10px] uppercase tracking-[0.25em] ${textMuted} font-mono font-bold mb-3`}>{isEn ? 'YOUR SCORE' : 'ඔබේ ලකුණු (YOUR SCORE)'}</span>
+              <span className={`text-[10px] uppercase tracking-[0.25em] ${textMuted} font-mono font-bold mb-3`}>{isEn ? 'YOUR SCORE' : 'ඔබේ ලකුණු'}</span>
               
               <div className={`relative w-36 h-36 flex items-center justify-center rounded-full border-4 ${isDark ? 'border-slate-900 bg-slate-950' : 'border-slate-200 bg-slate-50'}`}>
                 
@@ -407,7 +407,7 @@ export default function PracticeSession({
             {/* Statistics details (Col 7) */}
             <div className="md:col-span-7 flex flex-col justify-center space-y-6 p-2 md:pl-6">
               <div>
-                <span className="text-[10px] tracking-wider text-cyan-400 font-mono uppercase font-bold">{isEn ? 'Stats Breakdown' : 'දත්ත සාරාංශය (Stats breakdown)'}</span>
+                <span className="text-[10px] tracking-wider text-cyan-400 font-mono uppercase font-bold">{isEn ? 'Stats Breakdown' : 'දත්ත සාරාංශය'}</span>
                 <h3 className={`text-xl font-extrabold ${textPrimary} mt-1`}>{isEn ? 'Performance Report' : 'විෂය ප්‍රශස්තකරණ වාර්තාව'}</h3>
               </div>
 
@@ -519,11 +519,11 @@ export default function PracticeSession({
                       </span>
                     ) : isCorrectAtReview ? (
                       <span className="text-[11px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-md font-semibold flex items-center gap-1">
-                        {isEn ? '✓ Correct Answer' : '✓ පිළිතුර නිවැරදියි (Correct)'}
+                        {isEn ? '✓ Correct Answer' : '✓ පිළිතුර නිවැරදියි'}
                       </span>
                     ) : (
                       <span className="text-[11px] bg-red-500/15 text-red-405 border border-red-500/25 px-2 py-0.5 rounded-md font-semibold flex items-center gap-1">
-                        {isEn ? '✗ Incorrect Answer' : '✗ පිළිතුර වැරදියි (Incorrect)'}
+                        {isEn ? '✗ Incorrect Answer' : '✗ පිළිතුර වැරදියි'}
                       </span>
                     )}
                   </div>
@@ -584,7 +584,7 @@ export default function PracticeSession({
                     <div className={`p-5 ${isDark ? 'bg-sky-500/5 border-sky-500/10' : 'bg-sky-50 border-sky-200'} border rounded-2xl space-y-2`}>
                       <div className="flex items-center gap-1.5 text-cyan-400 mb-2">
                         <Bookmark className="w-4 h-4 text-cyan-400" />
-                        <h4 className="text-xs font-bold tracking-wider font-sans uppercase">{isEn ? 'Explanation & Steps' : 'ප්‍රශ්නයේ සත්‍ය විස්තරය සහ විවරණය (Explaining Steps)'}</h4>
+                        <h4 className="text-xs font-bold tracking-wider font-sans uppercase">{isEn ? 'Explanation & Steps' : 'ප්‍රශ්නයේ සත්‍ය විස්තරය සහ විවරණය'}</h4>
                       </div>
                       <div 
                         className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'} leading-relaxed font-sans`}
@@ -605,7 +605,7 @@ export default function PracticeSession({
               className="w-full sm:w-auto min-h-[48px] px-6 sm:px-8 py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-450 hover:to-indigo-500 text-white rounded-xl text-xs font-bold tracking-wide sm:tracking-widest uppercase cursor-pointer active:scale-[0.98]"
             >
               <span className="sm:hidden">{isEn ? 'Exit' : 'ප්‍රධාන පිටුවට'}</span>
-              <span className="hidden sm:inline">{isEn ? 'Exit review & Back to Subjects' : 'ප්‍රධාන පිටුවට (Exit review & Back to Subjects)'}</span>
+              <span className="hidden sm:inline">{isEn ? 'Exit review & Back to Subjects' : 'ප්‍රධාන පිටුවට'}</span>
             </button>
           </div>
 
@@ -726,28 +726,28 @@ export default function PracticeSession({
                 {examMode === 'practice' && (
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-dashed border-slate-700/50">
                     <span className="w-2.5 h-2.5 bg-emerald-500/20 border border-emerald-500/50 rounded-md" />
-                    <span>{isEn ? 'Correct' : 'නිවැරදියි (Correct)'}</span>
+                    <span>{isEn ? 'Correct' : 'නිවැරදියි'}</span>
                     <span className="w-2.5 h-2.5 bg-red-500/20 border border-red-500/50 rounded-md ml-2" />
-                    <span>{isEn ? 'Incorrect' : 'වැරදියි (Incorrect)'}</span>
+                    <span>{isEn ? 'Incorrect' : 'වැරදියි'}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 bg-sky-500/10 border border-sky-500/20 rounded-md" />
-                  <span>{isEn ? 'Answered' : 'පිළිතුරු සපයන ලද (Answered)'}</span>
+                  <span>{isEn ? 'Answered' : 'පිළිතුරු සපයන ලද'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 bg-amber-500/5 border border-amber-500/40 rounded-md animate-pulse" />
-                  <span>{isEn ? 'Flagged for Review' : 'සමාලෝචනයට වෙන්කළ (Flagged for Review)'}</span>
+                  <span>{isEn ? 'Flagged for Review' : 'සමාලෝචනයට වෙන්කළ'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'} rounded-md`} />
-                  <span>{isEn ? 'Unanswered' : 'පිළිතුරු නොදුන් (Unanswered)'}</span>
+                  <span>{isEn ? 'Unanswered' : 'පිළිතුරු නොදුන්'}</span>
                 </div>
               </div>
             </div>
 
             <div className={`hidden lg:block ${ghostBg} border ${ghostBdr} rounded-3xl p-5 text-xs ${textMuted} space-y-2 leading-relaxed`}>
-              <span className={`font-extrabold ${isDark ? 'text-slate-350' : 'text-slate-600'} text-xs block mb-1`}>💡 {isEn ? 'Exam Tips' : 'විභාග උපදෙස් (Exam tips)'}</span>
+              <span className={`font-extrabold ${isDark ? 'text-slate-350' : 'text-slate-600'} text-xs block mb-1`}>💡 {isEn ? 'Exam Tips' : 'විභාග උපදෙස්'}</span>
               <p>{isEn ? 'In O/L and A/L MCQ exams, the average reasonable time per question is around 2-3 minutes.' : 'උසස් පෙළ සහ සාමාන්‍ය පෙළ MCQ විභාගවලදී එක් ප්‍රශ්නයක් සඳහා සාමාන්‍යයෙන් සාධාරණ කාලය මිනිත්තු 2-3ක් පමණ වේ.'}</p>
             </div>
 
@@ -868,11 +868,11 @@ export default function PracticeSession({
                   <div className={`p-5 rounded-2xl border ${verifiedAnswers[qId] ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
                     <h4 className={`font-bold mb-3 flex items-center gap-2 ${verifiedAnswers[qId] ? 'text-emerald-500' : 'text-red-500'}`}>
                       {verifiedAnswers[qId] ? <CircleCheck className="w-5 h-5" /> : <CircleX className="w-5 h-5" />}
-                      {verifiedAnswers[qId] ? (isEn ? 'Correct!' : 'නිවැරදියි! (Correct!)') : (isEn ? 'Incorrect.' : 'වැරදියි! (Incorrect.)')}
+                      {verifiedAnswers[qId] ? (isEn ? 'Correct!' : 'නිවැරදියි!') : (isEn ? 'Incorrect.' : 'වැරදියි!')}
                     </h4>
                     {activeQuestion.explanationHtml && (
                       <div className={`mt-3 pt-4 border-t ${verifiedAnswers[qId] ? 'border-emerald-500/20' : 'border-red-500/20'}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{isEn ? 'Explanation' : 'විවරණය (Explanation)'}</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{isEn ? 'Explanation' : 'විවරණය'}</p>
                         <div 
                           className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
                           dangerouslySetInnerHTML={{ __html: renderMathInHtml(activeQuestion.explanationHtml) }}
@@ -892,7 +892,7 @@ export default function PracticeSession({
                 disabled={answers[activeQuestion.id || activeQuestion.qNumber.toString()] === undefined}
                 className={`min-h-[44px] px-3.5 py-2 ${subtleBg} ${isDark ? 'hover:bg-slate-850' : 'hover:bg-slate-200'} border ${subtleBdr} disabled:opacity-30 disabled:pointer-events-none ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'} rounded-lg text-xs font-semibold tracking-wider transition-colors cursor-pointer`}
               >
-                {isEn ? 'Clear' : 'පිළිතුර මකන්න (Clear)'}
+                {isEn ? 'Clear' : 'පිළිතුර මකන්න'}
               </button>
 
               <div className="grid grid-cols-2 gap-2.5">
@@ -903,7 +903,7 @@ export default function PracticeSession({
                   className={`min-h-[44px] px-4 py-2 ${surfaceBg} ${isDark ? 'hover:bg-slate-900 border-slate-900' : 'hover:bg-slate-100 border-slate-200'} border disabled:opacity-20 disabled:pointer-events-none ${isDark ? 'text-slate-300' : 'text-slate-600'} rounded-xl text-xs font-bold font-sans flex items-center justify-center gap-1 cursor-pointer`}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  {isEn ? 'Prev' : 'පෙර (Prev)'}
+                  {isEn ? 'Prev' : 'පෙර'}
                 </button>
                 <button
                   type="button"
@@ -911,7 +911,7 @@ export default function PracticeSession({
                   disabled={currentQIndex === totalQuestions - 1}
                   className={`min-h-[44px] px-4 py-2 ${surfaceBg} ${isDark ? 'hover:bg-slate-900 border-slate-900' : 'hover:bg-slate-100 border-slate-200'} border disabled:opacity-20 disabled:pointer-events-none ${isDark ? 'text-slate-300' : 'text-slate-600'} rounded-xl text-xs font-bold font-sans flex items-center justify-center gap-1 cursor-pointer`}
                 >
-                  {isEn ? 'Next' : 'ඊළඟ (Next)'}
+                  {isEn ? 'Next' : 'ඊළඟ'}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>

@@ -1398,7 +1398,7 @@ export default function AdminPanel({
 
                           <button
                             onClick={() => {
-                              if (confirm(`කරුණාකර තහවුරු කරන්න: ඔබ "${p.sinhalaTitle}" ප්‍රශ්න පත්‍රය සහ එහි ඇති සියලුම ප්‍රශ්න මකාදැමීමට සූදානම්ද? (Are you sure you want to delete this paper and all its questions?)`)) {
+                              if (confirm(`කරුණාකර තහවුරු කරන්න: ඔබ "${p.sinhalaTitle}" ප්‍රශ්න පත්‍රය සහ එහි ඇති සියලුම ප්‍රශ්න මකාදැමීමට සූදානම්ද?`)) {
                                 onDeletePaper(p.id);
                               }
                             }}
@@ -1605,7 +1605,7 @@ export default function AdminPanel({
                 <RichTextEditor
                   value={explanationHtml}
                   onChange={setExplanationHtml}
-                  placeholder="විවරණය මෙහි ටයිප් කරන්න… (optional)"
+                  placeholder="විවරණය මෙහි ටයිප් කරන්න…"
                   minHeight="80px"
                 />
               </div>
