@@ -29,15 +29,7 @@ export const INITIAL_SUBJECTS: Subject[] = [
     icon: 'Dna',
     color: 'from-emerald-650 to-teal-700 bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
   },
-  {
-    id: 'al-combined-maths',
-    name: 'Combined Mathematics',
-    sinhalaName: 'සංයුක්ත ගණිතය',
-    examType: 'al',
-    code: 'CMaths',
-    icon: 'Calculator',
-    color: 'from-rose-650 to-red-700 bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.05)]'
-  },
+
   {
     id: 'al-ict',
     name: 'ICT',
