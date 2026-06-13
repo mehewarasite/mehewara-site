@@ -237,7 +237,7 @@ export default function AdminPanel({
   const stats = React.useMemo(() => {
     const olSubjects = subjects.filter(s => s.examType === 'ol').length;
     const alSubjects = subjects.filter(s => s.examType === 'al').length;
-    
+
     const enPapers = papers.filter(p => p.language === 'en').length;
     const siPapers = papers.filter(p => !p.language || p.language === 'si').length;
 
@@ -384,7 +384,7 @@ export default function AdminPanel({
   // The default hash below corresponds to 'mehewara2026' — change it immediately.
   const getAdminHash = () =>
     localStorage.getItem('m_admin_pw_hash') ||
-    '48966d003781399de52006d93a238970d745bb61fc1b8f99d9d786a6086e4654'; // hash of 'mehewara2026' — change via superadmin panel
+    '48966d003781399de52006d93a238970d745bb61fc1b8f99d9d786a6086e4654';
 
   // Handle Passcode verification
   const handleLogin = async (e: React.FormEvent) => {
@@ -1943,7 +1943,7 @@ export default function AdminPanel({
                             <div className={`p-4 border rounded-xl ${surfaceBg} ${surfaceBdr}`}>
                               <h5 className="font-bold text-sm mb-4 text-emerald-500">Live Preview</h5>
                               <div className={`text-sm ${textPrimary} mb-4`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(liveEditData.questionHtml) }} />
-                              
+
                               {/* Ref Images Preview & Delete */}
                               <div className="flex flex-wrap gap-4 mb-4">
                                 {(() => {
@@ -1957,7 +1957,7 @@ export default function AdminPanel({
                                     <div key={i} className={`relative border ${inputBdr} p-2 rounded-lg ${subtleBg} inline-block`}>
                                       <img src={src} className="max-h-48 object-contain" alt="Ref Image" />
                                       <div className="text-[10px] text-gray-500 mt-1 uppercase text-center w-full">{field === 'optionsHtml' ? `Option ${String.fromCharCode(65 + (oIdx || 0))}` : field === 'questionHtml' ? 'Question Body' : 'Explanation'}</div>
-                                      <button 
+                                      <button
                                         onClick={() => handleDeleteImage(src, field, oIdx)}
                                         className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md"
                                         title="Delete Image"
@@ -2119,7 +2119,7 @@ export default function AdminPanel({
                             <button
                               onClick={() => {
                                 setEditingLiveId(q.id);
-                                setLiveEditData({ 
+                                setLiveEditData({
                                   ...q,
                                   questionHtml: unrenderMathHtml(q.questionHtml),
                                   optionsHtml: q.optionsHtml.map(o => unrenderMathHtml(o)) as any,
@@ -2359,7 +2359,7 @@ export default function AdminPanel({
 
               {/* Bento Grid from StatsDashboard */}
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                
+
                 {/* Total Questions - Hero Card */}
                 <div className={`col-span-1 md:col-span-2 lg:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between`}>
                   <div className="absolute top-0 right-0 p-8 opacity-10">
@@ -2418,7 +2418,7 @@ export default function AdminPanel({
                     </div>
                     <span className={`text-3xl font-black ${textPrimary} font-display`}>{papers.length}</span>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
                       <div className="flex items-center gap-2 text-xs font-bold text-emerald-500 mb-1">
@@ -2444,7 +2444,7 @@ export default function AdminPanel({
                     </div>
                     <span className={`text-3xl font-black ${textPrimary} font-display`}>{subjects.length}</span>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
                       <div className={`text-xs font-bold ${textMuted} mb-1 tracking-wider`}>O/L STREAM</div>
