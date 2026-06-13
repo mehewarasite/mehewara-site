@@ -1948,8 +1948,8 @@ export default function AdminPanel({
                               <div className="flex flex-wrap gap-4 mb-4">
                                 {(() => {
                                   const allImages = [
-                                    ...extractImages(liveEditData.questionHtml).map(src => ({ src, field: 'questionHtml' as const })),
-                                    ...extractImages(liveEditData.explanationHtml || '').map(src => ({ src, field: 'explanationHtml' as const })),
+                                    ...extractImages(liveEditData.questionHtml).map(src => ({ src, field: 'questionHtml' as const, oIdx: undefined })),
+                                    ...extractImages(liveEditData.explanationHtml || '').map(src => ({ src, field: 'explanationHtml' as const, oIdx: undefined })),
                                     ...liveEditData.optionsHtml.flatMap((opt, oIdx) => extractImages(opt).map(src => ({ src, field: 'optionsHtml' as const, oIdx })))
                                   ];
 
