@@ -19,8 +19,8 @@ const DotMatrixBackground: React.FC = () => {
     canvas.height = height;
 
     const dots: { x: number; y: number; baseX: number; baseY: number; size: number; baseSize: number }[] = [];
-    const spacing = 20; // space between dots
-    
+    const spacing = 10 // space between dots
+
     const initDots = () => {
       dots.length = 0;
       const rows = Math.floor(height / spacing) + 1;
@@ -38,7 +38,7 @@ const DotMatrixBackground: React.FC = () => {
         }
       }
     };
-    
+
     initDots();
 
     let mouse = { x: -1000, y: -1000, radius: 120 };
@@ -87,26 +87,26 @@ const DotMatrixBackground: React.FC = () => {
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         let currentSize = dot.baseSize;
-        
+
         if (distance < mouse.radius) {
-            const force = (mouse.radius - distance) / mouse.radius;
-            currentSize = dot.baseSize + force * 2.5; // dots grow larger near the cursor
-            
-            // mild repulsion
-            const moveX = dx * force * -0.15;
-            const moveY = dy * force * -0.15;
-            dot.x = dot.baseX + moveX;
-            dot.y = dot.baseY + moveY;
-            
-            // Theme blue color for interactive zone
-            ctx.fillStyle = isDark 
-                ? `rgba(14, 165, 233, ${0.2 + force * 0.8})` 
-                : `rgba(14, 165, 233, ${0.15 + force * 0.7})`;
+          const force = (mouse.radius - distance) / mouse.radius;
+          currentSize = dot.baseSize + force * 0.5; // dots grow larger near the cursor
+
+          // mild repulsion
+          const moveX = dx * force * -0.05;
+          const moveY = dy * force * -0.05;
+          dot.x = dot.baseX + moveX;
+          dot.y = dot.baseY + moveY;
+
+          // Theme blue color for interactive zone
+          ctx.fillStyle = isDark
+            ? `rgba(14, 165, 233, ${0.2 + force * 0.8})`
+            : `rgba(14, 165, 233, ${0.15 + force * 0.7})`;
         } else {
-            // spring back to base position
-            dot.x += (dot.baseX - dot.x) * 0.1;
-            dot.y += (dot.baseY - dot.y) * 0.1;
-            ctx.fillStyle = defaultColor;
+          // spring back to base position
+          dot.x += (dot.baseX - dot.x) * 0.1;
+          dot.y += (dot.baseY - dot.y) * 0.1;
+          ctx.fillStyle = defaultColor;
         }
 
         ctx.beginPath();

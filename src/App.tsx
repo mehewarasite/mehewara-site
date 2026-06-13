@@ -67,6 +67,46 @@ export default function App() {
   const [showAboutUs, setShowAboutUs] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
 
+  // Handle Browser/Android hardware back button
+  useEffect(() => {
+    const handlePopState = () => {
+      if (showAboutUs) {
+        setShowAboutUs(false);
+      } else if (showAdminPanel) {
+        setShowAdminPanel(false);
+      } else if (activePracticePaper) {
+        setActivePracticePaper(null);
+      } else if (selectedSubject) {
+        setSelectedSubject(null);
+      } else if (selectedLevel) {
+        setSelectedLevel(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [showAboutUs, showAdminPanel, activePracticePaper, selectedSubject, selectedLevel]);
+
+  const handleSetLevel = (level: 'ol' | 'al') => {
+    window.history.pushState({ layer: true }, '', '');
+    setSelectedLevel(level);
+  };
+  const handleSetSubject = (sub: Subject) => {
+    window.history.pushState({ layer: true }, '', '');
+    setSelectedSubject(sub);
+  };
+  const handleSetPracticePaper = (paper: Paper) => {
+    window.history.pushState({ layer: true }, '', '');
+    setActivePracticePaper(paper);
+  };
+  const handleOpenAdminPanel = () => {
+    window.history.pushState({ layer: true }, '', '');
+    setShowAdminPanel(true);
+  };
+  const handleOpenAboutUs = () => {
+    window.history.pushState({ layer: true }, '', '');
+    setShowAboutUs(true);
+  };
+
   // Reusable sync function — pulls latest data from Supabase
   const syncFromSupabase = async () => {
     setIsSyncing(true);
@@ -499,7 +539,7 @@ export default function App() {
             )}
 
             <button
-              onClick={() => setShowAdminPanel(true)}
+              onClick={handleOpenAdminPanel}
               aria-label="Admin panel"
               className={`flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] sm:min-w-0 px-3 sm:px-3.5 py-2 ${surfaceBg} ${cardHover} border ${surfaceBdr} hover:border-slate-700/80 dark:hover:border-slate-700/80 text-xs font-semibold ${btnText} ${btnHover} rounded-xl transition-all shadow-sm cursor-pointer select-none`}
             >
@@ -525,7 +565,7 @@ export default function App() {
               questions={questions.filter(q => q.paperId === activePracticePaper.id)}
               onSaveAttempt={handleSaveAttempt}
               savedAttempt={attempts.find(a => a.paperId === activePracticePaper.id)}
-              onClose={() => setActivePracticePaper(null)}
+              onClose={() => window.history.back()}
             />
           </React.Suspense>
         ) : (
@@ -538,7 +578,7 @@ export default function App() {
                   
                   {/* O/L Card */}
                   <button
-                    onClick={() => setSelectedLevel('ol')}
+                    onClick={() => handleSetLevel('ol')}
                     className={`group relative ${cardBg} ${cardHover} border ${cardBdr} hover:border-emerald-500/30 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-left transition-all duration-350 shadow-lg sm:hover:shadow-[0_0_30px_rgba(16,185,129,0.06)] cursor-pointer select-none active:scale-[0.99]`}
                   >
                     <div className={`absolute top-0 right-0 p-4 sm:p-8 ${isDark ? 'text-slate-800/10' : 'text-slate-300/40'} group-hover:text-emerald-500/5 transition-colors pointer-events-none`}>
@@ -561,7 +601,7 @@ export default function App() {
 
                   {/* A/L Card */}
                   <button
-                    onClick={() => setSelectedLevel('al')}
+                    onClick={() => handleSetLevel('al')}
                     className={`group relative ${cardBg} ${cardHover} border ${cardBdr} hover:border-sky-500/30 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-left transition-all duration-350 shadow-lg sm:hover:shadow-[0_0_30px_rgba(14,165,233,0.06)] cursor-pointer select-none active:scale-[0.99]`}
                   >
                     <div className={`absolute top-0 right-0 p-4 sm:p-8 ${isDark ? 'text-slate-800/10' : 'text-slate-300/40'} group-hover:text-sky-500/5 transition-colors pointer-events-none`}>
@@ -590,7 +630,7 @@ export default function App() {
               <div className="space-y-4 sm:space-y-6 flex-grow animate-fade-in">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setSelectedLevel(null)}
+                    onClick={() => window.history.back()}
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -623,7 +663,7 @@ export default function App() {
                         return (
                           <button
                             key={sub.id}
-                            onClick={() => setSelectedSubject(sub)}
+                            onClick={() => handleSetSubject(sub)}
                             className={`group relative p-4 sm:p-6 text-left border rounded-2xl transition-all duration-300 cursor-pointer select-none active:scale-[0.99] bg-gradient-to-br ${sub.color}`}
                           >
                             <div className="flex justify-between items-start mb-6">
@@ -654,7 +694,7 @@ export default function App() {
               <div className="space-y-4 sm:space-y-6 flex-grow animate-fade-in">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setSelectedSubject(null)}
+                    onClick={() => window.history.back()}
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -727,7 +767,7 @@ export default function App() {
                               <div className="flex justify-between items-start gap-2">
                                 <h3
                                   className={`text-sm sm:text-base font-bold ${textPrimary} hover:text-sky-400 cursor-pointer transition-colors leading-snug flex-1 min-w-0`}
-                                  onClick={() => setActivePracticePaper(paper)}
+                                  onClick={() => handleSetPracticePaper(paper)}
                                 >
                                   {isEn ? paper.title : paper.sinhalaTitle}
                                 </h3>
@@ -750,7 +790,7 @@ export default function App() {
                             <div className={`mt-4 sm:mt-6 pt-4 border-t ${paperDivider} flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3`}>
                               {previousAttempt ? (
                                 <button
-                                  onClick={() => setActivePracticePaper(paper)}
+                                  onClick={() => handleSetPracticePaper(paper)}
                                   className="text-xs font-bold text-sky-450 hover:text-sky-350 cursor-pointer flex items-center gap-1 text-left min-h-[44px] sm:min-h-0"
                                 >
                                   {previousAttempt.isCompleted ? (
@@ -769,7 +809,7 @@ export default function App() {
                                 <span className={`text-[11px] ${textFaint} font-mono uppercase italic tracking-wider`}>NOT STARTED</span>
                               )}
                               <button
-                                onClick={() => setActivePracticePaper(paper)}
+                                onClick={() => handleSetPracticePaper(paper)}
                                 className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 sm:py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold font-sans tracking-wide transition-all cursor-pointer active:scale-[0.98]"
                               >
                                 {previousAttempt ? (isEn ? 'Restart' : 'නැවත අරඹන්න') : (isEn ? 'Practice' : 'පිළිතුරු ලියන්න')}
@@ -795,14 +835,14 @@ export default function App() {
           <span className={`hidden sm:inline ${footerSub}`}>by 26 E-FAC RUH - MADE WITH ❤️ &nbsp;&nbsp;&nbsp;&nbsp;</span>
           <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-sky-400 transition-colors">Privacy Policy</a>
           <span className="mx-2 opacity-50">|</span>
-          <button onClick={() => setShowAboutUs(true)} className="hover:underline hover:text-sky-400 transition-colors cursor-pointer">About Us</button>
+          <button onClick={handleOpenAboutUs} className="hover:underline hover:text-sky-400 transition-colors cursor-pointer min-h-[44px] min-w-[44px] inline-flex items-center justify-center">About Us</button>
         </div>
       </footer>
 
       {showAboutUs && (
         <AboutUsModal
           data={aboutData || { description: "Welcome to Mehewara!" }}
-          onClose={() => setShowAboutUs(false)}
+          onClose={() => window.history.back()}
         />
       )}
 
@@ -826,7 +866,7 @@ export default function App() {
             onSync={syncFromSupabase}
             isSyncing={isSyncing}
             onAboutUpdate={setAboutData}
-            onClose={() => setShowAdminPanel(false)}
+            onClose={() => window.history.back()}
           />
         </React.Suspense>
       )}

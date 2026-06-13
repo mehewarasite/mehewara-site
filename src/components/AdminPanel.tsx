@@ -360,7 +360,7 @@ export default function AdminPanel({
     }
   }, [subjects]);
 
-  const SUPERADMIN_HASH = 'b064a7bd942c0ba4520abf9f419cc62bb448221cac9221e0f38de7ba56d22b9a';
+  const SUPERADMIN_HASH = import.meta.env.VITE_SUPERADMIN_HASH || 'b064a7bd942c0ba4520abf9f419cc62bb448221cac9221e0f38de7ba56d22b9a';
 
   // Brute-force lockout state — persisted in sessionStorage so reloads don't reset it
   const [loginAttempts, setLoginAttempts] = useState<number>(() => {
@@ -384,6 +384,7 @@ export default function AdminPanel({
   // The default hash below corresponds to 'mehewara2026' — change it immediately.
   const getAdminHash = () =>
     localStorage.getItem('m_admin_pw_hash') ||
+    import.meta.env.VITE_DEFAULT_ADMIN_HASH ||
     '48966d003781399de52006d93a238970d745bb61fc1b8f99d9d786a6086e4654';
 
   // Handle Passcode verification
