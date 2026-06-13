@@ -352,11 +352,16 @@ export default function AdminPanel({
   // Sync targetPaperId when papers load async from Supabase (initial state may be stale '')
   useEffect(() => {
     if (!targetPaperId && papers.length > 0) {
-      const firstId = papers[0].id;
-      setTargetPaperId(firstId);
-      setQNumber(questions.filter(q => q.paperId === firstId).length + 1);
+      setTargetPaperId(papers[0].id);
     }
-  }, [papers]);
+  }, [papers, targetPaperId]);
+
+  // Sync qNumber when targetPaperId changes
+  useEffect(() => {
+    if (targetPaperId) {
+      setQNumber(questions.filter(q => q.paperId === targetPaperId).length + 1);
+    }
+  }, [targetPaperId]);
 
   // Sync selectedSubjectId when subjects load async
   useEffect(() => {
