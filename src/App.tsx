@@ -119,7 +119,7 @@ export default function App() {
       ]);
 
       if (remoteSubjects && remoteSubjects.length > 0) {
-        setSubjects(remoteSubjects);
+        setSubjects(remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths'));
       } else {
         // First run — seed Supabase with initial data
         await dbSaveSubjects(INITIAL_SUBJECTS);
@@ -160,7 +160,7 @@ export default function App() {
       console.error('Supabase load failed, falling back to localStorage:', err);
       // Offline fallback
       const storedSubjects = localStorage.getItem('m_subjects');
-      setSubjects(storedSubjects ? JSON.parse(storedSubjects) : INITIAL_SUBJECTS);
+      setSubjects(storedSubjects ? JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths') : INITIAL_SUBJECTS);
 
       const storedPapers = localStorage.getItem('m_papers');
       if (storedPapers) {
@@ -393,7 +393,8 @@ export default function App() {
         }
 
         // Restore subjects
-        const importedSubjects = backup.subjects ?? subjects;
+        let importedSubjects = backup.subjects ?? subjects;
+        importedSubjects = importedSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
         setSubjects(importedSubjects);
         localStorage.setItem('m_subjects', JSON.stringify(importedSubjects));
 
