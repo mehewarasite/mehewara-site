@@ -36,6 +36,7 @@ import { useTheme } from '../ThemeContext';
 import { parseTxtToQuizData, renderMathInHtml, unrenderMathHtml } from '../utils/parseTxt';
 import { supabase } from '../supabase';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
+import { idbGet, idbSet } from '../utils/storage';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
 const THEME_STYLE = `<style id="mehewara-theme">
 .mehewara-content *{font-family:var(--mhw-font,"Noto Sans Sinhala","Space Grotesk",system-ui,sans-serif)!important;color:var(--color-text-primary)!important;background-color:transparent!important;border-color:var(--color-border)!important}
@@ -309,11 +310,11 @@ export default function AdminPanel({
         if (data && !error) {
           setAboutData(data);
         } else {
-          const local = localStorage.getItem('m_about_us');
+          const local = await idbGet('m_about_us');
           if (local) setAboutData(JSON.parse(local));
         }
       } catch (err) {
-        const local = localStorage.getItem('m_about_us');
+        const local = await idbGet('m_about_us');
         if (local) setAboutData(JSON.parse(local));
       }
     };
@@ -2247,7 +2248,7 @@ export default function AdminPanel({
                       // Auto-save the deletion
                       try {
                         await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
-                        localStorage.setItem('m_about_us', JSON.stringify(newAboutData));
+                        await idbSet('m_about_us', JSON.stringify(newAboutData));
                         onAboutUpdate?.(newAboutData);
                       } catch (err) {
                         console.error("Failed to update about us table", err);
@@ -2297,7 +2298,7 @@ export default function AdminPanel({
                     // 3. Auto-save the new image URL to the database immediately
                     try {
                       await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
-                      localStorage.setItem('m_about_us', JSON.stringify(newAboutData));
+                      await idbSet('m_about_us', JSON.stringify(newAboutData));
                       onAboutUpdate?.(newAboutData);
                       alert("Image uploaded and saved successfully!");
                     } catch (err: any) {
@@ -2352,12 +2353,12 @@ export default function AdminPanel({
                   try {
                     const { error } = await supabase.from('about_us').upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
                     if (error) throw error;
-                    localStorage.setItem('m_about_us', JSON.stringify(aboutData));
+                    await idbSet('m_about_us', JSON.stringify(aboutData));
                     onAboutUpdate?.(aboutData);
                     alert("About Us page updated live!");
                   } catch (err: any) {
                     console.error("About Us Save Error:", err);
-                    localStorage.setItem('m_about_us', JSON.stringify(aboutData));
+                    await idbSet('m_about_us', JSON.stringify(aboutData));
                     onAboutUpdate?.(aboutData);
                     alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
                   }

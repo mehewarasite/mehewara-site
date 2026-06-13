@@ -26,6 +26,7 @@ interface PracticeSessionProps {
   onSaveAttempt: (attempt: UserAttempt) => void;
   savedAttempt?: UserAttempt;
   onClose: () => void;
+  onLoadStudyMaterial: (paperId: string) => Promise<void>;
 }
 
 export default function PracticeSession({
@@ -33,7 +34,8 @@ export default function PracticeSession({
   questions: questionsProp,
   onSaveAttempt,
   savedAttempt,
-  onClose
+  onClose,
+  onLoadStudyMaterial
 }: PracticeSessionProps) {
 
   const { theme } = useTheme();
@@ -56,8 +58,15 @@ export default function PracticeSession({
   const [isSubmitted, setIsSubmitted] = useState<boolean>(savedAttempt?.isCompleted || false);
   const [isTimerActive, setIsTimerActive] = useState<boolean>(!savedAttempt?.isCompleted);
   const [reviewQIndex, setReviewQIndex] = useState<number>(0);
-  // 'mcq' | 'study' — tab within the active practice view
   const [activeView, setActiveView] = useState<'mcq' | 'study'>('mcq');
+  const [isLoadingStudy, setIsLoadingStudy] = useState(false);
+
+  useEffect(() => {
+    if (activeView === 'study' && paper.studyMaterialHtml === undefined) {
+      setIsLoadingStudy(true);
+      onLoadStudyMaterial(paper.id).finally(() => setIsLoadingStudy(false));
+    }
+  }, [activeView, paper.studyMaterialHtml, paper.id, onLoadStudyMaterial]);
 
   // Practice Mode States
   const [examMode, setExamMode] = useState<'strict' | 'practice'>('practice');

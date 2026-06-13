@@ -43,6 +43,8 @@ import {
   dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs
 } from './supabase';
 
+import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
+
 const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
   Atom, FlaskConical, Dna, Calculator, Cpu, Lightbulb,
   Infinity: InfinityIcon, BookOpen, Compass
@@ -121,70 +123,56 @@ export default function App() {
       if (remoteSubjects && remoteSubjects.length > 0) {
         const filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
         setSubjects(filtered);
-        localStorage.setItem('m_subjects', JSON.stringify(filtered));
+        idbSet('m_subjects', JSON.stringify(filtered));
       } else if (INITIAL_SUBJECTS.length > 0) {
         // First run — seed Supabase with initial data
         await dbSaveSubjects(INITIAL_SUBJECTS);
         setSubjects(INITIAL_SUBJECTS);
-        localStorage.setItem('m_subjects', JSON.stringify(INITIAL_SUBJECTS));
+        idbSet('m_subjects', JSON.stringify(INITIAL_SUBJECTS));
       }
 
       if (remotePapers && remotePapers.length > 0) {
-        // Load study HTML for each paper from Supabase
-        const withHtml = await Promise.all(
-          remotePapers.map(async (p) => {
-            const html = await dbLoadStudyHtml(p.id);
-            if (html) {
-              try { localStorage.setItem(`m_study_${p.id}`, html); } catch {}
-            }
-            return html ? { ...p, studyMaterialHtml: html } : p;
-          })
-        );
-        setPapers(withHtml);
-        localStorage.setItem('m_papers', JSON.stringify(withHtml.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+        setPapers(remotePapers);
+        idbSet('m_papers', JSON.stringify(remotePapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
       } else if (INITIAL_PAPERS.length > 0) {
         // First run — seed Supabase with initial papers
         await Promise.all(INITIAL_PAPERS.map(p => dbSavePaper(p)));
         setPapers(INITIAL_PAPERS);
-        localStorage.setItem('m_papers', JSON.stringify(INITIAL_PAPERS));
+        idbSet('m_papers', JSON.stringify(INITIAL_PAPERS));
       }
 
       if (remoteQuestions && remoteQuestions.length > 0) {
         setQuestions(remoteQuestions);
-        localStorage.setItem('m_questions', JSON.stringify(remoteQuestions));
+        idbSet('m_questions', JSON.stringify(remoteQuestions));
       } else if (INITIAL_QUESTIONS.length > 0) {
         // First run — seed Supabase with initial questions
         await dbSaveQuestions(INITIAL_QUESTIONS);
         setQuestions(INITIAL_QUESTIONS);
-        localStorage.setItem('m_questions', JSON.stringify(INITIAL_QUESTIONS));
+        idbSet('m_questions', JSON.stringify(INITIAL_QUESTIONS));
       }
 
       if (remoteAbout) {
         setAboutData(remoteAbout);
-        localStorage.setItem('m_about_us', JSON.stringify(remoteAbout));
+        idbSet('m_about_us', JSON.stringify(remoteAbout));
       } else {
-        const localAbout = localStorage.getItem('m_about_us');
+        const localAbout = await idbGet('m_about_us');
         if (localAbout) setAboutData(JSON.parse(localAbout));
       }
     } catch (err) {
       console.error('Supabase load failed, falling back to localStorage:', err);
       // Offline fallback
-      const storedSubjects = localStorage.getItem('m_subjects');
+      const storedSubjects = await idbGet('m_subjects');
       setSubjects(storedSubjects ? JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths') : INITIAL_SUBJECTS);
 
-      const storedPapers = localStorage.getItem('m_papers');
+      const storedPapers = await idbGet('m_papers');
       if (storedPapers) {
         const parsed: Paper[] = JSON.parse(storedPapers);
-        const rehydrated = parsed.map(p => {
-          const html = localStorage.getItem(`m_study_${p.id}`);
-          return html ? { ...p, studyMaterialHtml: html } : p;
-        });
-        setPapers(rehydrated);
+        setPapers(parsed);
       } else {
         setPapers(INITIAL_PAPERS);
       }
 
-      const storedQuestions = localStorage.getItem('m_questions');
+      const storedQuestions = await idbGet('m_questions');
       setQuestions(storedQuestions ? JSON.parse(storedQuestions) : INITIAL_QUESTIONS);
     } finally {
       setIsSyncing(false);
@@ -192,24 +180,27 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Attempts are always local (per-user)
-    const storedAttempts = localStorage.getItem('m_attempts');
-    if (storedAttempts) { setAttempts(JSON.parse(storedAttempts)); }
-
-    syncFromSupabase();
+    const init = async () => {
+      await migrateLocalStorageToIDB();
+      // Attempts are always local (per-user)
+      const storedAttempts = await idbGet('m_attempts');
+      if (storedAttempts) { setAttempts(JSON.parse(storedAttempts)); }
+      await syncFromSupabase();
+    };
+    init();
   }, []);
 
   const handleSaveAttempt = (newAttempt: UserAttempt) => {
     const updatedAttempts = [...attempts.filter(a => a.paperId !== newAttempt.paperId), newAttempt];
     setAttempts(updatedAttempts);
-    localStorage.setItem('m_attempts', JSON.stringify(updatedAttempts));
+    idbSet('m_attempts', JSON.stringify(updatedAttempts));
   };
 
   const handleUpdatePaper = async (updatedPaper: Paper) => {
     // Update local state immediately for responsive UI
     const newPapers = papers.map(p => p.id === updatedPaper.id ? updatedPaper : p);
     setPapers(newPapers);
-    localStorage.setItem('m_papers', JSON.stringify(newPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+    idbSet('m_papers', JSON.stringify(newPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
 
     // Persist paper to Supabase
     await dbSavePaper(updatedPaper);
@@ -222,7 +213,7 @@ export default function App() {
     // Update local state immediately for responsive UI
     const updatedPapers = [paperWithCount, ...papers];
     setPapers(updatedPapers);
-    localStorage.setItem('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+    idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
 
     // Persist paper to Supabase (without studyMaterialHtml — stored separately)
     await dbSavePaper(paperWithCount);
@@ -231,30 +222,46 @@ export default function App() {
     if (newPaper.studyMaterialHtml) {
       await dbSaveStudyHtml(newPaper.id, newPaper.studyMaterialHtml);
       // Also keep in localStorage as offline cache
-      try { localStorage.setItem(`m_study_${newPaper.id}`, newPaper.studyMaterialHtml); } catch {}
+      try { idbSet(`m_study_${newPaper.id}`, newPaper.studyMaterialHtml); } catch {}
     }
 
     // Persist questions to Supabase
     if (importQuestions && importQuestions.length > 0) {
       const updatedQuestions = [...questions, ...importQuestions];
       setQuestions(updatedQuestions);
-      localStorage.setItem('m_questions', JSON.stringify(updatedQuestions));
+      idbSet('m_questions', JSON.stringify(updatedQuestions));
       await dbSaveQuestions(importQuestions);
     }
+  };
+
+  const handleLoadStudyMaterial = async (paperId: string) => {
+    const paper = papers.find(p => p.id === paperId);
+    if (paper?.studyMaterialHtml !== undefined) return;
+
+    let html = await idbGet(`m_study_${paperId}`);
+    if (!html) {
+      const dbHtml = await dbLoadStudyHtml(paperId);
+      html = dbHtml || ''; // Use empty string to indicate it was loaded but empty
+      if (dbHtml) {
+        try { await idbSet(`m_study_${paperId}`, dbHtml); } catch {}
+      }
+    }
+
+    setPapers(prev => prev.map(p => p.id === paperId ? { ...p, studyMaterialHtml: html } : p));
   };
 
   const handleDeletePaper = async (paperId: string) => {
     // Update local state immediately
     const updatedPapers = papers.filter(p => p.id !== paperId);
     setPapers(updatedPapers);
-    localStorage.setItem('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+    idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
     const updatedQuestions = questions.filter(q => q.paperId !== paperId);
     setQuestions(updatedQuestions);
-    localStorage.setItem('m_questions', JSON.stringify(updatedQuestions));
+    idbSet('m_questions', JSON.stringify(updatedQuestions));
     const updatedAttempts = attempts.filter(a => a.paperId !== paperId);
     setAttempts(updatedAttempts);
-    localStorage.setItem('m_attempts', JSON.stringify(updatedAttempts));
-    localStorage.removeItem(`m_study_${paperId}`);
+    idbSet('m_attempts', JSON.stringify(updatedAttempts));
+    idbRemove(`m_study_${paperId}`);
 
     // Delete from Supabase
     await Promise.all([
@@ -289,7 +296,7 @@ export default function App() {
     }
 
     setQuestions(updatedQuestions);
-    localStorage.setItem('m_questions', JSON.stringify(updatedQuestions));
+    idbSet('m_questions', JSON.stringify(updatedQuestions));
 
     // Update paper question count
     const paper = papers.find(p => p.id === newQuestion.paperId);
@@ -297,7 +304,7 @@ export default function App() {
       const qCount = updatedQuestions.filter(q => q.paperId === newQuestion.paperId).length;
       const updatedPapers = papers.map(p => p.id === paper.id ? { ...p, questionCount: qCount } : p);
       setPapers(updatedPapers);
-      localStorage.setItem('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+      idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
       await dbSavePaper({ ...paper, questionCount: qCount });
     }
 
@@ -311,7 +318,7 @@ export default function App() {
   const handleUpdateQuestion = async (updatedQuestion: Question) => {
     const newQuestions = questions.map(q => q.id === updatedQuestion.id ? updatedQuestion : q);
     setQuestions(newQuestions);
-    localStorage.setItem('m_questions', JSON.stringify(newQuestions));
+    idbSet('m_questions', JSON.stringify(newQuestions));
     await dbSaveQuestion(updatedQuestion);
   };
 
@@ -319,14 +326,14 @@ export default function App() {
     const questionToDelete = questions.find(q => q.id === questionId);
     const updatedQuestions = questions.filter(q => q.id !== questionId);
     setQuestions(updatedQuestions);
-    localStorage.setItem('m_questions', JSON.stringify(updatedQuestions));
+    idbSet('m_questions', JSON.stringify(updatedQuestions));
 
     if (questionToDelete) {
       const paperId = questionToDelete.paperId;
       const qCount = updatedQuestions.filter(q => q.paperId === paperId).length;
       const updatedPapers = papers.map(p => p.id === paperId ? { ...p, questionCount: qCount } : p);
       setPapers(updatedPapers);
-      localStorage.setItem('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+      idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
       const paper = papers.find(p => p.id === paperId);
       if (paper) await dbSavePaper({ ...paper, questionCount: qCount });
     }
@@ -342,7 +349,7 @@ export default function App() {
       p.id === paperId ? { ...p, studyMaterialHtml: html } : p
     ));
     // Cache locally too
-    try { localStorage.setItem(`m_study_${paperId}`, html); } catch {}
+    try { idbSet(`m_study_${paperId}`, html); } catch {}
   };
 
   const handleResetToDefaults = async () => {
@@ -366,7 +373,7 @@ export default function App() {
         setPapers(INITIAL_PAPERS);
         setQuestions(INITIAL_QUESTIONS);
         setAttempts([]);
-        localStorage.setItem('m_attempts', JSON.stringify([]));
+        idbSet('m_attempts', JSON.stringify([]));
         alert('System reset successful!');
       } catch (err) {
         alert('Reset failed: ' + err);
@@ -377,13 +384,13 @@ export default function App() {
   };
 
 
-  const handleExportData = () => {
-    // Collect all study HTML from localStorage
+  const handleExportData = async () => {
+    // Collect all study HTML from IDB
     const studyHtmlMap: Record<string, string> = {};
-    papers.forEach(p => {
-      const html = localStorage.getItem(`m_study_${p.id}`);
+    for (const p of papers) {
+      const html = await idbGet(`m_study_${p.id}`);
       if (html) studyHtmlMap[p.id] = html;
-    });
+    }
 
     const backup = {
       version: 1,
@@ -418,7 +425,7 @@ export default function App() {
         let importedSubjects = backup.subjects ?? subjects;
         importedSubjects = importedSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
         setSubjects(importedSubjects);
-        localStorage.setItem('m_subjects', JSON.stringify(importedSubjects));
+        idbSet('m_subjects', JSON.stringify(importedSubjects));
 
         // Restore study HTML per paper
         const studyHtmlMap: Record<string, string> = backup.studyHtmlMap ?? {};
@@ -430,24 +437,24 @@ export default function App() {
         // Save study HTML to separate localStorage keys
         rehydratedPapers.forEach(p => {
           if (p.studyMaterialHtml) {
-            try { localStorage.setItem(`m_study_${p.id}`, p.studyMaterialHtml); } catch {}
+            try { idbSet(`m_study_${p.id}`, p.studyMaterialHtml); } catch {}
           } else {
-            localStorage.removeItem(`m_study_${p.id}`);
+            idbRemove(`m_study_${p.id}`);
           }
         });
 
         setPapers(rehydratedPapers);
-        localStorage.setItem('m_papers', JSON.stringify(
+        idbSet('m_papers', JSON.stringify(
           rehydratedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))
         ));
 
         // Restore questions
         setQuestions(backup.questions);
-        localStorage.setItem('m_questions', JSON.stringify(backup.questions));
+        idbSet('m_questions', JSON.stringify(backup.questions));
 
         // Clear attempts (they reference question ids which may have changed)
         setAttempts([]);
-        localStorage.setItem('m_attempts', JSON.stringify([]));
+        idbSet('m_attempts', JSON.stringify([]));
 
         alert(`Import successful! ${rehydratedPapers.length} papers and ${backup.questions.length} questions restored.`);
       } catch {
@@ -586,9 +593,11 @@ export default function App() {
             <PracticeSession
               paper={activePracticePaper}
               questions={questions.filter(q => q.paperId === activePracticePaper.id)}
+              attempts={attempts}
               onSaveAttempt={handleSaveAttempt}
               savedAttempt={attempts.find(a => a.paperId === activePracticePaper.id)}
               onClose={() => window.history.back()}
+              onLoadStudyMaterial={handleLoadStudyMaterial}
             />
           </React.Suspense>
         ) : (

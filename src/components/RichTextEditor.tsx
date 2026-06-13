@@ -3,7 +3,9 @@ import StarterKit from '@tiptap/starter-kit';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
 import React, { useEffect, useRef, useState } from 'react';
+import { supabase } from '../supabase';
 import { useTheme } from '../ThemeContext';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -222,11 +224,27 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     onChangeRef.current = onChange;
   }, [onChange]);
 
+  const handleImageUpload = async (file: File) => {
+    // Create a unique file name
+    const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const { error } = await supabase.storage.from('question-images').upload(fileName, file);
+    if (error) {
+      console.error('Upload failed:', error);
+      return null;
+    }
+    const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
+    return publicUrl;
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Subscript,
       Superscript,
+      Image.configure({
+        inline: true,
+        allowBase64: true, // Allow existing base64 images to render, but intercept new pastes
+      }),
       Placeholder.configure({
         placeholder: placeholder || 'Type your question here...',
         emptyEditorClass: `cursor-text before:content-[attr(data-placeholder)] ${isDark ? 'before:text-slate-400' : 'before:text-slate-500'} before:float-left before:pointer-events-none`,
@@ -234,6 +252,47 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     ],
     content: value,
     editorProps: {
+      handlePaste: (view, event) => {
+        const items = Array.from(event.clipboardData?.items || []);
+        for (const item of items) {
+          if (item.type.indexOf('image') === 0) {
+            const file = item.getAsFile();
+            if (file) {
+              handleImageUpload(file).then(url => {
+                if (url) {
+                  const { schema } = view.state;
+                  const node = schema.nodes.image.create({ src: url });
+                  const tr = view.state.tr.replaceSelectionWith(node);
+                  view.dispatch(tr);
+                }
+              });
+              return true; // prevent default base64 paste
+            }
+          }
+        }
+        return false;
+      },
+      handleDrop: (view, event, slice, moved) => {
+        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+          const file = event.dataTransfer.files[0];
+          if (file.type.indexOf('image') === 0) {
+            event.preventDefault();
+            handleImageUpload(file).then(url => {
+              if (url) {
+                const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                if (coordinates) {
+                  const { schema } = view.state;
+                  const node = schema.nodes.image.create({ src: url });
+                  const tr = view.state.tr.insert(coordinates.pos, node);
+                  view.dispatch(tr);
+                }
+              }
+            });
+            return true;
+          }
+        }
+        return false;
+      },
       attributes: {
         class: `prose ${isDark ? 'prose-invert bg-slate-800 text-slate-100' : 'bg-white text-slate-900'} max-w-none p-3 outline-none focus:ring-2 focus:ring-sky-500/50 rounded-b-md`,
         style: minHeight ? `min-height: ${minHeight}` : 'min-height: 96px',

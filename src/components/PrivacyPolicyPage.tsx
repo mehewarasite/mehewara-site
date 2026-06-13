@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ShieldCheck, Mail } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
+import { idbGet } from '../utils/storage';
 
 export default function PrivacyPolicyPage() {
   const { theme } = useTheme();
@@ -10,24 +11,27 @@ export default function PrivacyPolicyPage() {
   const [statement, setStatement] = useState<string>('');
 
   useEffect(() => {
-    const saved = localStorage.getItem('m_about_us');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.full_privacy_policy_html) {
-          setContent(parsed.full_privacy_policy_html);
-        } else {
+    const fetchPolicy = async () => {
+      const saved = await idbGet('m_about_us');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.full_privacy_policy_html) {
+            setContent(parsed.full_privacy_policy_html);
+          } else {
+            setContent(DEFAULT_PRIVACY_POLICY);
+          }
+          if (parsed.privacy_policy_statement) {
+            setStatement(parsed.privacy_policy_statement);
+          }
+        } catch (e) {
           setContent(DEFAULT_PRIVACY_POLICY);
         }
-        if (parsed.privacy_policy_statement) {
-          setStatement(parsed.privacy_policy_statement);
-        }
-      } catch (e) {
+      } else {
         setContent(DEFAULT_PRIVACY_POLICY);
       }
-    } else {
-      setContent(DEFAULT_PRIVACY_POLICY);
-    }
+    };
+    fetchPolicy();
   }, []);
 
   const bgPage = isDark ? 'bg-[#030304]' : 'bg-[#f0f4f8]';
