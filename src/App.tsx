@@ -765,8 +765,9 @@ export default function App() {
                         let scoreBadge = null;
                         if (previousAttempt?.isCompleted && paperQuestions.length > 0) {
                           let correct = 0;
-                          paperQuestions.forEach((q) => {
-                            if (previousAttempt.answers[q.id] === q.correctOption) correct++;
+                          paperQuestions.forEach(q => {
+                            const userAns = previousAttempt.answers[q.id || q.qNumber.toString()];
+                            if (userAns !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(userAns) ?? userAns === q.correctOption))) correct++;
                           });
                           const percent = Math.round((correct / paperQuestions.length) * 100);
                           scoreBadge = (

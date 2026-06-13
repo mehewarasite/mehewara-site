@@ -334,7 +334,8 @@ export default function AdminPanel({
   const [optC, setOptC] = useState('');
   const [optD, setOptD] = useState('');
   const [optE, setOptE] = useState('');
-  const [correctOption, setCorrectOption] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [correctOptions, setCorrectOptions] = useState<number[]>([0]);
+  const [isAllCorrect, setIsAllCorrect] = useState<boolean>(false);
   const [explanationHtml, setExplanationHtml] = useState('');
 
   const [flashMessage, setFlashMessage] = useState('');
@@ -509,6 +510,7 @@ export default function AdminPanel({
           : `<p>${q.question}</p>`,
         optionsHtml: q.options as [string, string, string, string],
         correctOption: q.correctIndex as 0 | 1 | 2 | 3,
+        correctOptions: [q.correctIndex],
         explanationHtml: q.explanation || undefined,
       }));
     }
@@ -576,7 +578,9 @@ export default function AdminPanel({
       optionsHtml: isALPaper
         ? [optA, optB, optC, optD, optE]
         : [optA, optB, optC, optD],
-      correctOption: correctOption,
+      correctOption: correctOptions[0] as 0 | 1 | 2 | 3 | 4,
+      correctOptions: correctOptions,
+      isAllCorrect: isAllCorrect,
       explanationHtml: explanationHtml || undefined
     };
 
@@ -589,6 +593,8 @@ export default function AdminPanel({
     setOptC('');
     setOptD('');
     setOptE('');
+    setCorrectOptions([0]);
+    setIsAllCorrect(false);
     setExplanationHtml('');
 
     showFlash(`Question ${calculatedQNumber} saved!`);
@@ -1532,7 +1538,7 @@ export default function AdminPanel({
                           const nextNum = questions.filter(q => q.paperId === subjectPapers[0].id).length + 1;
                           setQNumber(nextNum);
                           setOptE('');
-                          setCorrectOption(0);
+                          setCorrectOptions([0]);
                         } else {
                           setTargetPaperId('');
                         }
@@ -1554,7 +1560,7 @@ export default function AdminPanel({
                         const nextNum = questions.filter(q => q.paperId === e.target.value).length + 1;
                         setQNumber(nextNum);
                         setOptE(''); // clear E when switching papers
-                        setCorrectOption(0);
+                        setCorrectOptions([0]);
                       }}
                       className={`${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 cursor-pointer`}
                     >
@@ -1593,8 +1599,16 @@ export default function AdminPanel({
                     <button
                       key={optIdx}
                       type="button"
-                      onClick={() => setCorrectOption(optIdx as 0 | 1 | 2 | 3 | 4)}
-                      className={`py-1.8 text-xs font-bold rounded-xl border transition-all cursor-pointer ${correctOption === optIdx
+                      onClick={() => {
+                        setCorrectOptions(prev => {
+                          if (prev.includes(optIdx)) {
+                            if (prev.length === 1) return prev; // Keep at least one
+                            return prev.filter(x => x !== optIdx);
+                          }
+                          return [...prev, optIdx].sort((a, b) => a - b);
+                        });
+                      }}
+                      className={`py-1.8 text-xs font-bold rounded-xl border transition-all cursor-pointer ${correctOptions.includes(optIdx)
                         ? 'bg-sky-500 border-sky-400 text-white'
                         : isDark
                           ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -1604,6 +1618,19 @@ export default function AdminPanel({
                       Option {String.fromCharCode(65 + optIdx)}
                     </button>
                   ))}
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isAllCorrect"
+                    checked={isAllCorrect}
+                    onChange={(e) => setIsAllCorrect(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                  />
+                  <label htmlFor="isAllCorrect" className={`text-xs font-semibold ${textMuted} cursor-pointer`}>
+                    සියලුම පිළිතුරු නිවැරදියි (All Answers Correct / 'All')
+                  </label>
                 </div>
               </div>
 
@@ -1860,7 +1887,7 @@ export default function AdminPanel({
                           <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
                           <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700 space-y-1">
                             {q.optionsHtml.map((opt, oIdx) => (
-                              <div key={oIdx} className={`text-xs flex gap-1 items-start ${q.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
+                              <div key={oIdx} className={`text-xs flex gap-1 items-start ${(q.correctOptions?.includes(oIdx) ?? q.correctOption === oIdx) ? 'text-emerald-500 font-bold' : textMuted}`}>
                                 <span>{String.fromCharCode(65 + oIdx)}.</span>
                                 <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
                               </div>
@@ -1982,8 +2009,8 @@ export default function AdminPanel({
 
                               <div className="pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-2">
                                 {liveEditData.optionsHtml.map((opt, oIdx) => (
-                                  <div key={oIdx} className={`text-sm flex gap-2 items-start ${liveEditData!.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
-                                    <span>{String.fromCharCode(65 + oIdx)}.</span>
+                                  <div key={oIdx} className={`text-sm flex gap-2 items-start ${(liveEditData!.correctOptions?.includes(oIdx) ?? liveEditData!.correctOption === oIdx) ? 'text-emerald-500 font-bold' : textMuted}`}>
+                                    <span className="mt-1">{String.fromCharCode(65 + oIdx)}.</span>
                                     <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
                                   </div>
                                 ))}
@@ -2053,16 +2080,43 @@ export default function AdminPanel({
                                   />
                                   <label className="flex flex-col items-center justify-center gap-1 cursor-pointer bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                                     <input
-                                      type="radio"
-                                      name={`correctOption_${q.id}`}
-                                      checked={liveEditData.correctOption === oIdx}
-                                      onChange={() => setLiveEditData({ ...liveEditData, correctOption: oIdx as any })}
+                                      type="checkbox"
+                                      name={`correctOption_${q.id}_${oIdx}`}
+                                      checked={(liveEditData.correctOptions || [liveEditData.correctOption]).includes(oIdx)}
+                                      onChange={() => {
+                                        const currentOpts = liveEditData.correctOptions || [liveEditData.correctOption];
+                                        let newOpts;
+                                        if (currentOpts.includes(oIdx)) {
+                                          if (currentOpts.length === 1) return; // Keep at least one
+                                          newOpts = currentOpts.filter(x => x !== oIdx);
+                                        } else {
+                                          newOpts = [...currentOpts, oIdx].sort((a, b) => a - b);
+                                        }
+                                        setLiveEditData({
+                                          ...liveEditData,
+                                          correctOption: newOpts[0] as any,
+                                          correctOptions: newOpts
+                                        });
+                                      }}
                                       className="w-4 h-4 cursor-pointer"
                                     />
                                     <span className="text-[10px] font-bold text-gray-500">Correct</span>
                                   </label>
                                 </div>
                               ))}
+                            </div>
+
+                            <div className="mt-3 flex items-center gap-2 mb-4">
+                              <input
+                                type="checkbox"
+                                id={`liveEdit_allCorrect_${q.id}`}
+                                checked={liveEditData.isAllCorrect || false}
+                                onChange={(e) => setLiveEditData({ ...liveEditData, isAllCorrect: e.target.checked })}
+                                className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                              />
+                              <label htmlFor={`liveEdit_allCorrect_${q.id}`} className="text-sm font-semibold text-gray-700 dark:text-gray-300 cursor-pointer">
+                                All Answers Correct ('All')
+                              </label>
                             </div>
 
                             {/* Explanation */}
@@ -2115,7 +2169,7 @@ export default function AdminPanel({
                             <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
                             <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700 space-y-1">
                               {q.optionsHtml.map((opt, oIdx) => (
-                                <div key={oIdx} className={`text-xs flex gap-1 items-start ${q.correctOption === oIdx ? 'text-blue-500 font-bold' : textMuted}`}>
+                                <div key={oIdx} className={`text-xs flex gap-1 items-start ${(q.correctOptions?.includes(oIdx) ?? q.correctOption === oIdx) ? 'text-blue-500 font-bold' : textMuted}`}>
                                   <span>{String.fromCharCode(65 + oIdx)}.</span>
                                   <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
                                 </div>

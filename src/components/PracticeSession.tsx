@@ -68,14 +68,14 @@ export default function PracticeSession({
   const correctCountLive = Object.values(verifiedAnswers).filter(Boolean).length;
   const percentageLive = totalAttempted > 0 ? Math.round((correctCountLive / totalAttempted) * 100) : 0;
 
-  const handleCheckAnswer = (questionId: string, correctOptionIndex: number) => {
+  const handleCheckAnswer = (questionId: string, q: Question) => {
     const selectedOptionIndex = answers[questionId];
     if (selectedOptionIndex === undefined) {
       alert(isEn ? "Please select an answer first!" : "කරුණාකර පිළිතුරක් තෝරන්න!");
       return;
     }
 
-    const isCorrect = selectedOptionIndex === correctOptionIndex;
+    const isCorrect = q.isAllCorrect || (q.correctOptions?.includes(selectedOptionIndex) ?? selectedOptionIndex === q.correctOption);
 
     setVerifiedAnswers(prev => ({
       ...prev,
@@ -201,7 +201,7 @@ export default function PracticeSession({
     let correctCount = 0;
     questions.forEach((q) => {
       const qId = q.id || q.qNumber.toString();
-      if (answers[qId] === q.correctOption) {
+      if (answers[qId] !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(answers[qId]) ?? answers[qId] === q.correctOption))) {
         correctCount++;
       }
     });
@@ -471,7 +471,7 @@ export default function PracticeSession({
               <div className="flex flex-wrap gap-1.5">
                 {questions.map((q, idx) => {
                   const qId = q.id || q.qNumber.toString();
-                  const isCorrect = answers[qId] === q.correctOption;
+                  const isCorrect = q.isAllCorrect || (q.correctOptions?.includes(answers[qId]) ?? answers[qId] === q.correctOption);
                   const isUnanswered = answers[qId] === undefined;
 
                   return (
@@ -500,7 +500,7 @@ export default function PracticeSession({
               const rQ = questions[reviewQIndex];
               const qId = rQ.id || rQ.qNumber.toString();
               const userAns = answers[qId];
-              const isCorrectAtReview = userAns === rQ.correctOption;
+              const isCorrectAtReview = rQ.isAllCorrect || (rQ.correctOptions?.includes(userAns) ?? userAns === rQ.correctOption);
 
               return (
                 <div className="space-y-6 animate-fade-in">
@@ -533,7 +533,7 @@ export default function PracticeSession({
                   {/* MCQ Options with detailed highlighting */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {rQ.optionsHtml.map((opt, optIdx) => {
-                      const isCorrectChoice = optIdx === rQ.correctOption;
+                      const isCorrectChoice = rQ.isAllCorrect || (rQ.correctOptions?.includes(optIdx) ?? optIdx === rQ.correctOption);
                       const isUserChoice = optIdx === userAns;
 
                       let borderStyle = `${ghostBdr} ${ghostBg}`;
@@ -799,7 +799,7 @@ export default function PracticeSession({
                     const qId = activeQuestion.id || activeQuestion.qNumber.toString();
                     const isSelected = answers[qId] === optIdx;
                     const isVerified = verifiedAnswers[qId] !== undefined;
-                    const isCorrectAnswer = activeQuestion.correctOption === optIdx;
+                    const isCorrectAnswer = activeQuestion.isAllCorrect || (activeQuestion.correctOptions?.includes(optIdx) ?? activeQuestion.correctOption === optIdx);
 
                     // Determine dynamic styles based on Practice Mode verification
                     let cardStyle = "";
@@ -854,7 +854,7 @@ export default function PracticeSession({
                       {verifiedAnswers[qId] === undefined ? (
                         <button
                           type="button"
-                          onClick={() => handleCheckAnswer(qId, activeQuestion.correctOption)}
+                          onClick={() => handleCheckAnswer(qId, activeQuestion)}
                           className="w-full sm:w-auto px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.25)] transition-all active:scale-[0.98] cursor-pointer"
                         >
                           Check Answer

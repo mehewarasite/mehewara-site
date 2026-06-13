@@ -30,6 +30,8 @@ export interface Question {
   questionHtml: string; // The HTML format questions, supports formatting & subscripts/superscripts/symbols
   optionsHtml: [string, string, string, string] | [string, string, string, string, string];
   correctOption: 0 | 1 | 2 | 3 | 4; // Index of correct option (A=0, B=1, C=2, D=3)
+  correctOptions?: number[]; // Array of correct option indices
+  isAllCorrect?: boolean; // If true, all options are considered correct
   explanationHtml?: string; // Optional explanation/working
 }
 
