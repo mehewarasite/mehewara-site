@@ -1,7 +1,7 @@
 // for future developers of this site. i set a password here. use super-admin login to change it. if want to change all the password log in to the cloudflare and under the mehewara-site page setting you will fide secret tab change your pws there and redeloy the page.
 //use antigravity. its far better if you do not know what you're doing.
 // all the password details in the google drive.
-//use this wisely do not waste your time here. logging off for the good. I'm 24. To infinity and beyond 👾
+//use this wisely do not waste your time here. logging off for the good. I'm 24. To the infinity and beyond 👾
 
 import React, { useState, useEffect } from 'react';
 import {
