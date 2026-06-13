@@ -13,6 +13,28 @@ export function renderMathInHtml(text: string): string {
   });
 }
 
+export function unrenderMathHtml(html: string): string {
+  if (!html) return html;
+  if (!html.includes('mhw-eq')) return html;
+  
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+    const eqSpans = doc.querySelectorAll('span.mhw-eq');
+    eqSpans.forEach(span => {
+      const annotation = span.querySelector('annotation[encoding="application/x-tex"]');
+      if (annotation && annotation.textContent) {
+        const textNode = doc.createTextNode(`$${annotation.textContent}$`);
+        span.parentNode?.replaceChild(textNode, span);
+      }
+    });
+    return doc.body.firstElementChild?.innerHTML || html;
+  } catch (e) {
+    console.error("Failed to unrender math:", e);
+    return html;
+  }
+}
+
 export function parseTxtToQuizData(text: string): Array<{
   id: number;
   part?: number;
@@ -32,11 +54,11 @@ export function parseTxtToQuizData(text: string): Array<{
       return jsonObj.map((item, index) => ({
         id: item.question_number ?? (index + 1),
         part: item.part,
-        question: renderMathInHtml(item.question_text ?? item.question ?? '').replace(/\n/g, '<br/>'),
+        question: (item.question_text ?? item.question ?? '').replace(/\n/g, '<br/>'),
         code: item.code,
-        options: (item.options ?? []).map((o: string) => renderMathInHtml(o)),
+        options: (item.options ?? []),
         correctIndex: item.correct_option_index ?? 0,
-        explanation: renderMathInHtml(item.explanation ?? '').replace(/\n/g, '<br/>')
+        explanation: (item.explanation ?? '').replace(/\n/g, '<br/>')
       }));
     }
   } catch (e) {
@@ -143,10 +165,10 @@ export function parseTxtToQuizData(text: string): Array<{
     if (questionText && options.length > 0) {
       parsed.push({
         id: idCounter++,
-        question: renderMathInHtml(questionText).replace(/\n/g, '<br/>'),
-        options: options.map(o => renderMathInHtml(o)),
+        question: questionText.replace(/\n/g, '<br/>'),
+        options: options,
         correctIndex,
-        explanation: explanation ? renderMathInHtml(explanation).replace(/\n/g, '<br/>') : undefined
+        explanation: explanation ? explanation.replace(/\n/g, '<br/>') : undefined
       });
     }
   }

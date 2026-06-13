@@ -155,6 +155,14 @@ export default function App() {
     localStorage.setItem('m_attempts', JSON.stringify(updatedAttempts));
   };
 
+  const handleUpdatePaper = async (updatedPaper: Paper) => {
+    // Update local state immediately for responsive UI
+    setPapers(prev => prev.map(p => p.id === updatedPaper.id ? updatedPaper : p));
+
+    // Persist paper to Supabase
+    await dbSavePaper(updatedPaper);
+  };
+
   const handleAddPaper = async (newPaper: Paper, importQuestions?: Question[]) => {
     const qCount = importQuestions?.length ?? 0;
     const paperWithCount = { ...newPaper, questionCount: qCount };
@@ -242,8 +250,9 @@ export default function App() {
     }
   };
 
-  const handleUpdateQuestion = (updatedQuestion: Question) => {
+  const handleUpdateQuestion = async (updatedQuestion: Question) => {
     setQuestions(prev => prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
+    await dbSaveQuestion(updatedQuestion);
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
@@ -805,6 +814,7 @@ export default function App() {
             papers={papers}
             questions={questions}
             onAddPaper={handleAddPaper}
+            onUpdatePaper={handleUpdatePaper}
             onDeletePaper={handleDeletePaper}
             onAddQuestion={handleAddQuestion}
             onUpdateQuestion={handleUpdateQuestion}

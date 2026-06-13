@@ -28,7 +28,7 @@ import RichTextEditor from './RichTextEditor';
 import { appendHtml, fileToImgHtml, hasRealContent, optionHasContent } from '../utils/mediaUpload';
 import MathTextInput from './MathTextInput';
 import { useTheme } from '../ThemeContext';
-import { parseTxtToQuizData, renderMathInHtml } from '../utils/parseTxt';
+import { parseTxtToQuizData, renderMathInHtml, unrenderMathHtml } from '../utils/parseTxt';
 import { supabase } from '../supabase';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
@@ -167,6 +167,7 @@ interface AdminPanelProps {
   onDeletePaper: (paperId: string) => void;
   onAddQuestion: (question: Question) => void;
   onUpdateQuestion: (question: Question) => void;
+  onUpdatePaper?: (paper: Paper) => void;
   onDeleteQuestion: (questionId: string) => void;
   onUpdateStudyHtml: (paperId: string, html: string) => void;
   onResetToDefaults: () => void;
@@ -186,6 +187,7 @@ export default function AdminPanel({
   onDeletePaper,
   onAddQuestion,
   onUpdateQuestion,
+  onUpdatePaper,
   onDeleteQuestion,
   onUpdateStudyHtml,
   onResetToDefaults,
@@ -317,6 +319,7 @@ export default function AdminPanel({
 
   // Custom Question Form
   const [targetPaperId, setTargetPaperId] = useState<string>('');
+  const [filterSubjectId, setFilterSubjectId] = useState<string>('');
   const [showPrivacyEditor, setShowPrivacyEditor] = useState<boolean>(false);
 
   const [qNumber, setQNumber] = useState<number>(1);
@@ -719,7 +722,6 @@ export default function AdminPanel({
 
   const handleUpdateLiveQuestion = async (dbQuestionId: string, updatedQ: Question) => {
     try {
-      // In this app architecture, the entire Question JSON is stored in the 'data' column
       const { error } = await supabase
         .from('questions')
         .update({ data: updatedQ })
@@ -736,6 +738,59 @@ export default function AdminPanel({
     } catch (error) {
       console.error("Error updating live question:", error);
       alert("❌ Failed to update question in database.");
+    }
+  };
+
+  const extractImages = (html: string) => {
+    const images: string[] = [];
+    const regex = /<img[^>]*src="([^"]+)"[^>]*>/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      if (match[1]) images.push(match[1]);
+    }
+    return images;
+  };
+
+  const handleDeleteImage = async (src: string, field: 'questionHtml' | 'explanationHtml' | 'optionsHtml', oIdx?: number) => {
+    if (!liveEditData) return;
+    if (!window.confirm('Are you sure you want to delete this image?')) return;
+
+    if (field === 'optionsHtml' && typeof oIdx === 'number') {
+      const newOpts = [...liveEditData.optionsHtml];
+      let updatedHtml = newOpts[oIdx];
+      const startIdx = updatedHtml.indexOf(src);
+      if (startIdx !== -1) {
+        const tagStart = updatedHtml.lastIndexOf('<img', startIdx);
+        const tagEnd = updatedHtml.indexOf('>', startIdx) + 1;
+        if (tagStart !== -1 && tagEnd !== -1) {
+          updatedHtml = updatedHtml.substring(0, tagStart) + updatedHtml.substring(tagEnd);
+        }
+      }
+      newOpts[oIdx] = updatedHtml;
+      setLiveEditData({ ...liveEditData, optionsHtml: newOpts as any });
+    } else {
+      let updatedHtml = liveEditData[field as 'questionHtml' | 'explanationHtml'] || '';
+      const startIdx = updatedHtml.indexOf(src);
+      if (startIdx !== -1) {
+        const tagStart = updatedHtml.lastIndexOf('<img', startIdx);
+        const tagEnd = updatedHtml.indexOf('>', startIdx) + 1;
+        if (tagStart !== -1 && tagEnd !== -1) {
+          updatedHtml = updatedHtml.substring(0, tagStart) + updatedHtml.substring(tagEnd);
+        }
+      }
+      setLiveEditData({ ...liveEditData, [field as 'questionHtml' | 'explanationHtml']: updatedHtml });
+    }
+
+    if (src.includes('supabase.co/storage/v1/object/public/question-images/')) {
+      const filePath = src.split('question-images/')[1];
+      if (filePath) {
+        try {
+          await supabase.storage.from('question-images').remove([filePath]);
+          showFlash("Image deleted from database.");
+        } catch (err) {
+          console.error("Failed to delete image from storage:", err);
+        }
+      }
     }
   };
 
@@ -1338,9 +1393,32 @@ export default function AdminPanel({
                             <span className={`text-[10px] ${subtleBg} ${textFaint} px-2 py-0.5 rounded-md font-mono font-bold tracking-wide uppercase`}>
                               {p.examType.toUpperCase()}
                             </span>
-                            <span className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold">
-                              {sub?.name || 'Subject'}
-                            </span>
+                            {onUpdatePaper ? (
+                              <select
+                                value={p.subjectId}
+                                onChange={(e) => {
+                                  const newSubId = e.target.value;
+                                  const newSub = subjects.find(s => s.id === newSubId);
+                                  if (newSub) {
+                                    if (confirm(`Move paper "${p.title}" to ${newSub.name}?`)) {
+                                      onUpdatePaper({ ...p, subjectId: newSubId, examType: newSub.examType });
+                                    }
+                                  }
+                                }}
+                                className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold outline-none cursor-pointer border border-transparent hover:border-sky-500/30 transition-colors"
+                                title="Change Subject Category"
+                              >
+                                {subjects.map(s => (
+                                  <option key={s.id} value={s.id} className={isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
+                                    {s.name} ({s.examType.toUpperCase()})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold">
+                                {sub?.name || 'Subject'}
+                              </span>
+                            )}
                             <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-semibold ${p.language === 'en' ? 'bg-indigo-500/15 text-indigo-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
                               {p.language === 'en' ? 'EN' : 'SI'}
                             </span>
@@ -1429,23 +1507,51 @@ export default function AdminPanel({
                   ප්‍රශ්නය ඇතුළත් කරන්න (Add/Upload Question MCQ)
                 </h2>
 
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
-                  <select
-                    value={targetPaperId}
-                    onChange={(e) => {
-                      setTargetPaperId(e.target.value);
-                      const nextNum = questions.filter(q => q.paperId === e.target.value).length + 1;
-                      setQNumber(nextNum);
-                      setOptE(''); // clear E when switching papers
-                      setCorrectOption(0);
-                    }}
-                    className={`${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 cursor-pointer`}
-                  >
-                    {papers.map(p => (
-                      <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
-                    ))}
-                  </select>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs ${textMuted} font-medium`}>විෂය:</span>
+                    <select
+                      value={filterSubjectId}
+                      onChange={(e) => {
+                        const newSubjectId = e.target.value;
+                        setFilterSubjectId(newSubjectId);
+                        const subjectPapers = papers.filter(p => !newSubjectId || p.subjectId === newSubjectId);
+                        if (subjectPapers.length > 0) {
+                          setTargetPaperId(subjectPapers[0].id);
+                          const nextNum = questions.filter(q => q.paperId === subjectPapers[0].id).length + 1;
+                          setQNumber(nextNum);
+                          setOptE('');
+                          setCorrectOption(0);
+                        } else {
+                          setTargetPaperId('');
+                        }
+                      }}
+                      className={`${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 cursor-pointer`}
+                    >
+                      <option value="">සියලුම විෂයයන් (All Subjects)</option>
+                      {subjects.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.sinhalaName})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
+                    <select
+                      value={targetPaperId}
+                      onChange={(e) => {
+                        setTargetPaperId(e.target.value);
+                        const nextNum = questions.filter(q => q.paperId === e.target.value).length + 1;
+                        setQNumber(nextNum);
+                        setOptE(''); // clear E when switching papers
+                        setCorrectOption(0);
+                      }}
+                      className={`${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 cursor-pointer`}
+                    >
+                      {papers.filter(p => !filterSubjectId || p.subjectId === filterSubjectId).map(p => (
+                        <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1691,17 +1797,41 @@ export default function AdminPanel({
                 <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
                   ප්‍රශ්න මකන්න (Delete Questions)
                 </h2>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
-                  <select
-                    value={targetPaperId}
-                    onChange={(e) => setTargetPaperId(e.target.value)}
-                    className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-red-500 cursor-pointer`}
-                  >
-                    {papers.map(p => (
-                      <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
-                    ))}
-                  </select>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs ${textMuted} font-medium`}>විෂය:</span>
+                    <select
+                      value={filterSubjectId}
+                      onChange={(e) => {
+                        const newSubjectId = e.target.value;
+                        setFilterSubjectId(newSubjectId);
+                        const subjectPapers = papers.filter(p => !newSubjectId || p.subjectId === newSubjectId);
+                        if (subjectPapers.length > 0) {
+                          setTargetPaperId(subjectPapers[0].id);
+                        } else {
+                          setTargetPaperId('');
+                        }
+                      }}
+                      className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-red-500 cursor-pointer`}
+                    >
+                      <option value="">සියලුම විෂයයන් (All Subjects)</option>
+                      {subjects.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.sinhalaName})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
+                    <select
+                      value={targetPaperId}
+                      onChange={(e) => setTargetPaperId(e.target.value)}
+                      className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-red-500 cursor-pointer`}
+                    >
+                      {papers.filter(p => !filterSubjectId || p.subjectId === filterSubjectId).map(p => (
+                        <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1755,17 +1885,41 @@ export default function AdminPanel({
                 <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
                   ප්‍රශ්න සංස්කරණය (Edit Questions)
                 </h2>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
-                  <select
-                    value={targetPaperId}
-                    onChange={(e) => setTargetPaperId(e.target.value)}
-                    className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-blue-500 cursor-pointer`}
-                  >
-                    {papers.map(p => (
-                      <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
-                    ))}
-                  </select>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs ${textMuted} font-medium`}>විෂය:</span>
+                    <select
+                      value={filterSubjectId}
+                      onChange={(e) => {
+                        const newSubjectId = e.target.value;
+                        setFilterSubjectId(newSubjectId);
+                        const subjectPapers = papers.filter(p => !newSubjectId || p.subjectId === newSubjectId);
+                        if (subjectPapers.length > 0) {
+                          setTargetPaperId(subjectPapers[0].id);
+                        } else {
+                          setTargetPaperId('');
+                        }
+                      }}
+                      className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-blue-500 cursor-pointer`}
+                    >
+                      <option value="">සියලුම විෂයයන් (All Subjects)</option>
+                      {subjects.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.sinhalaName})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs ${textMuted} font-medium`}>ප්‍රශ්න පත්‍රය:</span>
+                    <select
+                      value={targetPaperId}
+                      onChange={(e) => setTargetPaperId(e.target.value)}
+                      className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-blue-500 cursor-pointer`}
+                    >
+                      {papers.filter(p => !filterSubjectId || p.subjectId === filterSubjectId).map(p => (
+                        <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1781,7 +1935,49 @@ export default function AdminPanel({
                         {/* ===== LIVE EDIT MODE ===== */}
                         {editingLiveId === q.id && liveEditData ? (
                           <div className="space-y-4 w-full">
-                            <h4 className="font-bold text-lg text-blue-600">Editing Question {liveEditData.qNumber}</h4>
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-bold text-lg text-blue-600">Editing Question {liveEditData.qNumber}</h4>
+                            </div>
+
+                            {/* Live Preview Section */}
+                            <div className={`p-4 border rounded-xl ${surfaceBg} ${surfaceBdr}`}>
+                              <h5 className="font-bold text-sm mb-4 text-emerald-500">Live Preview</h5>
+                              <div className={`text-sm ${textPrimary} mb-4`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(liveEditData.questionHtml) }} />
+                              
+                              {/* Ref Images Preview & Delete */}
+                              <div className="flex flex-wrap gap-4 mb-4">
+                                {(() => {
+                                  const allImages = [
+                                    ...extractImages(liveEditData.questionHtml).map(src => ({ src, field: 'questionHtml' as const })),
+                                    ...extractImages(liveEditData.explanationHtml || '').map(src => ({ src, field: 'explanationHtml' as const })),
+                                    ...liveEditData.optionsHtml.flatMap((opt, oIdx) => extractImages(opt).map(src => ({ src, field: 'optionsHtml' as const, oIdx })))
+                                  ];
+
+                                  return allImages.map(({ src, field, oIdx }, i) => (
+                                    <div key={i} className={`relative border ${inputBdr} p-2 rounded-lg ${subtleBg} inline-block`}>
+                                      <img src={src} className="max-h-48 object-contain" alt="Ref Image" />
+                                      <div className="text-[10px] text-gray-500 mt-1 uppercase text-center w-full">{field === 'optionsHtml' ? `Option ${String.fromCharCode(65 + (oIdx || 0))}` : field === 'questionHtml' ? 'Question Body' : 'Explanation'}</div>
+                                      <button 
+                                        onClick={() => handleDeleteImage(src, field, oIdx)}
+                                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md"
+                                        title="Delete Image"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                      </button>
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
+
+                              <div className="pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-2">
+                                {liveEditData.optionsHtml.map((opt, oIdx) => (
+                                  <div key={oIdx} className={`text-sm flex gap-2 items-start ${liveEditData!.correctOption === oIdx ? 'text-emerald-500 font-bold' : textMuted}`}>
+                                    <span>{String.fromCharCode(65 + oIdx)}.</span>
+                                    <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
 
                             {/* Question Text Input */}
                             <div>
@@ -1805,8 +2001,8 @@ export default function AdminPanel({
                               <textarea
                                 value={liveEditData.questionHtml}
                                 onChange={(e) => setLiveEditData({ ...liveEditData, questionHtml: e.target.value })}
-                                className={`w-full p-2 border rounded ${inputBg} ${inputBdr}`}
-                                rows={4}
+                                className={`w-full p-2 border rounded text-sm ${inputBg} ${inputBdr} ${textPrimary}`}
+                                rows={5}
                               />
                             </div>
 
@@ -1834,23 +2030,26 @@ export default function AdminPanel({
                                       }}
                                     />
                                   </label>
-                                  <input
-                                    type="text"
+                                  <textarea
                                     value={opt}
                                     onChange={(e) => {
                                       const newOpts = [...liveEditData.optionsHtml];
                                       newOpts[oIdx] = e.target.value;
                                       setLiveEditData({ ...liveEditData, optionsHtml: newOpts as any });
                                     }}
-                                    className={`flex-1 p-1.5 border rounded text-sm ${inputBg} ${inputBdr}`}
+                                    className={`flex-1 p-1.5 border rounded text-sm ${inputBg} ${inputBdr} ${textPrimary}`}
+                                    rows={3}
                                   />
-                                  <input
-                                    type="radio"
-                                    name={`correctOption_${q.id}`}
-                                    checked={liveEditData.correctOption === oIdx}
-                                    onChange={() => setLiveEditData({ ...liveEditData, correctOption: oIdx as any })}
-                                    className="w-4 h-4 cursor-pointer"
-                                  />
+                                  <label className="flex flex-col items-center justify-center gap-1 cursor-pointer bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                    <input
+                                      type="radio"
+                                      name={`correctOption_${q.id}`}
+                                      checked={liveEditData.correctOption === oIdx}
+                                      onChange={() => setLiveEditData({ ...liveEditData, correctOption: oIdx as any })}
+                                      className="w-4 h-4 cursor-pointer"
+                                    />
+                                    <span className="text-[10px] font-bold text-gray-500">Correct</span>
+                                  </label>
                                 </div>
                               ))}
                             </div>
@@ -1877,8 +2076,8 @@ export default function AdminPanel({
                               <textarea
                                 value={liveEditData.explanationHtml || ''}
                                 onChange={(e) => setLiveEditData({ ...liveEditData, explanationHtml: e.target.value })}
-                                className={`w-full p-2 border rounded text-sm ${inputBg} ${inputBdr}`}
-                                rows={2}
+                                className={`w-full p-2 border rounded text-sm ${inputBg} ${inputBdr} ${textPrimary}`}
+                                rows={3}
                               />
                             </div>
 
@@ -1920,7 +2119,12 @@ export default function AdminPanel({
                             <button
                               onClick={() => {
                                 setEditingLiveId(q.id);
-                                setLiveEditData({ ...q });
+                                setLiveEditData({ 
+                                  ...q,
+                                  questionHtml: unrenderMathHtml(q.questionHtml),
+                                  optionsHtml: q.optionsHtml.map(o => unrenderMathHtml(o)) as any,
+                                  explanationHtml: q.explanationHtml ? unrenderMathHtml(q.explanationHtml) : undefined
+                                });
                               }}
                               className="shrink-0 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 hover:text-blue-600 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                             >
