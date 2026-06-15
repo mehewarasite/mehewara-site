@@ -15,7 +15,7 @@
     "@supabase/supabase-js": "^2.107.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tiptap/core": "^3.26.0",
-    "@tiptap/extension-image": "^3.26.1",
+    "@tiptap/extension-image": "^3.26.0",
     "@tiptap/extension-placeholder": "^3.26.0",
     "@tiptap/extension-subscript": "^3.26.0",
     "@tiptap/extension-superscript": "^3.26.0",
