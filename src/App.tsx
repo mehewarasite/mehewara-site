@@ -39,7 +39,7 @@ const PrivacyPolicyPage = React.lazy(() => import('./components/PrivacyPolicyPag
 import {
   dbLoadSubjects, dbSaveSubjects,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
-  dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper,
+  dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
   dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs
 } from './supabase';
 
@@ -62,6 +62,7 @@ export default function App() {
   const [papers, setPapers] = useState<Paper[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [attempts, setAttempts] = useState<UserAttempt[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState<boolean>(false);
   const [selectedLevel, setSelectedLevel] = useState<'ol' | 'al' | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [activePracticePaper, setActivePracticePaper] = useState<Paper | null>(null);
@@ -96,11 +97,38 @@ export default function App() {
     window.history.pushState({ layer: true }, '', '');
     setSelectedSubject(sub);
   };
-  const handleSetPracticePaper = (paper: Paper) => {
+  const handleSetPracticePaper = async (paper: Paper) => {
     window.history.pushState({ layer: true }, '', '');
+
+    const paperQuestions = questions.filter(q => q.paperId === paper.id);
+    if (paperQuestions.length < paper.questionCount) {
+      setIsLoadingQuestions(true);
+      const remoteQuestions = await dbLoadQuestionsForPaper(paper.id);
+      if (remoteQuestions && remoteQuestions.length > 0) {
+        setQuestions(prev => {
+          const updated = [...prev.filter(q => q.paperId !== paper.id), ...remoteQuestions];
+          idbSet('m_questions', JSON.stringify(updated));
+          return updated;
+        });
+      }
+      setIsLoadingQuestions(false);
+    }
+
     setActivePracticePaper(paper);
   };
-  const handleOpenAdminPanel = () => {
+  const handleOpenAdminPanel = async () => {
+    setIsSyncing(true);
+    try {
+      const allQuestions = await dbLoadQuestions();
+      if (allQuestions) {
+        setQuestions(allQuestions);
+        idbSet('m_questions', JSON.stringify(allQuestions));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSyncing(false);
+    }
     window.history.pushState({ layer: true }, '', '');
     setShowAdminPanel(true);
   };
@@ -109,14 +137,43 @@ export default function App() {
     setShowAboutUs(true);
   };
 
+  const loadFromLocal = async () => {
+    try {
+      const storedSubjects = await idbGet('m_subjects');
+      if (storedSubjects) {
+        setSubjects(JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths'));
+      } else {
+        setSubjects(INITIAL_SUBJECTS);
+      }
+
+      const storedPapers = await idbGet('m_papers');
+      if (storedPapers) {
+        setPapers(JSON.parse(storedPapers));
+      } else {
+        setPapers(INITIAL_PAPERS);
+      }
+
+      const storedQuestions = await idbGet('m_questions');
+      if (storedQuestions) {
+        setQuestions(JSON.parse(storedQuestions));
+      } else {
+        setQuestions(INITIAL_QUESTIONS);
+      }
+
+      const localAbout = await idbGet('m_about_us');
+      if (localAbout) setAboutData(JSON.parse(localAbout));
+    } catch (err) {
+      console.error('Local load failed:', err);
+    }
+  };
+
   // Reusable sync function — pulls latest data from Supabase
   const syncFromSupabase = async () => {
     setIsSyncing(true);
     try {
-      const [remoteSubjects, remotePapers, remoteQuestions, remoteAbout] = await Promise.all([
+      const [remoteSubjects, remotePapers, remoteAbout] = await Promise.all([
         dbLoadSubjects(),
         dbLoadPapers(),
-        dbLoadQuestions(),
         dbLoadAboutUs(),
       ]);
 
@@ -125,7 +182,6 @@ export default function App() {
         setSubjects(filtered);
         idbSet('m_subjects', JSON.stringify(filtered));
       } else if (INITIAL_SUBJECTS.length > 0) {
-        // First run — seed Supabase with initial data
         await dbSaveSubjects(INITIAL_SUBJECTS);
         setSubjects(INITIAL_SUBJECTS);
         idbSet('m_subjects', JSON.stringify(INITIAL_SUBJECTS));
@@ -135,45 +191,17 @@ export default function App() {
         setPapers(remotePapers);
         idbSet('m_papers', JSON.stringify(remotePapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
       } else if (INITIAL_PAPERS.length > 0) {
-        // First run — seed Supabase with initial papers
         await Promise.all(INITIAL_PAPERS.map(p => dbSavePaper(p)));
         setPapers(INITIAL_PAPERS);
         idbSet('m_papers', JSON.stringify(INITIAL_PAPERS));
       }
 
-      if (remoteQuestions && remoteQuestions.length > 0) {
-        setQuestions(remoteQuestions);
-        idbSet('m_questions', JSON.stringify(remoteQuestions));
-      } else if (INITIAL_QUESTIONS.length > 0) {
-        // First run — seed Supabase with initial questions
-        await dbSaveQuestions(INITIAL_QUESTIONS);
-        setQuestions(INITIAL_QUESTIONS);
-        idbSet('m_questions', JSON.stringify(INITIAL_QUESTIONS));
-      }
-
       if (remoteAbout) {
         setAboutData(remoteAbout);
         idbSet('m_about_us', JSON.stringify(remoteAbout));
-      } else {
-        const localAbout = await idbGet('m_about_us');
-        if (localAbout) setAboutData(JSON.parse(localAbout));
       }
     } catch (err) {
-      console.error('Supabase load failed, falling back to localStorage:', err);
-      // Offline fallback
-      const storedSubjects = await idbGet('m_subjects');
-      setSubjects(storedSubjects ? JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths') : INITIAL_SUBJECTS);
-
-      const storedPapers = await idbGet('m_papers');
-      if (storedPapers) {
-        const parsed: Paper[] = JSON.parse(storedPapers);
-        setPapers(parsed);
-      } else {
-        setPapers(INITIAL_PAPERS);
-      }
-
-      const storedQuestions = await idbGet('m_questions');
-      setQuestions(storedQuestions ? JSON.parse(storedQuestions) : INITIAL_QUESTIONS);
+      console.error('Supabase load failed:', err);
     } finally {
       setIsSyncing(false);
     }
@@ -185,7 +213,12 @@ export default function App() {
       // Attempts are always local (per-user)
       const storedAttempts = await idbGet('m_attempts');
       if (storedAttempts) { setAttempts(JSON.parse(storedAttempts)); }
-      await syncFromSupabase();
+      
+      // Load local data instantly
+      await loadFromLocal();
+      
+      // Sync from Supabase in background
+      syncFromSupabase();
     };
     init();
   }, []);
@@ -772,13 +805,21 @@ export default function App() {
                         const previousAttempt = attempts.find(a => a.paperId === paper.id);
                         const paperQuestions = questions.filter(q => q.paperId === paper.id);
                         let scoreBadge = null;
-                        if (previousAttempt?.isCompleted && paperQuestions.length > 0) {
-                          let correct = 0;
-                          paperQuestions.forEach(q => {
-                            const userAns = previousAttempt.answers[q.id || q.qNumber.toString()];
-                            if (userAns !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(userAns) ?? userAns === q.correctOption))) correct++;
-                          });
-                          const percent = Math.round((correct / paperQuestions.length) * 100);
+                        if (previousAttempt?.isCompleted && (previousAttempt.totalCount || paper.questionCount) > 0) {
+                          const correct = previousAttempt.correctCount !== undefined 
+                                        ? previousAttempt.correctCount 
+                                        : (paperQuestions.length > 0 ? (() => {
+                                            let c = 0;
+                                            paperQuestions.forEach(q => {
+                                              const userAns = previousAttempt.answers[q.id || q.qNumber.toString()];
+                                              if (userAns !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(userAns) ?? userAns === q.correctOption))) c++;
+                                            });
+                                            return c;
+                                          })() : 0);
+                          
+                          const total = previousAttempt.totalCount || paper.questionCount || paperQuestions.length;
+                          const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
+                          
                           scoreBadge = (
                             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold font-mono">
                               ✓ {percent}% (Completed)
@@ -843,9 +884,10 @@ export default function App() {
                               )}
                               <button
                                 onClick={() => handleSetPracticePaper(paper)}
-                                className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 sm:py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold font-sans tracking-wide transition-all cursor-pointer active:scale-[0.98]"
+                                disabled={isLoadingQuestions}
+                                className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 sm:py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold font-sans tracking-wide transition-all cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:cursor-wait"
                               >
-                                {previousAttempt ? (isEn ? 'Restart' : 'නැවත අරඹන්න') : (isEn ? 'Practice' : 'පිළිතුරු ලියන්න')}
+                                {isLoadingQuestions ? 'Loading...' : previousAttempt ? (isEn ? 'Restart' : 'නැවත අරඹන්න') : (isEn ? 'Practice' : 'පිළිතුරු ලියන්න')}
                               </button>
                             </div>
                           </div>

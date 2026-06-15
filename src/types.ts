@@ -41,6 +41,8 @@ export interface UserAttempt {
   completedAt?: number;
   answers: { [questionId: string]: number }; // Maps question id to selected option index (0-3)
   isCompleted: boolean;
+  correctCount?: number;
+  totalCount?: number;
 }
 
 export interface AdminSettings {

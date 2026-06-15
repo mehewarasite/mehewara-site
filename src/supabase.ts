@@ -66,6 +66,16 @@ export async function dbLoadQuestions(): Promise<Question[] | null> {
   return data.map((r: any) => r.data as Question);
 }
 
+export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question[] | null> {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('data')
+    .eq('paper_id', paperId)
+    .order('created_at', { ascending: true });
+  if (error) { console.error('loadQuestionsForPaper:', error); return null; }
+  return data.map((r: any) => r.data as Question);
+}
+
 export async function dbSaveQuestion(question: Question): Promise<void> {
   const { error } = await supabase
     .from('questions')

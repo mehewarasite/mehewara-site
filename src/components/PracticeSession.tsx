@@ -181,12 +181,22 @@ export default function PracticeSession({
     setIsSubmitted(true);
     setIsTimerActive(false);
 
+    let correctCount = 0;
+    questions.forEach((q) => {
+      const qId = q.id || q.qNumber.toString();
+      if (answers[qId] !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(answers[qId]) ?? answers[qId] === q.correctOption))) {
+        correctCount++;
+      }
+    });
+
     const attempt: UserAttempt = {
       paperId: paper.id,
       startedAt: Date.now() - (paper.durationMinutes * 60 - timeLeft) * 1000,
       completedAt: Date.now(),
       answers: answers,
-      isCompleted: true
+      isCompleted: true,
+      correctCount,
+      totalCount: totalQuestions
     };
 
     onSaveAttempt(attempt);
