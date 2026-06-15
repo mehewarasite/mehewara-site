@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, ShieldCheck, Mail } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';

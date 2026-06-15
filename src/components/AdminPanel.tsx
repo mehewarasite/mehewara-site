@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Lock,
   Unlock,
-  Settings,
   CircleHelp,
   Check,
   BookOpen,
@@ -214,7 +213,6 @@ export default function AdminPanel({
 
   // ── Theme shortcut classes ──
   const pageBg = isDark ? 'bg-[#030304]' : 'bg-[#f0f4f8]';
-  const panelBg = isDark ? 'bg-[#030304]/95' : 'bg-[#f0f4f8]';
   const cardBg = isDark ? 'bg-slate-950/80' : 'bg-white';
   const cardBdr = isDark ? 'border-slate-900' : 'border-slate-200';
   const surfaceBg = isDark ? 'bg-slate-950' : 'bg-white';
@@ -818,7 +816,6 @@ export default function AdminPanel({
   if (!isAuthenticated) {
     // SUPERADMIN VIEW — change admin password
     if (isSuperAdmin) {
-      const isError = pwFlash.startsWith('error:');
       const isSuccess = pwFlash.startsWith('success:');
       const pwMsg = pwFlash.replace(/^(error|success):/, '');
 
@@ -2290,7 +2287,7 @@ export default function AdminPanel({
                   // 2. Upload new image
                   const fileExt = file.name.split('.').pop();
                   const fileName = `about-${Date.now()}.${fileExt}`;
-                  const { data, error } = await supabase.storage.from('question-images').upload(fileName, file);
+                  const { error } = await supabase.storage.from('question-images').upload(fileName, file);
 
                   if (!error) {
                     const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);

@@ -11,19 +11,13 @@ import {
   Compass, 
   ChevronRight, 
   ArrowLeft, 
-  Award, 
-  History, 
-  Settings, 
-  ShieldAlert, 
-  Sparkles, 
-  Clock, 
-  Plus,
+  Clock,
   BookMarked,
   Layers,
   GraduationCap,
   Sun,
   Moon,
-  BarChart2
+  Settings
 } from 'lucide-react';
 import { Subject, Paper, Question, UserAttempt } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
@@ -658,7 +652,6 @@ export default function App() {
             <PracticeSession
               paper={activePracticePaper}
               questions={questions.filter(q => q.paperId === activePracticePaper.id)}
-              attempts={attempts}
               onSaveAttempt={handleSaveAttempt}
               savedAttempt={attempts.find(a => a.paperId === activePracticePaper.id)}
               onClose={() => window.history.back()}

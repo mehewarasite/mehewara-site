@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, Facebook, Youtube, Linkedin, Info } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 

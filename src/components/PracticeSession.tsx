@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   CircleCheck,
   CircleX,
@@ -8,7 +8,6 @@ import {
   Clock,
   Flag,
   RefreshCw,
-  Check,
   Bookmark,
   Award,
   BookOpen,
@@ -58,13 +57,11 @@ export default function PracticeSession({
   const [isSubmitted, setIsSubmitted] = useState<boolean>(savedAttempt?.isCompleted || false);
   const [isTimerActive, setIsTimerActive] = useState<boolean>(!savedAttempt?.isCompleted);
   const [reviewQIndex, setReviewQIndex] = useState<number>(0);
-  const [activeView, setActiveView] = useState<'mcq' | 'study'>('mcq');
-  const [isLoadingStudy, setIsLoadingStudy] = useState(false);
+  const [activeView] = useState<'mcq' | 'study'>('mcq');
 
   useEffect(() => {
     if (activeView === 'study' && paper.studyMaterialHtml === undefined) {
-      setIsLoadingStudy(true);
-      onLoadStudyMaterial(paper.id).finally(() => setIsLoadingStudy(false));
+      onLoadStudyMaterial(paper.id);
     }
   }, [activeView, paper.studyMaterialHtml, paper.id, onLoadStudyMaterial]);
 

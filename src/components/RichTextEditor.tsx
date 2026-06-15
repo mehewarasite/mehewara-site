@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, Editor, Extension } from '@tiptap/react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
@@ -225,8 +225,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
   }, [onChange]);
 
   const handleImageUpload = async (file: File) => {
-    // Create a unique file name
-    const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `editor-${Date.now()}.${fileExt}`;
     const { error } = await supabase.storage.from('question-images').upload(fileName, file);
     if (error) {
       console.error('Upload failed:', error);
@@ -272,7 +272,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
         }
         return false;
       },
-      handleDrop: (view, event, slice, moved) => {
+      handleDrop: (view, event, _slice, moved) => {
         if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
           const file = event.dataTransfer.files[0];
           if (file.type.indexOf('image') === 0) {
