@@ -58,22 +58,106 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
 // ─── Questions ───────────────────────────────────────────────────────────────
 
 export async function dbLoadQuestions(): Promise<Question[] | null> {
-  const { data, error } = await supabase
+  // First fetch just the IDs to avoid timeouts with large data columns (e.g. Base64 images)
+  const { data: idsData, error: idError } = await supabase
     .from('questions')
-    .select('data')
+    .select('id')
     .order('created_at', { ascending: true });
-  if (error) { console.error('loadQuestions:', error); return null; }
-  return data.map((r: any) => r.data as Question);
+    
+  if (idError) { 
+    console.error('loadQuestions (ids):', idError); 
+    return null; 
+  }
+  
+  if (!idsData || idsData.length === 0) return [];
+
+  const ids = idsData.map((row: any) => row.id);
+  const results: Question[] = [];
+  const batchSize = 10; // Slightly larger batch for full sync to save time, but still avoids timeouts
+
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batchIds = ids.slice(i, i + batchSize);
+    
+    let success = false;
+    let attempts = 0;
+    while (!success && attempts < 3) {
+      attempts++;
+      const { data, error } = await supabase
+        .from('questions')
+        .select('data')
+        .in('id', batchIds);
+        
+      if (error) {
+        console.warn(`Batch ${i} failed, attempt ${attempts}:`, error.message);
+        if (attempts === 3) return null;
+      } else if (data) {
+        results.push(...data.map((r: any) => r.data as Question));
+        success = true;
+      }
+    }
+  }
+
+  // Preserve the original created_at ordering using a Map for O(n) lookup
+  const resultMap = new Map(results.map(r => [r.id, r]));
+  const sortedResults: Question[] = [];
+  for (const id of ids) {
+    const q = resultMap.get(id);
+    if (q) sortedResults.push(q);
+  }
+
+  return sortedResults;
 }
 
 export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question[] | null> {
-  const { data, error } = await supabase
+  // First fetch just the IDs to avoid timeouts with large data columns (e.g. Base64 images)
+  const { data: idsData, error: idError } = await supabase
     .from('questions')
-    .select('data')
+    .select('id')
     .eq('paper_id', paperId)
     .order('created_at', { ascending: true });
-  if (error) { console.error('loadQuestionsForPaper:', error); return null; }
-  return data.map((r: any) => r.data as Question);
+    
+  if (idError) { 
+    console.error('loadQuestionsForPaper (ids):', idError); 
+    return null; 
+  }
+  
+  if (!idsData || idsData.length === 0) return [];
+
+  const ids = idsData.map((row: any) => row.id);
+  const results: Question[] = [];
+  const batchSize = 5; // Small batch size to prevent statement timeout on massive rows
+
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batchIds = ids.slice(i, i + batchSize);
+    
+    let success = false;
+    let attempts = 0;
+    while (!success && attempts < 3) {
+      attempts++;
+      const { data, error } = await supabase
+        .from('questions')
+        .select('data')
+        .in('id', batchIds);
+        
+      if (error) {
+        console.warn(`Batch ${i} failed, attempt ${attempts}:`, error.message);
+        if (attempts === 3) return null; // Abort if repeatedly failing
+      } else if (data) {
+        results.push(...data.map((r: any) => r.data as Question));
+        success = true;
+      }
+    }
+  }
+
+  // Preserve the original created_at ordering using a Map for O(n) lookup
+  const resultMap = new Map(results.map(r => [r.id, r]));
+  const sortedResults: Question[] = [];
+  for (const id of ids) {
+    const q = resultMap.get(id);
+    if (q) sortedResults.push(q);
+  }
+
+  return sortedResults;
 }
 
 export async function dbSaveQuestion(question: Question): Promise<void> {

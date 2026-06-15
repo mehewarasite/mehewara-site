@@ -44,7 +44,3 @@ export interface UserAttempt {
   correctCount?: number;
   totalCount?: number;
 }
-
-export interface AdminSettings {
-  adminPasscode: string;
-}

@@ -1,29 +1,61 @@
-const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
-
-export function readFileAsDataUrl(file: File): Promise<string> {
+// Compress image using Canvas API
+export async function compressImage(file: File, maxWidth = 1024, quality = 0.75): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
     reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions while maintaining aspect ratio
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(img.src); // Fallback to original if canvas fails
+          return;
+        }
+
+        // Draw image on canvas
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Compress to WebP (or JPEG if WebP isn't supported)
+        const compressedDataUrl = canvas.toDataURL('image/webp', quality);
+        resolve(compressedDataUrl);
+      };
+      img.onerror = () => reject(new Error('Failed to load image for compression'));
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
   });
+}
+
+// Compress image and return a Blob (useful for uploading to Supabase Storage)
+export async function compressImageToBlob(file: File, maxWidth = 1024, quality = 0.75): Promise<Blob> {
+  const dataUrl = await compressImage(file, maxWidth, quality);
+  const res = await fetch(dataUrl);
+  return await res.blob();
 }
 
 export async function fileToImgHtml(file: File, className = 'mhw-q-img'): Promise<string> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Please upload an image file (PNG, JPG, WEBP, etc.).');
   }
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new Error('Image must be under 2 MB.');
-  }
-  const dataUrl = await readFileAsDataUrl(file);
+  
+  // Compress the image (max width 1024px, 75% quality webp)
+  const dataUrl = await compressImage(file, 1024, 0.75);
+  
   const alt = file.name.replace(/"/g, '&quot;');
   return `<img src="${dataUrl}" alt="${alt}" class="${className}" />`;
-}
-
-export function dataUrlToImgHtml(dataUrl: string, alt: string, className = 'mhw-q-img'): string {
-  const safeAlt = alt.replace(/"/g, '&quot;');
-  return `<img src="${dataUrl}" alt="${safeAlt}" class="${className}" />`;
 }
 
 export function appendHtml(current: string, addition: string): string {

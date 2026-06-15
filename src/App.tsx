@@ -3,7 +3,6 @@ import {
   Atom, 
   FlaskConical, 
   Dna, 
-  Calculator, 
   Cpu, 
   Lightbulb, 
   Infinity as InfinityIcon, 
@@ -40,7 +39,7 @@ import {
 import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
 
 const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
-  Atom, FlaskConical, Dna, Calculator, Cpu, Lightbulb,
+  Atom, FlaskConical, Dna, Cpu, Lightbulb,
   Infinity: InfinityIcon, BookOpen, Compass
 };
 
@@ -295,18 +294,21 @@ export default function App() {
 
   const handleLoadStudyMaterial = async (paperId: string) => {
     const paper = papers.find(p => p.id === paperId);
-    if (paper?.studyMaterialHtml !== undefined) return;
+    // Skip if we already have real content loaded
+    if (paper?.studyMaterialHtml) return;
 
     let html = await idbGet(`m_study_${paperId}`);
     if (!html) {
       const dbHtml = await dbLoadStudyHtml(paperId);
-      html = dbHtml || ''; // Use empty string to indicate it was loaded but empty
       if (dbHtml) {
+        html = dbHtml;
         try { await idbSet(`m_study_${paperId}`, dbHtml); } catch {}
       }
     }
 
-    setPapers(prev => prev.map(p => p.id === paperId ? { ...p, studyMaterialHtml: html } : p));
+    if (html) {
+      setPapers(prev => prev.map(p => p.id === paperId ? { ...p, studyMaterialHtml: html } : p));
+    }
   };
 
   const handleDeletePaper = async (paperId: string) => {

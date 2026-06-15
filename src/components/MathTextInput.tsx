@@ -271,7 +271,7 @@ export default function MathTextInput({
         <input
           ref={inputRef}
           type="text"
-          value={isMath && raw.startsWith('\\') || isMath ? raw : raw}
+          value={raw}
           onChange={handleChange}
           onPaste={handlePaste}
           placeholder={isMath ? 'LaTeX source…' : placeholder}

@@ -161,7 +161,7 @@ function themeHtml(raw: string): string {
   const staticHtml = doc.body?.innerHTML ?? doc.documentElement.innerHTML;
   const bodyHtml = quizRendered || staticHtml;
 
-  const quizStyle = quizRendered ? `<style>
+const quizStyle = quizRendered ? `<style>
 .mhw-question{border:1px solid var(--color-border);border-radius:10px;padding:1.2em 1.4em;margin-bottom:1.4em}
 .mhw-qnum{font-weight:600;margin-bottom:.6em}
 .mhw-options{padding-left:1.4em;margin:.5em 0}
@@ -169,6 +169,7 @@ function themeHtml(raw: string): string {
 .mhw-correct{background:rgba(16,185,129,.12)!important;color:var(--color-text-primary)!important;font-weight:600}
 .mhw-badge{font-size:.7em;background:#10b981;color:#fff!important;padding:.1em .5em;border-radius:4px;margin-left:.4em;vertical-align:middle}
 .mhw-explanation{margin-top:.8em;padding:.8em 1em;border-left:3px solid #38bdf8;font-size:.85em;opacity:.85}
+img{max-width:100%;max-height:400px;object-fit:contain;height:auto;border-radius:8px;margin:.5em 0}
 </style>` : '';
 
   return THEME_STYLE + quizStyle + bodyHtml;

@@ -225,15 +225,26 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
   }, [onChange]);
 
   const handleImageUpload = async (file: File) => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `editor-${Date.now()}.${fileExt}`;
-    const { error } = await supabase.storage.from('question-images').upload(fileName, file);
-    if (error) {
-      console.error('Upload failed:', error);
+    try {
+      const { compressImageToBlob } = await import('../utils/mediaUpload');
+      const blob = await compressImageToBlob(file, 1024, 0.75);
+      
+      const fileExt = 'webp'; // Since compressImageToBlob returns webp
+      const fileName = `editor-${Date.now()}.${fileExt}`;
+      const { error } = await supabase.storage.from('question-images').upload(fileName, blob, {
+        contentType: 'image/webp'
+      });
+      
+      if (error) {
+        console.error('Upload failed:', error);
+        return null;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
+      return publicUrl;
+    } catch (e) {
+      console.error('Image compression or upload failed:', e);
       return null;
     }
-    const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
-    return publicUrl;
   };
 
   const editor = useEditor({

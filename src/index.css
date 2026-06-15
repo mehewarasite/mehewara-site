@@ -236,9 +236,12 @@ html.light .theme-text-muted { color: var(--color-text-secondary) !important; }
 .mhw-q-img {
   display: block;
   max-width: 100%;
+  max-height: 400px;
+  width: auto;
   height: auto;
   border-radius: 8px;
   margin: 0.5em 0;
+  object-fit: contain;
 }
 
 .mhw-opt-img {
@@ -251,6 +254,17 @@ html.light .theme-text-muted { color: var(--color-text-secondary) !important; }
   object-fit: contain;
 }
 /* TipTap Editor Styles */
+.ProseMirror img {
+  display: block;
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5em 0;
+  object-fit: contain;
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
   color: #adb5bd;
   content: attr(data-placeholder);
