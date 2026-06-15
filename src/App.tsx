@@ -40,7 +40,7 @@ import {
   dbLoadSubjects, dbSaveSubjects,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
   dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
-  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs
+  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, supabase
 } from './supabase';
 
 import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
@@ -69,6 +69,7 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
   const [showAboutUs, setShowAboutUs] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
 
   // Handle Browser/Android hardware back button
   useEffect(() => {
@@ -101,7 +102,9 @@ export default function App() {
     window.history.pushState({ layer: true }, '', '');
 
     const paperQuestions = questions.filter(q => q.paperId === paper.id);
-    if (paperQuestions.length < paper.questionCount) {
+    const expectedCount = paper.questionCount || 0;
+    
+    if (paperQuestions.length === 0 || (expectedCount > 0 && paperQuestions.length < expectedCount)) {
       setIsLoadingQuestions(true);
       const remoteQuestions = await dbLoadQuestionsForPaper(paper.id);
       if (remoteQuestions && remoteQuestions.length > 0) {
@@ -116,21 +119,25 @@ export default function App() {
 
     setActivePracticePaper(paper);
   };
-  const handleOpenAdminPanel = async () => {
-    setIsSyncing(true);
-    try {
-      const allQuestions = await dbLoadQuestions();
-      if (allQuestions) {
-        setQuestions(allQuestions);
-        idbSet('m_questions', JSON.stringify(allQuestions));
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSyncing(false);
-    }
+  const handleOpenAdminPanel = () => {
     window.history.pushState({ layer: true }, '', '');
     setShowAdminPanel(true);
+
+    const fetchQuestions = async () => {
+      setIsSyncing(true);
+      try {
+        const allQuestions = await dbLoadQuestions();
+        if (allQuestions) {
+          setQuestions(allQuestions);
+          idbSet('m_questions', JSON.stringify(allQuestions));
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+    fetchQuestions();
   };
   const handleOpenAboutUs = () => {
     window.history.pushState({ layer: true }, '', '');
@@ -221,6 +228,31 @@ export default function App() {
       syncFromSupabase();
     };
     init();
+
+    // Setup Supabase Realtime presence for active users counter
+    const channel = supabase.channel('online-users', {
+      config: {
+        presence: {
+          key: Math.random().toString(36).substring(7),
+        },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const count = Object.keys(state).length;
+        setActiveUsersCount(count > 0 ? count : 1);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleSaveAttempt = (newAttempt: UserAttempt) => {
@@ -856,7 +888,7 @@ export default function App() {
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Layers className={`w-3.5 h-3.5 ${textFaint}`} />
-                                  {isEn ? `${paperQuestions.length} Questions` : `ප්‍රශ්න ${paperQuestions.length} ක් අඩංගුයි`}
+                                  {isEn ? `${paper.questionCount || paperQuestions.length} Questions` : `ප්‍රශ්න ${paper.questionCount || paperQuestions.length} ක් අඩංගුයි`}
                                 </span>
                                 {scoreBadge}
                               </div>
@@ -942,6 +974,7 @@ export default function App() {
             isSyncing={isSyncing}
             onAboutUpdate={setAboutData}
             onClose={() => window.history.back()}
+            activeUsersCount={activeUsersCount}
           />
         </React.Suspense>
       )}

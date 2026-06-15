@@ -183,6 +183,7 @@ interface AdminPanelProps {
   isSyncing?: boolean;
   onAboutUpdate?: (data: any) => void;
   onClose: () => void;
+  activeUsersCount?: number;
 }
 
 export default function AdminPanel({
@@ -202,7 +203,8 @@ export default function AdminPanel({
   onSync,
   isSyncing,
   onAboutUpdate,
-  onClose
+  onClose,
+  activeUsersCount = 1
 }: AdminPanelProps) {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
@@ -2443,6 +2445,23 @@ export default function AdminPanel({
                   <p className={`text-sm ${textMuted} mt-6 max-w-[80%]`}>
                     Total number of multiple-choice questions actively loaded across all available past papers and practice tests.
                   </p>
+                </div>
+
+                {/* Active Users */}
+                <div className={`col-span-1 lg:col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.08]">
+                    <Activity className="w-24 h-24 text-emerald-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm mb-2 relative z-10">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                      ACTIVE USERS
+                    </div>
+                    <h2 className={`text-5xl font-black ${textPrimary} font-display tracking-tighter relative z-10`}>
+                      {activeUsersCount}
+                    </h2>
+                  </div>
+                  <p className={`text-xs ${textMuted} mt-4 relative z-10`}>Current real-time active sessions.</p>
                 </div>
 
                 {/* Average Questions per Paper */}
