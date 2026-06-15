@@ -19,7 +19,7 @@ const DotMatrixBackground: React.FC = () => {
     canvas.height = height;
 
     const dots: { x: number; y: number; baseX: number; baseY: number; size: number; baseSize: number }[] = [];
-    const spacing = 10 // space between dots
+    const spacing = 20 // space between dots (increased from 10 for performance)
 
     const initDots = () => {
       dots.length = 0;
@@ -32,8 +32,8 @@ const DotMatrixBackground: React.FC = () => {
             y: j * spacing,
             baseX: i * spacing,
             baseY: j * spacing,
-            size: 1.5,
-            baseSize: 1.5,
+            size: 1.2,
+            baseSize: 1.2,
           });
         }
       }
@@ -82,26 +82,37 @@ const DotMatrixBackground: React.FC = () => {
 
       for (let i = 0; i < dots.length; i++) {
         const dot = dots[i];
+
+        // Fast bounding-box check: skip expensive sqrt if dot is clearly outside radius
         const dx = mouse.x - dot.baseX;
         const dy = mouse.y - dot.baseY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const absDx = dx < 0 ? -dx : dx;
+        const absDy = dy < 0 ? -dy : dy;
 
         let currentSize = dot.baseSize;
 
-        if (distance < mouse.radius) {
-          const force = (mouse.radius - distance) / mouse.radius;
-          currentSize = dot.baseSize + force * 0.5; // dots grow larger near the cursor
+        if (absDx < mouse.radius && absDy < mouse.radius) {
+          const distance = Math.sqrt(dx * dx + dy * dy);
 
-          // mild repulsion
-          const moveX = dx * force * -0.05;
-          const moveY = dy * force * -0.05;
-          dot.x = dot.baseX + moveX;
-          dot.y = dot.baseY + moveY;
+          if (distance < mouse.radius) {
+            const force = (mouse.radius - distance) / mouse.radius;
+            currentSize = dot.baseSize + force * 0.5;
 
-          // Theme blue color for interactive zone
-          ctx.fillStyle = isDark
-            ? `rgba(14, 165, 233, ${0.2 + force * 0.8})`
-            : `rgba(14, 165, 233, ${0.15 + force * 0.7})`;
+            // mild repulsion
+            const moveX = dx * force * -0.05;
+            const moveY = dy * force * -0.05;
+            dot.x = dot.baseX + moveX;
+            dot.y = dot.baseY + moveY;
+
+            // Theme blue color for interactive zone
+            ctx.fillStyle = isDark
+              ? `rgba(14, 165, 233, ${0.2 + force * 0.8})`
+              : `rgba(14, 165, 233, ${0.15 + force * 0.7})`;
+          } else {
+            dot.x += (dot.baseX - dot.x) * 0.1;
+            dot.y += (dot.baseY - dot.y) * 0.1;
+            ctx.fillStyle = defaultColor;
+          }
         } else {
           // spring back to base position
           dot.x += (dot.baseX - dot.x) * 0.1;

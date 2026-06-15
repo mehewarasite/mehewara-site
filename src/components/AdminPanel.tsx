@@ -147,6 +147,17 @@ function themeHtml(raw: string): string {
     doc.querySelectorAll(`[${attr}]`).forEach(el => el.removeAttribute(attr))
   );
 
+  // Strip inline event handlers (onclick, onerror, onload, etc.) — XSS prevention
+  doc.querySelectorAll('*').forEach(el => {
+    const attrsToRemove: string[] = [];
+    for (let i = 0; i < el.attributes.length; i++) {
+      if (el.attributes[i].name.toLowerCase().startsWith('on')) {
+        attrsToRemove.push(el.attributes[i].name);
+      }
+    }
+    attrsToRemove.forEach(attr => el.removeAttribute(attr));
+  });
+
   const staticHtml = doc.body?.innerHTML ?? doc.documentElement.innerHTML;
   const bodyHtml = quizRendered || staticHtml;
 
@@ -372,7 +383,7 @@ export default function AdminPanel({
     }
   }, [subjects]);
 
-  const SUPERADMIN_HASH = import.meta.env.VITE_SUPERADMIN_HASH || 'b064a7bd942c0ba4520abf9f419cc62bb448221cac9221e0f38de7ba56d22b9a';
+  const SUPERADMIN_HASH = import.meta.env.VITE_SUPERADMIN_HASH || '';
 
   // Brute-force lockout state — persisted in sessionStorage so reloads don't reset it
   const [loginAttempts, setLoginAttempts] = useState<number>(() => {
@@ -397,7 +408,7 @@ export default function AdminPanel({
   const getAdminHash = () =>
     localStorage.getItem('m_admin_pw_hash') ||
     import.meta.env.VITE_DEFAULT_ADMIN_HASH ||
-    '48966d003781399de52006d93a238970d745bb61fc1b8f99d9d786a6086e4654';
+    '';
 
   // Handle Passcode verification
   const handleLogin = async (e: React.FormEvent) => {

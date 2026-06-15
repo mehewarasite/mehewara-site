@@ -190,6 +190,14 @@ function themeHtml(raw: string): string {
   const legacyAttrs = ['bgcolor', 'color', 'face', 'size', 'text', 'link', 'vlink', 'alink'];
   doc.querySelectorAll('*').forEach(el => {
     legacyAttrs.forEach(attr => el.removeAttribute(attr));
+    // 4b. Strip inline event handlers (onclick, onerror, onload, etc.) — XSS prevention
+    const attrsToRemove: string[] = [];
+    for (let i = 0; i < el.attributes.length; i++) {
+      if (el.attributes[i].name.toLowerCase().startsWith('on')) {
+        attrsToRemove.push(el.attributes[i].name);
+      }
+    }
+    attrsToRemove.forEach(attr => el.removeAttribute(attr));
   });
 
   // 5. Get the body content (or full doc if no body)

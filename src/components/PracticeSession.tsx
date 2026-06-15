@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   CircleCheck,
   CircleX,
@@ -109,6 +109,9 @@ export default function PracticeSession({
   const ghostBg = isDark ? 'bg-slate-950/40' : 'bg-slate-50';
   const ghostBdr = isDark ? 'border-slate-900' : 'border-slate-200';
 
+  // Use a ref to always have the latest handleSubmit for the timer
+  const handleSubmitRef = useRef<() => void>(() => {});
+
   // Countdown Timer
   useEffect(() => {
     if (isSubmitted || !isTimerActive) return;
@@ -117,7 +120,7 @@ export default function PracticeSession({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleSubmit();
+          handleSubmitRef.current();
           return 0;
         }
         return prev - 1;
@@ -172,7 +175,7 @@ export default function PracticeSession({
   };
 
   // Submit Paper MCQ
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (isSubmitted) return;
 
     setIsSubmitted(true);
@@ -197,7 +200,12 @@ export default function PracticeSession({
     };
 
     onSaveAttempt(attempt);
-  };
+  }, [isSubmitted, answers, questions, paper, timeLeft, totalQuestions, onSaveAttempt]);
+
+  // Keep the ref up-to-date so the timer always calls the latest version
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  }, [handleSubmit]);
 
   // Reset / Retry
   const handleRetry = () => {
@@ -348,7 +356,13 @@ export default function PracticeSession({
             {/* Top-Right primary Action button */}
             {!isSubmitted ? (
               <button
-                onClick={handleSubmit}
+                onClick={() => {
+                  const unanswered = questions.filter(q => answers[q.id || q.qNumber.toString()] === undefined).length;
+                  const msg = unanswered > 0
+                    ? (isEn ? `You have ${unanswered} unanswered question(s). Submit anyway?` : `ඔබට නොපිළිතුරු දුන් ප්‍රශ්න ${unanswered}ක් ඇත. කෙසේ වුවත් ඉදිරිපත් කරන්නද?`)
+                    : (isEn ? 'Are you sure you want to submit?' : 'ඔබට ඉදිරිපත් කිරීමට අවශ්‍ය බව විශ්වාසද?');
+                  if (confirm(msg)) handleSubmit();
+                }}
                 className="shrink-0 min-h-[44px] px-3 sm:px-5 py-2.5 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-450 hover:to-sky-500 text-white rounded-xl text-[11px] sm:text-xs font-bold font-sans sm:tracking-widest shadow-[0_0_15px_rgba(56,189,248,0.2)] hover:shadow-[0_0_20px_rgba(56,189,248,0.35)] transition-all cursor-pointer active:scale-[0.98]"
               >
                 <span className="sm:hidden">{isEn ? 'Submit' : 'ඉදිරිපත් කරන්න'}</span>
@@ -776,13 +790,13 @@ export default function PracticeSession({
 
                   <button
                     onClick={toggleFlag}
-                    className={`flex items-center gap-1 min-h-[44px] px-3 py-2 rounded-lg border text-xs font-semibold select-none cursor-pointer transition-all ${flaggedQuestions[activeQuestion.qNumber]
+                    className={`flex items-center gap-1 min-h-[44px] px-3 py-2 rounded-lg border text-xs font-semibold select-none cursor-pointer transition-all ${flaggedQuestions[activeQuestion.id || activeQuestion.qNumber.toString()]
                         ? 'bg-amber-500/15 border-amber-500/40 text-amber-450'
                         : `${subtleBg} ${subtleBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
                       }`}
                   >
                     <Flag className="w-3.5 h-3.5 shrink-0" />
-                    {flaggedQuestions[activeQuestion.qNumber] ? (
+                    {flaggedQuestions[activeQuestion.id || activeQuestion.qNumber.toString()] ? (
                       <>
                         <span className="sm:hidden">{isEn ? 'Flagged' : 'ලකුණු කළ'}</span>
                         <span className="hidden sm:inline">{isEn ? 'Flagged for Review' : 'සමාලෝචනයට ලකුණු කර ඇත'}</span>

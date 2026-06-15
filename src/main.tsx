@@ -5,7 +5,6 @@ import './index.css';
 import 'katex/dist/katex.min.css';
 import { ThemeProvider } from './ThemeContext.tsx';
 import { LanguageProvider } from './LanguageContext.tsx';
-import "katex/dist/katex.min.css";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
