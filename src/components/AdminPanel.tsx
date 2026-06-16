@@ -25,7 +25,9 @@ import {
   TrendingUp,
   Activity,
   Globe,
-  HelpCircle
+  HelpCircle,
+  Database,
+  HardDrive
 } from 'lucide-react';
 import { Subject, Paper, Question } from '../types';
 import RichTextEditor from './RichTextEditor';
@@ -161,7 +163,7 @@ function themeHtml(raw: string): string {
   const staticHtml = doc.body?.innerHTML ?? doc.documentElement.innerHTML;
   const bodyHtml = quizRendered || staticHtml;
 
-const quizStyle = quizRendered ? `<style>
+  const quizStyle = quizRendered ? `<style>
 .mhw-question{border:1px solid var(--color-border);border-radius:10px;padding:1.2em 1.4em;margin-bottom:1.4em}
 .mhw-qnum{font-weight:600;margin-bottom:.6em}
 .mhw-options{padding-left:1.4em;margin:.5em 0}
@@ -250,6 +252,80 @@ export default function AdminPanel({
 
   // Tab states: 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats'
   const [activeTab, setActiveTab] = useState<'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats'>('papers');
+
+  // ── Database Storage Usage State ──
+  interface StorageTableInfo {
+    name: string;
+    label: string;
+    rows: number;
+    sizeBytes: number;
+    color: string;
+  }
+  const [storageData, setStorageData] = useState<StorageTableInfo[]>([]);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const [storageBucketSize, setStorageBucketSize] = useState<{ files: number; sizeBytes: number }>({ files: 0, sizeBytes: 0 });
+
+  const fetchStorageUsage = React.useCallback(async () => {
+    setStorageLoading(true);
+    setStorageError(null);
+    try {
+      const tables = [
+        { name: 'subjects', label: 'Subjects', color: '#10b981' },
+        { name: 'papers', label: 'Papers', color: '#3b82f6' },
+        { name: 'questions', label: 'Questions', color: '#a855f7' },
+        { name: 'study_html', label: 'Study HTML', color: '#f59e0b' },
+        { name: 'about_us', label: 'About Us', color: '#ef4444' },
+      ];
+
+      const results: StorageTableInfo[] = [];
+      for (const t of tables) {
+        try {
+          const { data, error } = await supabase.from(t.name).select('*');
+          if (error) {
+            results.push({ name: t.name, label: t.label, rows: 0, sizeBytes: 0, color: t.color });
+          } else {
+            const jsonStr = JSON.stringify(data || []);
+            const sizeBytes = new TextEncoder().encode(jsonStr).length;
+            results.push({ name: t.name, label: t.label, rows: data?.length || 0, sizeBytes, color: t.color });
+          }
+        } catch {
+          results.push({ name: t.name, label: t.label, rows: 0, sizeBytes: 0, color: t.color });
+        }
+      }
+      setStorageData(results);
+
+      // Fetch storage bucket info (question-images)
+      try {
+        const { data: files } = await supabase.storage.from('question-images').list('', { limit: 1000 });
+        const { data: diagrams } = await supabase.storage.from('question-images').list('diagrams', { limit: 1000 });
+        const allFiles = [...(files || []), ...(diagrams || [])];
+        const totalSize = allFiles.reduce((sum, f) => sum + (f.metadata?.size || 0), 0);
+        setStorageBucketSize({ files: allFiles.length, sizeBytes: totalSize });
+      } catch {
+        setStorageBucketSize({ files: 0, sizeBytes: 0 });
+      }
+    } catch (err: any) {
+      setStorageError(err?.message || 'Failed to fetch storage data');
+    } finally {
+      setStorageLoading(false);
+    }
+  }, []);
+
+  // Auto-fetch storage usage when stats tab is opened
+  useEffect(() => {
+    if (activeTab === 'stats' && isAuthenticated && storageData.length === 0) {
+      fetchStorageUsage();
+    }
+  }, [activeTab, isAuthenticated]);
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   // Stats Calculations
   const stats = React.useMemo(() => {
@@ -2418,140 +2494,266 @@ export default function AdminPanel({
 
         {/* Stats Tab Content */}
         {activeTab === 'stats' && (
-          <div className="space-y-6">
-            <div className={`p-6 md:p-8 ${cardBg} border ${cardBdr} rounded-3xl ${isDark ? '' : 'shadow-md'}`}>
-              <div className={`flex flex-col md:flex-row md:items-center justify-between border-b ${dividerBdr} pb-6 mb-8 gap-4`}>
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-2xl ${isDark ? 'bg-fuchsia-500/10' : 'bg-fuchsia-100'} border ${isDark ? 'border-fuchsia-500/20' : 'border-fuchsia-200'}`}>
-                    <BarChart2 className={`w-6 h-6 ${isDark ? 'text-fuchsia-400' : 'text-fuchsia-600'}`} />
-                  </div>
-                  <div>
-                    <h1 className={`text-2xl md:text-3xl font-extrabold ${textPrimary} font-display tracking-wide leading-tight`}>
-                      Stats for Nerds
-                    </h1>
-                    <p className={`text-sm ${textMuted} font-mono mt-1`}>Global Content Metrics & System Health</p>
-                  </div>
+          <div className={`p-4 md:p-5 ${cardBg} border ${cardBdr} rounded-2xl ${isDark ? '' : 'shadow-md'} lg:h-[calc(100vh-12rem)] flex flex-col`}>
+            {/* Compact Header */}
+            <div className={`flex items-center justify-between border-b ${dividerBdr} pb-3 mb-4`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${isDark ? 'bg-fuchsia-500/10' : 'bg-fuchsia-100'} border ${isDark ? 'border-fuchsia-500/20' : 'border-fuchsia-200'}`}>
+                  <BarChart2 className={`w-5 h-5 ${isDark ? 'text-fuchsia-400' : 'text-fuchsia-600'}`} />
+                </div>
+                <div>
+                  <h1 className={`text-xl font-extrabold ${textPrimary} font-display tracking-wide leading-tight`}>
+                    Stats
+                  </h1>
+                  <p className={`text-xs ${textMuted} font-mono`}>Global Content Metrics & System Health</p>
                 </div>
               </div>
+            </div>
 
-              {/* Bento Grid from StatsDashboard */}
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {/* Two-column layout: Metrics | Storage */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 flex-1 min-h-0">
 
-                {/* Total Questions - Hero Card */}
-                <div className={`col-span-1 md:col-span-2 lg:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between`}>
-                  <div className="absolute top-0 right-0 p-8 opacity-10">
-                    <HelpCircle className="w-32 h-32 text-fuchsia-500" />
+              {/* LEFT: Compact Metric Cards */}
+              <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-3 auto-rows-min lg:auto-rows-fr content-start">
+
+                {/* Total Questions - Hero */}
+                <div className={`col-span-2 md:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between`}>
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <HelpCircle className="w-20 h-20 text-fuchsia-500" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 text-fuchsia-500 font-bold text-sm mb-2">
-                      <Activity className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5 text-fuchsia-500 font-bold text-xs mb-1">
+                      <Activity className="w-3.5 h-3.5" />
                       TOTAL QUESTION BANK
                     </div>
-                    <h2 className={`text-6xl md:text-7xl font-black ${textPrimary} font-display tracking-tighter`}>
+                    <h2 className={`text-4xl md:text-5xl font-black ${textPrimary} font-display tracking-tighter`}>
                       {questions.length.toLocaleString()}
                     </h2>
                   </div>
-                  <p className={`text-sm ${textMuted} mt-6 max-w-[80%]`}>
-                    Total number of multiple-choice questions actively loaded across all available past papers and practice tests.
+                  <p className={`text-xs ${textMuted} mt-2 max-w-[85%] leading-snug`}>
+                    MCQs loaded across all papers.
                   </p>
                 </div>
 
                 {/* Active Users */}
-                <div className={`col-span-1 lg:col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden`}>
-                  <div className="absolute top-0 right-0 p-4 opacity-[0.08]">
-                    <Activity className="w-24 h-24 text-emerald-500" />
+                <div className={`col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 p-2 opacity-[0.08]">
+                    <Activity className="w-16 h-16 text-emerald-500" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm mb-2 relative z-10">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <div className="flex items-center gap-1.5 text-emerald-500 font-bold text-xs mb-1 relative z-10">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                       ACTIVE USERS
                     </div>
-                    <h2 className={`text-5xl font-black ${textPrimary} font-display tracking-tighter relative z-10`}>
+                    <h2 className={`text-3xl md:text-4xl font-black ${textPrimary} font-display tracking-tighter relative z-10`}>
                       {activeUsersCount}
                     </h2>
                   </div>
-                  <p className={`text-xs ${textMuted} mt-4 relative z-10`}>Current real-time active sessions.</p>
+                  <p className={`text-[10px] ${textMuted} mt-2 relative z-10`}>Real-time sessions</p>
                 </div>
 
-                {/* Average Questions per Paper */}
-                <div className={`col-span-1 lg:col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 flex flex-col justify-between`}>
+                {/* Avg Q / Paper */}
+                <div className={`col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4 flex flex-col justify-between`}>
                   <div>
-                    <div className="flex items-center gap-2 text-indigo-500 font-bold text-sm mb-2">
-                      <TrendingUp className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5 text-indigo-500 font-bold text-xs mb-1">
+                      <TrendingUp className="w-3.5 h-3.5" />
                       AVG Q / PAPER
                     </div>
-                    <h2 className={`text-5xl font-black ${textPrimary} font-display tracking-tighter`}>
+                    <h2 className={`text-3xl md:text-4xl font-black ${textPrimary} font-display tracking-tighter`}>
                       {stats.avgQuestions}
                     </h2>
                   </div>
-                  <p className={`text-xs ${textMuted} mt-4`}>Average questions loaded per active paper.</p>
+                  <p className={`text-[10px] ${textMuted} mt-2`}>Per active paper</p>
                 </div>
 
                 {/* Top Subject */}
-                <div className={`col-span-1 lg:col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6 flex flex-col justify-between`}>
+                <div className={`col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4 flex flex-col justify-between`}>
                   <div>
-                    <div className="flex items-center gap-2 text-amber-500 font-bold text-sm mb-2">
-                      <Activity className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5 text-amber-500 font-bold text-xs mb-1">
+                      <Activity className="w-3.5 h-3.5" />
                       TOP SUBJECT
                     </div>
-                    <h2 className={`text-2xl font-black ${textPrimary} font-display leading-tight truncate`} title={stats.topSubject}>
+                    <h2 className={`text-lg font-black ${textPrimary} font-display leading-tight truncate`} title={stats.topSubject}>
                       {stats.topSubject}
                     </h2>
-                    <p className={`text-xl font-bold ${textMuted} font-mono mt-1`}>
+                    <p className={`text-base font-bold ${textMuted} font-mono`}>
                       {stats.topSubjectCount} Papers
                     </p>
                   </div>
                 </div>
 
-                {/* Total Papers - Split */}
-                <div className={`col-span-1 md:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2 text-sky-500 font-bold text-sm">
-                      <FileText className="w-4 h-4" />
-                      TOTAL PAPERS
+                {/* Total Papers */}
+                <div className={`col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-sky-500 font-bold text-xs">
+                      <FileText className="w-3.5 h-3.5" />
+                      PAPERS
                     </div>
-                    <span className={`text-3xl font-black ${textPrimary} font-display`}>{papers.length}</span>
+                    <span className={`text-2xl font-black ${textPrimary} font-display`}>{papers.length}</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
-                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-500 mb-1">
-                        <Globe className="w-3.5 h-3.5" /> SINHALA (SI)
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`p-2 rounded-xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 mb-0.5">
+                        <Globe className="w-3 h-3" /> SI
                       </div>
-                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.siPapers}</div>
+                      <div className={`text-xl font-bold ${textPrimary}`}>{stats.siPapers}</div>
                     </div>
-                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
-                      <div className="flex items-center gap-2 text-xs font-bold text-indigo-500 mb-1">
-                        <Globe className="w-3.5 h-3.5" /> ENGLISH (EN)
+                    <div className={`p-2 rounded-xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-500 mb-0.5">
+                        <Globe className="w-3 h-3" /> EN
                       </div>
-                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.enPapers}</div>
+                      <div className={`text-xl font-bold ${textPrimary}`}>{stats.enPapers}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Total Subjects - Split */}
-                <div className={`col-span-1 md:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-3xl p-6`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm">
-                      <BookOpen className="w-4 h-4" />
-                      TOTAL SUBJECTS
+                {/* Total Subjects */}
+                <div className={`col-span-1 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-emerald-500 font-bold text-xs">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      SUBJECTS
                     </div>
-                    <span className={`text-3xl font-black ${textPrimary} font-display`}>{subjects.length}</span>
+                    <span className={`text-2xl font-black ${textPrimary} font-display`}>{subjects.length}</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
-                      <div className={`text-xs font-bold ${textMuted} mb-1 tracking-wider`}>O/L STREAM</div>
-                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.olSubjects}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`p-2 rounded-xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className={`text-[10px] font-bold ${textMuted} mb-0.5 tracking-wider`}>O/L</div>
+                      <div className={`text-xl font-bold ${textPrimary}`}>{stats.olSubjects}</div>
                     </div>
-                    <div className={`p-4 rounded-2xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
-                      <div className={`text-xs font-bold ${textMuted} mb-1 tracking-wider`}>A/L STREAM</div>
-                      <div className={`text-3xl font-bold ${textPrimary}`}>{stats.alSubjects}</div>
+                    <div className={`p-2 rounded-xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                      <div className={`text-[10px] font-bold ${textMuted} mb-0.5 tracking-wider`}>A/L</div>
+                      <div className={`text-xl font-bold ${textPrimary}`}>{stats.alSubjects}</div>
                     </div>
                   </div>
                 </div>
 
               </div>
+
+              {/* RIGHT: Database Storage Usage */}
+              <div className={`lg:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4 relative overflow-hidden flex flex-col`}>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded-lg ${isDark ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200'} border`}>
+                      <Database className={`w-4 h-4 ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`} />
+                    </div>
+                    <div>
+                      <div className="text-cyan-500 font-bold text-xs">DB STORAGE</div>
+                      <p className={`text-[10px] ${textMuted}`}>Supabase tables & bucket</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={fetchStorageUsage}
+                    disabled={storageLoading}
+                    className={`flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-lg transition-all cursor-pointer ${isDark
+                      ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20'
+                      : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100'
+                      } border ${storageLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <RefreshCw className={`w-3 h-3 ${storageLoading ? 'animate-spin' : ''}`} />
+                    {storageLoading ? '...' : 'Refresh'}
+                  </button>
+                </div>
+
+                {storageError && (
+                  <div className="mb-2 px-3 py-2 rounded-lg text-[10px] font-semibold border bg-red-500/10 border-red-500/20 text-red-400">
+                    ✕ {storageError}
+                  </div>
+                )}
+
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  {storageLoading && storageData.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                      <RefreshCw className={`w-6 h-6 ${isDark ? 'text-cyan-400' : 'text-cyan-500'} animate-spin`} />
+                      <p className={`text-xs ${textMuted} font-medium`}>Calculating...</p>
+                    </div>
+                  ) : storageData.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* Table Bars */}
+                      <div className="space-y-2">
+                        {(() => {
+                          const maxSize = Math.max(...storageData.map(t => t.sizeBytes), 1);
+                          return storageData.map((table) => (
+                            <div key={table.name} className="group">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: table.color }} />
+                                  <span className={`text-[11px] font-bold ${textPrimary}`}>{table.label}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-mono ${textMuted}`}>{table.rows}r</span>
+                                  <span className={`text-[11px] font-bold ${textPrimary}`}>{formatBytes(table.sizeBytes)}</span>
+                                </div>
+                              </div>
+                              <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                                <div
+                                  className="h-full rounded-full transition-all duration-700 ease-out"
+                                  style={{
+                                    width: `${Math.max((table.sizeBytes / maxSize) * 100, 1)}%`,
+                                    backgroundColor: table.color,
+                                    opacity: 0.75
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+
+                      {/* Divider */}
+                      <div className={`border-t ${dividerBdr}`} />
+
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className={`p-2.5 rounded-xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                          <div className="flex items-center gap-1 mb-1">
+                            <Database className={`w-3 h-3 ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`} />
+                            <span className={`text-[9px] font-bold ${textMuted} tracking-wider`}>DB</span>
+                          </div>
+                          <div className={`text-base font-black ${textPrimary} font-display`}>
+                            {formatBytes(storageData.reduce((sum, t) => sum + t.sizeBytes, 0))}
+                          </div>
+                          <p className={`text-[9px] ${textFaint} font-mono`}>
+                            {storageData.reduce((sum, t) => sum + t.rows, 0)} rows
+                          </p>
+                        </div>
+
+                        <div className={`p-2.5 rounded-xl ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'} border`}>
+                          <div className="flex items-center gap-1 mb-1">
+                            <HardDrive className={`w-3 h-3 ${isDark ? 'text-violet-400' : 'text-violet-600'}`} />
+                            <span className={`text-[9px] font-bold ${textMuted} tracking-wider`}>IMG</span>
+                          </div>
+                          <div className={`text-base font-black ${textPrimary} font-display`}>
+                            {formatBytes(storageBucketSize.sizeBytes)}
+                          </div>
+                          <p className={`text-[9px] ${textFaint} font-mono`}>
+                            {storageBucketSize.files} files
+                          </p>
+                        </div>
+
+                        <div className={`p-2.5 rounded-xl border-2 ${isDark ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200'}`}>
+                          <div className="flex items-center gap-1 mb-1">
+                            <BarChart2 className={`w-3 h-3 ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`} />
+                            <span className={`text-[9px] font-bold ${isDark ? 'text-cyan-400' : 'text-cyan-700'} tracking-wider`}>ALL</span>
+                          </div>
+                          <div className={`text-base font-black ${isDark ? 'text-cyan-300' : 'text-cyan-700'} font-display`}>
+                            {formatBytes(storageData.reduce((sum, t) => sum + t.sizeBytes, 0) + storageBucketSize.sizeBytes)}
+                          </div>
+                          <p className={`text-[9px] ${isDark ? 'text-cyan-500/60' : 'text-cyan-600/60'} font-mono`}>
+                            Combined
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`text-center py-6 ${textMuted} text-xs`}>
+                      <Database className={`w-8 h-8 mx-auto mb-2 ${textFaint}`} />
+                      <p>Click <strong>Refresh</strong> to load metrics</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
         )}
