@@ -35,7 +35,7 @@ export function unrenderMathHtml(html: string): string {
   }
 }
 
-export function parseTxtToQuizData(text: string): Array<{
+export function parseTxtToQuizData(text: string, imageMap?: Record<string, string>): Array<{
   id: number;
   part?: number;
   question: string;
@@ -46,6 +46,17 @@ export function parseTxtToQuizData(text: string): Array<{
 }> {
   if (!text) return [];
 
+  const processText = (str: string) => {
+    if (!str) return str;
+    return str.replace(/\[IMAGE:\s*(.*?)\]/gi, (_, filename) => {
+      const trimmed = filename.trim();
+      if (imageMap && imageMap[trimmed]) {
+        return `<img src="${imageMap[trimmed]}" alt="${trimmed}" class="max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
+      }
+      return `<div class="image-placeholder bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500 my-4 font-mono text-sm">Image Placeholder: ${trimmed}<br/><span class="text-xs">Upload image in Edit mode</span></div>`;
+    });
+  };
+
   // 1. Try parsing as JSON first (New JSON format support)
   try {
     const jsonObj = JSON.parse(text);
@@ -54,11 +65,11 @@ export function parseTxtToQuizData(text: string): Array<{
       return jsonObj.map((item, index) => ({
         id: item.question_number ?? (index + 1),
         part: item.part,
-        question: (item.question_text ?? item.question ?? '').replace(/\n/g, '<br/>'),
+        question: processText((item.question_text ?? item.question ?? '').replace(/\n/g, '<br/>')),
         code: item.code,
-        options: (item.options ?? []),
+        options: (item.options ?? []).map((opt: string) => processText(opt)),
         correctIndex: item.correct_option_index ?? 0,
-        explanation: (item.explanation ?? '').replace(/\n/g, '<br/>')
+        explanation: processText((item.explanation ?? '').replace(/\n/g, '<br/>'))
       }));
     }
   } catch (e) {
@@ -147,17 +158,6 @@ export function parseTxtToQuizData(text: string): Array<{
           cleanedLine = cleanedLine.replace(/^(Q\d+[:\.]\s*|\d+[\)\.]\s+)/i, '');
         }
 
-        // Handle Image Placeholders
-        // e.g. [IMAGE: A simple series...] -> <div class="image-placeholder...">...</div>
-        const imgMatch = cleanedLine.match(/\[IMAGE:\s*(.*?)\]/i);
-        if (imgMatch) {
-          const altText = imgMatch[1] || 'Image';
-          cleanedLine = cleanedLine.replace(
-            imgMatch[0],
-            `<div class="image-placeholder bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500 my-4 font-mono text-sm">Image Placeholder: ${altText}<br/><span class="text-xs">Upload image in Edit mode</span></div>`
-          );
-        }
-
         questionText += (questionText ? '\n' : '') + cleanedLine;
       }
     }
@@ -165,10 +165,10 @@ export function parseTxtToQuizData(text: string): Array<{
     if (questionText && options.length > 0) {
       parsed.push({
         id: idCounter++,
-        question: questionText.replace(/\n/g, '<br/>'),
-        options: options,
+        question: processText(questionText.replace(/\n/g, '<br/>')),
+        options: options.map(opt => processText(opt)),
         correctIndex,
-        explanation: explanation ? explanation.replace(/\n/g, '<br/>') : undefined
+        explanation: explanation ? processText(explanation.replace(/\n/g, '<br/>')) : undefined
       });
     }
   }

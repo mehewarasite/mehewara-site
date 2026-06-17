@@ -59,19 +59,30 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
 
 export async function dbLoadQuestions(): Promise<Question[] | null> {
   // First fetch just the IDs to avoid timeouts with large data columns (e.g. Base64 images)
-  const { data: idsData, error: idError } = await supabase
-    .from('questions')
-    .select('id')
-    .order('created_at', { ascending: true });
-    
-  if (idError) { 
-    console.error('loadQuestions (ids):', idError); 
-    return null; 
+  let allIdsData: any[] = [];
+  let from = 0;
+  const step = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('id')
+      .order('created_at', { ascending: true })
+      .range(from, from + step - 1);
+      
+    if (error) {
+      console.error('loadQuestions (ids):', error);
+      return null;
+    }
+    if (!data || data.length === 0) break;
+    allIdsData = allIdsData.concat(data);
+    if (data.length < step) break;
+    from += step;
   }
   
-  if (!idsData || idsData.length === 0) return [];
+  if (allIdsData.length === 0) return [];
 
-  const ids = idsData.map((row: any) => row.id);
+  const ids = allIdsData.map((row: any) => row.id);
   const results: Question[] = [];
   const batchSize = 10; // Slightly larger batch for full sync to save time, but still avoids timeouts
 
