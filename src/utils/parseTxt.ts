@@ -35,7 +35,7 @@ export function unrenderMathHtml(html: string): string {
   }
 }
 
-export function parseTxtToQuizData(text: string, imageMap?: Record<string, string>): Array<{
+export function parseTxtToQuizData(text: string): Array<{
   id: number;
   part?: number;
   question: string;
@@ -50,9 +50,6 @@ export function parseTxtToQuizData(text: string, imageMap?: Record<string, strin
     if (!str) return str;
     return str.replace(/\[IMAGE:\s*(.*?)\]/gi, (_, filename) => {
       const trimmed = filename.trim();
-      if (imageMap && imageMap[trimmed]) {
-        return `<img src="${imageMap[trimmed]}" alt="${trimmed}" class="max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
-      }
       return `<div class="image-placeholder bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-500 my-4 font-mono text-sm">Image Placeholder: ${trimmed}<br/><span class="text-xs">Upload image in Edit mode</span></div>`;
     });
   };

@@ -38,7 +38,6 @@ import { parseTxtToQuizData, renderMathInHtml, unrenderMathHtml } from '../utils
 import { supabase } from '../supabase';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
 import { idbGet, idbSet } from '../utils/storage';
-import JSZip from 'jszip';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
 const THEME_STYLE = `<style id="mehewara-theme">
 .mehewara-content *{font-family:var(--mhw-font,"Noto Sans Sinhala","Space Grotesk",system-ui,sans-serif)!important;color:var(--color-text-primary)!important;background-color:transparent!important;border-color:var(--color-border)!important}
@@ -381,10 +380,6 @@ export default function AdminPanel({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingLiveId, setEditingLiveId] = useState<string | null>(null);
   const [liveEditData, setLiveEditData] = useState<Question | null>(null);
-
-  // Custom ZIP Upload State
-  const [imageMap, setImageMap] = useState<Record<string, string>>({});
-  const [isUploadingZip, setIsUploadingZip] = useState(false);
 
   const [aboutData, setAboutData] = useState({
     description: '',
@@ -758,7 +753,7 @@ export default function AdminPanel({
 
       try {
         // 1. Run your new parser
-        const parsed = parseTxtToQuizData(rawText, imageMap);
+        const parsed = parseTxtToQuizData(rawText);
 
         if (parsed.length === 0) {
           alert("No questions found. Please check your formatting tags like [EN], [SIN], or ---.");
@@ -829,62 +824,6 @@ export default function AdminPanel({
     } catch (error) {
       console.error("Error uploading image:", error);
       alert("Failed to upload image. Check your Supabase storage permissions.");
-    }
-  };
-
-  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setIsUploadingZip(true);
-      showFlash('Extracting and uploading images from ZIP...', false);
-      const zip = new JSZip();
-      const loadedZip = await zip.loadAsync(file);
-      
-      const newMap: Record<string, string> = { ...imageMap };
-      let count = 0;
-
-      for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
-        if (zipEntry.dir) continue;
-        
-        // Filter for images
-        const ext = filename.split('.').pop()?.toLowerCase();
-        if (!['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext || '')) continue;
-        
-        // Get blob
-        const blob = await zipEntry.async('blob');
-        const fileObj = new File([blob], filename, { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
-        
-        // Upload to supabase
-        const safeName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-        const filePath = `diagrams/${safeName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('question-images')
-          .upload(filePath, fileObj);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('question-images')
-          .getPublicUrl(filePath);
-
-        // Map the original filename (e.g. q1.png) to the public URL
-        newMap[filename] = publicUrl;
-        count++;
-      }
-
-      setImageMap(newMap);
-      
-      // If we already have parsed questions, re-parse the original file or we can just show a message.
-      // Usually users will upload ZIP before JSON, or we can just ask them to re-upload the JSON.
-      showFlash(`Successfully processed and uploaded ${count} images! Now upload your JSON/TXT file.`);
-    } catch (err: any) {
-      showFlash(`ZIP upload failed: ${err.message}`, true);
-    } finally {
-      setIsUploadingZip(false);
-      e.target.value = ''; // Reset input
     }
   };
 
@@ -1424,32 +1363,6 @@ export default function AdminPanel({
                       hover:file:bg-blue-100
                       dark:file:bg-gray-800 dark:file:text-gray-300"
                   />
-                  <p className="text-xs text-gray-400 mt-1">If you have a ZIP with images, please upload it first below.</p>
-                </div>
-
-                {/* ZIP File Upload */}
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Upload Images (.zip)
-                  </label>
-                  <input
-                    type="file"
-                    accept=".zip"
-                    onChange={handleZipUpload}
-                    disabled={isUploadingZip}
-                    className="block w-full text-sm text-gray-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-md file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-purple-50 file:text-purple-700
-                      hover:file:bg-purple-100
-                      dark:file:bg-purple-900/30 dark:file:text-purple-300
-                      disabled:opacity-50"
-                  />
-                  {isUploadingZip && <p className="text-sm text-purple-600 mt-2 animate-pulse">Processing ZIP...</p>}
-                  {Object.keys(imageMap).length > 0 && !isUploadingZip && (
-                    <p className="text-sm text-green-600 mt-2">✓ Ready: {Object.keys(imageMap).length} images mapped in memory.</p>
-                  )}
                 </div>
 
                 {parsedQuestions.length > 0 && (
