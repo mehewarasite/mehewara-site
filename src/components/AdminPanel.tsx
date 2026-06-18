@@ -27,7 +27,10 @@ import {
   Globe,
   HelpCircle,
   Database,
-  HardDrive
+  HardDrive,
+  Edit2,
+  X,
+  Save
 } from 'lucide-react';
 import { Subject, Paper, Question } from '../types';
 import RichTextEditor from './RichTextEditor';
@@ -380,6 +383,8 @@ export default function AdminPanel({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingLiveId, setEditingLiveId] = useState<string | null>(null);
   const [liveEditData, setLiveEditData] = useState<Question | null>(null);
+  const [editingPaperId, setEditingPaperId] = useState<string | null>(null);
+  const [editPaperData, setEditPaperData] = useState<Partial<Paper>>({});
 
   const [aboutData, setAboutData] = useState({
     description: '',
@@ -1494,7 +1499,74 @@ export default function AdminPanel({
                         key={p.id}
                         className={`flex items-center justify-between p-4 ${isDark ? 'bg-slate-900/50 hover:bg-slate-900 border-slate-800' : 'bg-slate-50 hover:bg-white border-slate-200'} border rounded-xl transition-all`}
                       >
-                        <div className="space-y-1">
+                        {editingPaperId === p.id ? (
+                          <div className="flex-1 w-full space-y-3">
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <select
+                                value={editPaperData.language || 'si'}
+                                onChange={(e) => setEditPaperData({ ...editPaperData, language: e.target.value as 'si' | 'en' })}
+                                className={`text-xs px-2 py-1.5 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
+                              >
+                                <option value="si">Sinhala</option>
+                                <option value="en">English</option>
+                              </select>
+                              <input
+                                type="number"
+                                value={editPaperData.year || 2026}
+                                onChange={(e) => setEditPaperData({ ...editPaperData, year: parseInt(e.target.value) || 2026 })}
+                                className={`text-xs px-2 py-1.5 w-24 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
+                                placeholder="Year"
+                              />
+                              <input
+                                type="number"
+                                value={editPaperData.durationMinutes || 120}
+                                onChange={(e) => setEditPaperData({ ...editPaperData, durationMinutes: parseInt(e.target.value) || 120 })}
+                                className={`text-xs px-2 py-1.5 w-24 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
+                                placeholder="Duration (mins)"
+                              />
+                              <span className={`text-xs ${textMuted}`}>mins</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={editPaperData.sinhalaTitle || ''}
+                              onChange={(e) => setEditPaperData({ ...editPaperData, sinhalaTitle: e.target.value })}
+                              className={`w-full text-sm font-semibold px-2 py-1.5 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
+                              placeholder="Sinhala Title"
+                            />
+                            <input
+                              type="text"
+                              value={editPaperData.title || ''}
+                              onChange={(e) => setEditPaperData({ ...editPaperData, title: e.target.value })}
+                              className={`w-full text-xs font-mono px-2 py-1.5 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
+                              placeholder="English Title"
+                            />
+                            <div className="flex justify-end gap-2 mt-2">
+                              <button
+                                onClick={() => {
+                                  setEditingPaperId(null);
+                                  setEditPaperData({});
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                              >
+                                <X className="w-3 h-3" /> Cancel
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (onUpdatePaper && editPaperData) {
+                                    onUpdatePaper({ ...p, ...editPaperData } as Paper);
+                                    setEditingPaperId(null);
+                                    setEditPaperData({});
+                                  }
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg text-xs font-semibold transition-colors"
+                              >
+                                <Save className="w-3 h-3" /> Save Changes
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className={`text-[10px] ${subtleBg} ${textFaint} px-2 py-0.5 rounded-md font-mono font-bold tracking-wide uppercase`}>
                               {p.examType.toUpperCase()}
@@ -1553,6 +1625,17 @@ export default function AdminPanel({
                             + ප්‍රශ්න එකතු කරන්න (+ MCQ)
                           </button>
 
+                          <button
+                            onClick={() => {
+                              setEditingPaperId(p.id);
+                              setEditPaperData(p);
+                            }}
+                            className="p-1.5 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 text-slate-500 hover:text-amber-500 rounded-lg transition-all cursor-pointer"
+                            title="Edit Paper Details"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+
                           {/* Upload / Replace study HTML for existing paper */}
                           <label
                             title="Upload or replace study material HTML for this paper"
@@ -1592,6 +1675,8 @@ export default function AdminPanel({
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
