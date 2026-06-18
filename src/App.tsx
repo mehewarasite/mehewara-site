@@ -16,7 +16,10 @@ import {
   GraduationCap,
   Sun,
   Moon,
-  Settings
+  Settings,
+  Banknote,
+  Map,
+  Landmark
 } from 'lucide-react';
 import { Subject, Paper, Question, UserAttempt } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
@@ -40,7 +43,8 @@ import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/sto
 
 const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
   Atom, FlaskConical, Dna, Cpu, Lightbulb,
-  Infinity: InfinityIcon, BookOpen, Compass
+  Infinity: InfinityIcon, BookOpen, Compass,
+  Banknote, Map, Landmark
 };
 
 export default function App() {
@@ -141,7 +145,18 @@ export default function App() {
     try {
       const storedSubjects = await idbGet('m_subjects');
       if (storedSubjects) {
-        setSubjects(JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths'));
+        let parsedSubjects = JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths');
+        
+        // Merge any new subjects from INITIAL_SUBJECTS that aren't in local storage
+        const existingIds = new Set(parsedSubjects.map((s: Subject) => s.id));
+        const missingSubjects = INITIAL_SUBJECTS.filter(s => !existingIds.has(s.id));
+        
+        if (missingSubjects.length > 0) {
+          parsedSubjects = [...parsedSubjects, ...missingSubjects];
+          idbSet('m_subjects', JSON.stringify(parsedSubjects));
+        }
+        
+        setSubjects(parsedSubjects);
       } else {
         setSubjects(INITIAL_SUBJECTS);
       }
@@ -178,7 +193,18 @@ export default function App() {
       ]);
 
       if (remoteSubjects && remoteSubjects.length > 0) {
-        const filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
+        let filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
+        
+        // Merge any new subjects from INITIAL_SUBJECTS that aren't in Supabase
+        const existingIds = new Set(filtered.map((s: Subject) => s.id));
+        const missingSubjects = INITIAL_SUBJECTS.filter(s => !existingIds.has(s.id));
+        
+        if (missingSubjects.length > 0) {
+          // Note: Assuming dbSaveSubjects can accept an array and insert/upsert them
+          await dbSaveSubjects(missingSubjects);
+          filtered = [...filtered, ...missingSubjects];
+        }
+        
         setSubjects(filtered);
         idbSet('m_subjects', JSON.stringify(filtered));
       } else if (INITIAL_SUBJECTS.length > 0) {

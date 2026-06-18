@@ -76,6 +76,33 @@ export const INITIAL_SUBJECTS: Subject[] = [
     code: 'Hist',
     icon: 'Compass',
     color: 'from-bronze-650 to-amber-800 bg-amber-600/10 border-amber-600/30 text-amber-550 hover:bg-amber-600/20 shadow-[0_0_15px_rgba(217,119,6,0.05)]'
+  },
+  {
+    id: 'ol-business',
+    name: 'Business & Accounting Studies',
+    sinhalaName: 'ව්‍යාපාර හා ගිණුම්කරණ අධ්‍යයනයන්',
+    examType: 'ol',
+    code: 'comm',
+    icon: 'Banknote',
+    color: 'from-blue-600 to-indigo-700 bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.05)]'
+  },
+  {
+    id: 'ol-geography',
+    name: 'Geography',
+    sinhalaName: 'භූගෝල විද්‍යාව',
+    examType: 'ol',
+    code: 'geo',
+    icon: 'Map',
+    color: 'from-teal-600 to-emerald-700 bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20 shadow-[0_0_15px_rgba(20,184,166,0.05)]'
+  },
+  {
+    id: 'ol-civic',
+    name: 'Civic Education',
+    sinhalaName: 'පුරවැසි අධ්‍යාපනය',
+    examType: 'ol',
+    code: 'civic',
+    icon: 'Landmark',
+    color: 'from-purple-650 to-fuchsia-700 bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.05)]'
   }
 ];
 
