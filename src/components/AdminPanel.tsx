@@ -556,6 +556,17 @@ export default function AdminPanel({
     setTimeout(() => setPwFlash(''), 4000);
   };
 
+  const handleResetWithPassword = async () => {
+    const pw = prompt('Please enter your admin password to confirm factory reset:');
+    if (!pw) return;
+    const hash = await sha256(pw);
+    if (hash === getAdminHash() || hash === SUPERADMIN_HASH) {
+      onResetToDefaults();
+    } else {
+      alert('Incorrect password. Reset aborted.');
+    }
+  };
+
   const resetStudyHtmlInput = () => {
     if (studyHtmlInputRef.current) studyHtmlInputRef.current.value = '';
   };
@@ -1099,7 +1110,7 @@ export default function AdminPanel({
               </button>
             )}
             <button
-              onClick={onResetToDefaults}
+              onClick={handleResetWithPassword}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
               title="Restores the pre-loaded past papers and questions, wiping out additions"
             >
