@@ -1,0 +1,34 @@
+name: Send Daily Stats Email
+
+on:
+  schedule:
+    # Runs at 12:30 PM UTC every day (6:00 PM Sri Lanka Time)
+    - cron: '30 12 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  send-stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Send Daily Stats Script
+        run: npx tsx scripts/send-daily-stats.ts
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MANAGER_EMAIL: ${{ secrets.MANAGER_EMAIL }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
