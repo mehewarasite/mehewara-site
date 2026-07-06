@@ -7,6 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#030304" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <!-- Primary SEO -->
   <title>මෙහෙවර | O/L A/L විභාග ප්‍රශ්න පත්‍ර | Sinhala Past Papers</title>
@@ -108,7 +110,34 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <style>
+      .boot-loader {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #030304; /* Matches theme color */
+        z-index: 9999;
+      }
+      .boot-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top: 4px solid #38bdf8; /* sky-400 */
+        border-radius: 50%;
+        animation: boot-spin 1s linear infinite;
+      }
+      @keyframes boot-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+    <div class="boot-loader">
+      <div class="boot-spinner"></div>
+    </div>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
   <script>
     if ('modelContext' in navigator) {

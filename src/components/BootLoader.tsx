@@ -110,7 +110,7 @@ export default function BootLoader({ onBootComplete }: BootLoaderProps) {
           />
           
           <img
-            src="/image/mehewara logo.png"
+            src="/image/mehewara%20logo.png"
             alt="Mehewara"
             draggable={false}
             style={{
@@ -119,10 +119,13 @@ export default function BootLoader({ onBootComplete }: BootLoaderProps) {
               // The cinematic blur-in effect
               opacity: isLogoRevealed ? 1 : 0,
               filter: isLogoRevealed 
-                ? 'blur(0px) drop-shadow(0 0 10px rgba(255,255,255,0.3)) brightness(1.1)' 
-                : 'blur(20px) drop-shadow(0 0 0px rgba(255,255,255,0)) brightness(0)',
-              transform: isLogoRevealed ? 'scale(1)' : 'scale(1.3)',
-              transition: 'opacity 1.5s ease-out, filter 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), transform 1.8s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                ? 'blur(0px) drop-shadow(0 0 10px rgba(255,255,255,0.3))' 
+                : 'blur(15px)',
+              WebkitFilter: isLogoRevealed 
+                ? 'blur(0px) drop-shadow(0 0 10px rgba(255,255,255,0.3))' 
+                : 'blur(15px)',
+              transform: isLogoRevealed ? 'scale(1) translate3d(0,0,0)' : 'scale(1.2) translate3d(0,0,0)',
+              transition: 'opacity 1.5s ease-out, filter 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), -webkit-filter 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), transform 1.8s cubic-bezier(0.2, 0.8, 0.2, 1)',
               position: 'relative',
               zIndex: 10,
             }}

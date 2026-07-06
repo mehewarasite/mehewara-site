@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+\import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import dotenv from 'dotenv';
 
@@ -57,11 +57,11 @@ async function sendDailyStats() {
   });
 
   const statsRows = [
-    { label: '📚 Total Subjects',       value: subjectsCount },
-    { label: '📄 Total Papers',         value: papersCount },
-    { label: '❓ Total Questions',      value: questionsCount },
+    { label: '📚 Total Subjects', value: subjectsCount },
+    { label: '📄 Total Papers', value: papersCount },
+    { label: '❓ Total Questions', value: questionsCount },
     { label: '🖼️  Total Gallery Photos', value: galleryCount },
-    { label: '👥 Total Site Visits',    value: visitsCount },
+    { label: '👥 Total Site Visits', value: visitsCount },
   ];
 
   const tableRows = statsRows.map(r => `
