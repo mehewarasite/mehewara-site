@@ -42,11 +42,12 @@ async function getCount(table: string): Promise<number> {
 async function sendDailyStats() {
   console.log('📊 Fetching daily stats from Supabase...');
 
-  const [subjectsCount, papersCount, questionsCount, galleryCount] = await Promise.all([
+  const [subjectsCount, papersCount, questionsCount, galleryCount, visitsCount] = await Promise.all([
     getCount('subjects'),
     getCount('papers'),
     getCount('questions'),
     getCount('gallery'),
+    getCount('site_visits'),
   ]);
 
   const now = new Date();
@@ -60,6 +61,7 @@ async function sendDailyStats() {
     { label: '📄 Total Papers',         value: papersCount },
     { label: '❓ Total Questions',      value: questionsCount },
     { label: '🖼️  Total Gallery Photos', value: galleryCount },
+    { label: '👥 Total Site Visits',    value: visitsCount },
   ];
 
   const tableRows = statsRows.map(r => `

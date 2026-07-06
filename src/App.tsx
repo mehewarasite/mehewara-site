@@ -73,6 +73,14 @@ export default function App() {
   const [aboutData, setAboutData] = useState<any>(null);
   const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
 
+  // Track site visit
+  useEffect(() => {
+    // Fire and forget visit tracking
+    supabase.from('site_visits').insert([{ path: window.location.pathname }]).then(({ error }) => {
+      if (error) console.error('Failed to track visit:', error);
+    });
+  }, []);
+
   // Handle Browser/Android hardware back button
   useEffect(() => {
     const handlePopState = () => {
