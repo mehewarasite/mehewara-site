@@ -51,7 +51,6 @@ async function compressAllDb() {
   // Step 2: Fetch and process questions one at a time to avoid timeouts
   for (let i = 0; i < allIds.length; i++) {
     const qId = allIds[i].id;
-    const paperId = allIds[i].paper_id || 'unknown';
 
     // Fetch full question data
     const { data: rows, error: fetchErr } = await supabase
