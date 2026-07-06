@@ -308,3 +308,10 @@ export async function dbUpdateGalleryPhotoOrder(id: string, sortOrder: number): 
   if (error) console.error('dbUpdateGalleryPhotoOrder:', error);
 }
 
+/** Delete all gallery photos */
+export async function dbDeleteAllGalleryPhotos(): Promise<{ error?: string }> {
+  // Use a catch-all filter to delete everything
+  const { error } = await supabase.from('gallery').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) { console.error('dbDeleteAllGalleryPhotos:', error); return { error: error.message }; }
+  return {};
+}

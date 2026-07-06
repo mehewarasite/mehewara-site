@@ -41,7 +41,7 @@ import { appendHtml, fileToImgHtml, hasRealContent, optionHasContent } from '../
 import MathTextInput from './MathTextInput';
 import { useTheme } from '../ThemeContext';
 import { parseTxtToQuizData, renderMathInHtml, unrenderMathHtml } from '../utils/parseTxt';
-import { supabase, dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder } from '../supabase';
+import { supabase, dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos } from '../supabase';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
 import { idbGet, idbSet } from '../utils/storage';
 import { imageFileToHex, hexToDataUrl } from '../utils/imageHex';
@@ -361,6 +361,20 @@ export default function AdminPanel({
     setGalleryPhotos(reordered);
     await dbUpdateGalleryPhotoOrder(reordered[index].id, index);
     await dbUpdateGalleryPhotoOrder(reordered[index + 1].id, index + 1);
+  };
+
+  const handleGalleryDeleteAll = async () => {
+    if (!window.confirm('WARNING: Are you sure you want to delete ALL photos from the gallery? This cannot be undone.')) return;
+    
+    setGalleryLoading(true);
+    const { error } = await dbDeleteAllGalleryPhotos();
+    if (error) {
+      showFlash(`Delete all failed: ${error}`, true);
+    } else {
+      setGalleryPhotos([]);
+      showFlash('All photos have been deleted.');
+    }
+    setGalleryLoading(false);
   };
 
   // ── Database Storage Usage State ──
@@ -3150,14 +3164,25 @@ export default function AdminPanel({
                   Gallery Photos
                   <span className={`text-xs font-mono ${textFaint} border ${cardBdr} px-2 py-0.5 rounded-lg`}>{galleryPhotos.length}</span>
                 </h2>
-                <button
-                  onClick={fetchGallery}
-                  disabled={galleryLoading}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 ${subtleBg} border ${subtleBdr} ${textMuted} hover:text-emerald-400 rounded-xl text-xs font-semibold cursor-pointer transition-colors`}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${galleryLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchGallery}
+                    disabled={galleryLoading}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 ${subtleBg} border ${subtleBdr} ${textMuted} hover:text-emerald-400 rounded-xl text-xs font-semibold cursor-pointer transition-colors`}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${galleryLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                  <button
+                    onClick={handleGalleryDeleteAll}
+                    disabled={galleryLoading || galleryPhotos.length === 0}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30 rounded-xl text-xs font-semibold transition-colors ${(galleryLoading || galleryPhotos.length === 0) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    title="Delete all photos"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete All
+                  </button>
+                </div>
               </div>
 
               {galleryLoading && (
