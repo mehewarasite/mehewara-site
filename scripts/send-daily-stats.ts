@@ -125,9 +125,11 @@ async function sendDailyStats() {
   console.log('📧 Sending email via Resend...');
 
   const resend = new Resend(RESEND_API_KEY);
+  const toEmails = MANAGER_EMAIL.split(',').map(email => email.trim()).filter(Boolean);
+
   const { data, error } = await resend.emails.send({
     from: `Mehewara System <${FROM_EMAIL}>`,
-    to: [MANAGER_EMAIL],
+    to: toEmails,
     subject: `📊 Mehewara Daily Stats — ${dateStr}`,
     html: htmlContent,
   });
