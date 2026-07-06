@@ -1,0 +1,9 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://mehewara.edu.lk/",
+      "service-doc": [{ "href": "https://mehewara.edu.lk/llms.txt" }],
+      "describedby": [{ "href": "https://mehewara.edu.lk/.well-known/agent-skills/index.json" }]
+    }
+  ]
+}

@@ -102,11 +102,36 @@
       }
     }
   </script>
+  <link rel="api-catalog" href="https://mehewara.edu.lk/.well-known/api-catalog" />
+  <link rel="service-doc" href="https://mehewara.edu.lk/llms.txt" />
+  <link rel="describedby" href="https://mehewara.edu.lk/.well-known/agent-skills/index.json" />
 </head>
 
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+  <script>
+    if ('modelContext' in navigator) {
+      navigator.modelContext.provideContext({
+        tools: [
+          {
+            name: "search_papers",
+            description: "Search for O/L and A/L past papers",
+            inputSchema: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "Subject or year" }
+              }
+            },
+            execute: async (args) => {
+              console.log("WebMCP tool search_papers executed with:", args);
+              return "Search triggered";
+            }
+          }
+        ]
+      });
+    }
+  </script>
 </body>
 
 </html>

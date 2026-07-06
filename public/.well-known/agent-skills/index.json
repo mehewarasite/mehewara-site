@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "mehewara-past-papers",
+      "type": "skill-md",
+      "description": "Search and practice Sri Lankan O/L and A/L exam past papers with MCQ quizzes",
+      "url": "https://mehewara.edu.lk/.well-known/agent-skills/mehewara-past-papers/SKILL.md",
+      "digest": "sha256:88062cfff3f57fc475e7993b452d0520f5943e517202553319c0c2ba2f7b992e"
+    }
+  ]
+}

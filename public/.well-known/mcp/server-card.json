@@ -1,0 +1,16 @@
+{
+  "serverInfo": {
+    "name": "mehewara",
+    "version": "1.0.0",
+    "description": "Sri Lankan O/L & A/L exam past papers MCQ practice platform"
+  },
+  "capabilities": {
+    "resources": true,
+    "tools": true,
+    "prompts": false
+  },
+  "transport": {
+    "type": "streamable-http",
+    "endpoint": "https://mehewara.edu.lk/mcp"
+  }
+}
