@@ -1,4 +1,4 @@
-// for future developers of this site. i set a password here. use super-admin login to change it. if want to change all the password log in to the cloudflare and under the mehewara-site page setting you will fide secret tab change your pws there and redeloy the page.
+// for future developers of this site. i set a password here. use super-admin login to change it. if want to change all the password log in to the cloudflare and under the mehewara-site page setting you will find secret tab change your pws there and redeloy the page.
 //use antigravity. its far better if you do not know what you're doing.
 // all the password details in the google drive.
 //use this wisely do not waste your time here. logging off for the good. I'm 24. To the infinity and beyond 👾
@@ -365,7 +365,7 @@ export default function AdminPanel({
 
   const handleGalleryDeleteAll = async () => {
     if (!window.confirm('WARNING: Are you sure you want to delete ALL photos from the gallery? This cannot be undone.')) return;
-    
+
     setGalleryLoading(true);
     const { error } = await dbDeleteAllGalleryPhotos();
     if (error) {
@@ -1709,114 +1709,114 @@ export default function AdminPanel({
                         ) : (
                           <>
                             <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] ${subtleBg} ${textFaint} px-2 py-0.5 rounded-md font-mono font-bold tracking-wide uppercase`}>
-                              {p.examType.toUpperCase()}
-                            </span>
-                            {onUpdatePaper ? (
-                              <select
-                                value={p.subjectId}
-                                onChange={(e) => {
-                                  const newSubId = e.target.value;
-                                  const newSub = subjects.find(s => s.id === newSubId);
-                                  if (newSub) {
-                                    if (confirm(`Move paper "${p.title}" to ${newSub.name}?`)) {
-                                      onUpdatePaper({ ...p, subjectId: newSubId, examType: newSub.examType });
-                                    }
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] ${subtleBg} ${textFaint} px-2 py-0.5 rounded-md font-mono font-bold tracking-wide uppercase`}>
+                                  {p.examType.toUpperCase()}
+                                </span>
+                                {onUpdatePaper ? (
+                                  <select
+                                    value={p.subjectId}
+                                    onChange={(e) => {
+                                      const newSubId = e.target.value;
+                                      const newSub = subjects.find(s => s.id === newSubId);
+                                      if (newSub) {
+                                        if (confirm(`Move paper "${p.title}" to ${newSub.name}?`)) {
+                                          onUpdatePaper({ ...p, subjectId: newSubId, examType: newSub.examType });
+                                        }
+                                      }
+                                    }}
+                                    className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold outline-none cursor-pointer border border-transparent hover:border-sky-500/30 transition-colors"
+                                    title="Change Subject Category"
+                                  >
+                                    {subjects.map(s => (
+                                      <option key={s.id} value={s.id} className={isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
+                                        {s.name} ({s.examType.toUpperCase()})
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold">
+                                    {sub?.name || 'Subject'}
+                                  </span>
+                                )}
+                                <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-semibold ${p.language === 'en' ? 'bg-indigo-500/15 text-indigo-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
+                                  {p.language === 'en' ? 'EN' : 'SI'}
+                                </span>
+                              </div>
+                              <p className={`text-sm font-semibold ${textPrimary}`}>{p.sinhalaTitle}</p>
+                              <p className={`text-xs ${textFaint} font-mono italic`}>{p.title} ({p.year})</p>
+                              <div className={`flex items-center gap-4 text-[11px] ${textMuted} mt-1 font-sans`}>
+                                <span>⏱️ විනාඩි {p.durationMinutes}</span>
+                                <span className={`${subtleBg} px-1.5 py-0.5 rounded text-sky-400 text-[10px] font-mono`}>
+                                  <strong>{paperQCount}</strong> MCQs Uploaded
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setTargetPaperId(p.id);
+                                  // Calculate next question number
+                                  const nextNum = questions.filter(q => q.paperId === p.id).length + 1;
+                                  setQNumber(nextNum);
+                                  setActiveTab('add-question');
+                                }}
+                                className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/30 text-sky-450 hover:text-sky-400 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                              >
+                                + ප්‍රශ්න එකතු කරන්න (+ MCQ)
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setEditingPaperId(p.id);
+                                  setEditPaperData(p);
+                                }}
+                                className="p-1.5 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 text-slate-500 hover:text-amber-500 rounded-lg transition-all cursor-pointer"
+                                title="Edit Paper Details"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+
+                              {/* Upload / Replace study HTML for existing paper */}
+                              <label
+                                title="Upload or replace study material HTML for this paper"
+                                className={`p-1.5 border rounded-lg transition-all cursor-pointer ${p.studyMaterialHtml
+                                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                                  : 'border-transparent text-slate-500 hover:bg-sky-500/10 hover:border-sky-500/20 hover:text-sky-400'
+                                  }`}
+                              >
+                                <input
+                                  type="file"
+                                  accept=".html,.htm"
+                                  className="sr-only"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const html = ev.target?.result as string;
+                                      if (html) onUpdateStudyHtml(p.id, html);
+                                    };
+                                    reader.readAsText(file);
+                                    e.target.value = '';
+                                  }}
+                                />
+                                <Upload className="w-4 h-4" />
+                              </label>
+
+                              <button
+                                onClick={() => {
+                                  if (confirm(`කරුණාකර තහවුරු කරන්න: ඔබ "${p.sinhalaTitle}" ප්‍රශ්න පත්‍රය සහ එහි ඇති සියලුම ප්‍රශ්න මකාදැමීමට සූදානම්ද?`)) {
+                                    onDeletePaper(p.id);
                                   }
                                 }}
-                                className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold outline-none cursor-pointer border border-transparent hover:border-sky-500/30 transition-colors"
-                                title="Change Subject Category"
+                                className="p-1.5 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-all cursor-pointer"
+                                title="Delete entire paper"
                               >
-                                {subjects.map(s => (
-                                  <option key={s.id} value={s.id} className={isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}>
-                                    {s.name} ({s.examType.toUpperCase()})
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className="text-[10px] bg-sky-500/15 text-sky-400 px-2 py-0.5 rounded-md font-mono font-semibold">
-                                {sub?.name || 'Subject'}
-                              </span>
-                            )}
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-semibold ${p.language === 'en' ? 'bg-indigo-500/15 text-indigo-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
-                              {p.language === 'en' ? 'EN' : 'SI'}
-                            </span>
-                          </div>
-                          <p className={`text-sm font-semibold ${textPrimary}`}>{p.sinhalaTitle}</p>
-                          <p className={`text-xs ${textFaint} font-mono italic`}>{p.title} ({p.year})</p>
-                          <div className={`flex items-center gap-4 text-[11px] ${textMuted} mt-1 font-sans`}>
-                            <span>⏱️ විනාඩි {p.durationMinutes}</span>
-                            <span className={`${subtleBg} px-1.5 py-0.5 rounded text-sky-400 text-[10px] font-mono`}>
-                              <strong>{paperQCount}</strong> MCQs Uploaded
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => {
-                              setTargetPaperId(p.id);
-                              // Calculate next question number
-                              const nextNum = questions.filter(q => q.paperId === p.id).length + 1;
-                              setQNumber(nextNum);
-                              setActiveTab('add-question');
-                            }}
-                            className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/30 text-sky-450 hover:text-sky-400 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
-                          >
-                            + ප්‍රශ්න එකතු කරන්න (+ MCQ)
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setEditingPaperId(p.id);
-                              setEditPaperData(p);
-                            }}
-                            className="p-1.5 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 text-slate-500 hover:text-amber-500 rounded-lg transition-all cursor-pointer"
-                            title="Edit Paper Details"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-
-                          {/* Upload / Replace study HTML for existing paper */}
-                          <label
-                            title="Upload or replace study material HTML for this paper"
-                            className={`p-1.5 border rounded-lg transition-all cursor-pointer ${p.studyMaterialHtml
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
-                              : 'border-transparent text-slate-500 hover:bg-sky-500/10 hover:border-sky-500/20 hover:text-sky-400'
-                              }`}
-                          >
-                            <input
-                              type="file"
-                              accept=".html,.htm"
-                              className="sr-only"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = (ev) => {
-                                  const html = ev.target?.result as string;
-                                  if (html) onUpdateStudyHtml(p.id, html);
-                                };
-                                reader.readAsText(file);
-                                e.target.value = '';
-                              }}
-                            />
-                            <Upload className="w-4 h-4" />
-                          </label>
-
-                          <button
-                            onClick={() => {
-                              if (confirm(`කරුණාකර තහවුරු කරන්න: ඔබ "${p.sinhalaTitle}" ප්‍රශ්න පත්‍රය සහ එහි ඇති සියලුම ප්‍රශ්න මකාදැමීමට සූදානම්ද?`)) {
-                                onDeletePaper(p.id);
-                              }
-                            }}
-                            className="p-1.5 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-all cursor-pointer"
-                            title="Delete entire paper"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </>
                         )}
                       </div>
@@ -1848,7 +1848,7 @@ export default function AdminPanel({
                       onChange={(e) => {
                         const newSubjectId = e.target.value;
                         setFilterSubjectId(newSubjectId);
-                        const subjectPapers = papers.filter(p => 
+                        const subjectPapers = papers.filter(p =>
                           (!newSubjectId || p.subjectId === newSubjectId) &&
                           (filterLanguage === 'all' || p.language === filterLanguage || (!p.language && filterLanguage === 'si'))
                         );
@@ -1877,8 +1877,8 @@ export default function AdminPanel({
                       onChange={(e) => {
                         const newLang = e.target.value as any;
                         setFilterLanguage(newLang);
-                        const subjectPapers = papers.filter(p => 
-                          (!filterSubjectId || p.subjectId === filterSubjectId) && 
+                        const subjectPapers = papers.filter(p =>
+                          (!filterSubjectId || p.subjectId === filterSubjectId) &&
                           (newLang === 'all' || p.language === newLang || (!p.language && newLang === 'si'))
                         );
                         if (subjectPapers.length > 0) {
@@ -1911,8 +1911,8 @@ export default function AdminPanel({
                       }}
                       className={`${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 cursor-pointer`}
                     >
-                      {papers.filter(p => 
-                        (!filterSubjectId || p.subjectId === filterSubjectId) && 
+                      {papers.filter(p =>
+                        (!filterSubjectId || p.subjectId === filterSubjectId) &&
                         (filterLanguage === 'all' || p.language === filterLanguage || (!p.language && filterLanguage === 'si'))
                       ).map(p => (
                         <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year}) {p.language === 'en' ? '[EN]' : '[SI]'}</option>
@@ -2193,7 +2193,7 @@ export default function AdminPanel({
                       onChange={(e) => {
                         const newSubjectId = e.target.value;
                         setFilterSubjectId(newSubjectId);
-                        const subjectPapers = papers.filter(p => 
+                        const subjectPapers = papers.filter(p =>
                           (!newSubjectId || p.subjectId === newSubjectId) &&
                           (filterLanguage === 'all' || p.language === filterLanguage || (!p.language && filterLanguage === 'si'))
                         );
@@ -2218,8 +2218,8 @@ export default function AdminPanel({
                       onChange={(e) => {
                         const newLang = e.target.value as any;
                         setFilterLanguage(newLang);
-                        const subjectPapers = papers.filter(p => 
-                          (!filterSubjectId || p.subjectId === filterSubjectId) && 
+                        const subjectPapers = papers.filter(p =>
+                          (!filterSubjectId || p.subjectId === filterSubjectId) &&
                           (newLang === 'all' || p.language === newLang || (!p.language && newLang === 'si'))
                         );
                         if (subjectPapers.length > 0) {
@@ -2242,7 +2242,7 @@ export default function AdminPanel({
                       onChange={(e) => setTargetPaperId(e.target.value)}
                       className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-red-500 cursor-pointer`}
                     >
-                      {papers.filter(p => 
+                      {papers.filter(p =>
                         (!filterSubjectId || p.subjectId === filterSubjectId) &&
                         (filterLanguage === 'all' || p.language === filterLanguage || (!p.language && filterLanguage === 'si'))
                       ).map(p => (
@@ -2311,7 +2311,7 @@ export default function AdminPanel({
                       onChange={(e) => {
                         const newSubjectId = e.target.value;
                         setFilterSubjectId(newSubjectId);
-                        const subjectPapers = papers.filter(p => 
+                        const subjectPapers = papers.filter(p =>
                           (!newSubjectId || p.subjectId === newSubjectId) &&
                           (filterLanguage === 'all' || p.language === filterLanguage || (!p.language && filterLanguage === 'si'))
                         );
@@ -2336,8 +2336,8 @@ export default function AdminPanel({
                       onChange={(e) => {
                         const newLang = e.target.value as any;
                         setFilterLanguage(newLang);
-                        const subjectPapers = papers.filter(p => 
-                          (!filterSubjectId || p.subjectId === filterSubjectId) && 
+                        const subjectPapers = papers.filter(p =>
+                          (!filterSubjectId || p.subjectId === filterSubjectId) &&
                           (newLang === 'all' || p.language === newLang || (!p.language && newLang === 'si'))
                         );
                         if (subjectPapers.length > 0) {
@@ -2360,7 +2360,7 @@ export default function AdminPanel({
                       onChange={(e) => setTargetPaperId(e.target.value)}
                       className={`${inputBg} border ${inputBdr} rounded-lg px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-blue-500 cursor-pointer`}
                     >
-                      {papers.filter(p => 
+                      {papers.filter(p =>
                         (!filterSubjectId || p.subjectId === filterSubjectId) &&
                         (filterLanguage === 'all' || p.language === filterLanguage || (!p.language && filterLanguage === 'si'))
                       ).map(p => (
@@ -3187,7 +3187,7 @@ export default function AdminPanel({
 
               {galleryLoading && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[1,2,3,4,5,6].map(i => (
+                  {[1, 2, 3, 4, 5, 6].map(i => (
                     <div key={i} className={`rounded-xl overflow-hidden animate-pulse ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
                       <div className={`w-full aspect-[4/3] ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
                       <div className="p-2 space-y-1">
@@ -3272,4 +3272,4 @@ export default function AdminPanel({
       </div>
     </div >
   );
-}
+}
