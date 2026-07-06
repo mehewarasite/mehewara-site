@@ -3,7 +3,7 @@
 // all the password details in the google drive.
 //use this wisely do not waste your time here. logging off for the good. I'm 24. To the infinity and beyond 👾
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef as useReactRef } from 'react';
 import {
   Trash2,
   Plus,
@@ -19,6 +19,7 @@ import {
   FileCode,
   ShieldCheck,
   Image,
+  Images,
   Sun,
   Moon,
   BarChart2,
@@ -30,17 +31,20 @@ import {
   HardDrive,
   Edit2,
   X,
-  Save
+  Save,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
-import { Subject, Paper, Question } from '../types';
+import { Subject, Paper, Question, GalleryPhoto } from '../types';
 import RichTextEditor from './RichTextEditor';
 import { appendHtml, fileToImgHtml, hasRealContent, optionHasContent } from '../utils/mediaUpload';
 import MathTextInput from './MathTextInput';
 import { useTheme } from '../ThemeContext';
 import { parseTxtToQuizData, renderMathInHtml, unrenderMathHtml } from '../utils/parseTxt';
-import { supabase } from '../supabase';
+import { supabase, dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder } from '../supabase';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
 import { idbGet, idbSet } from '../utils/storage';
+import { imageFileToHex, hexToDataUrl } from '../utils/imageHex';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
 const THEME_STYLE = `<style id="mehewara-theme">
 .mehewara-content *{font-family:var(--mhw-font,"Noto Sans Sinhala","Space Grotesk",system-ui,sans-serif)!important;color:var(--color-text-primary)!important;background-color:transparent!important;border-color:var(--color-border)!important}
@@ -253,8 +257,111 @@ export default function AdminPanel({
   const [confirmAdminPw, setConfirmAdminPw] = useState('');
   const [pwFlash, setPwFlash] = useState('');
 
-  // Tab states: 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats'
-  const [activeTab, setActiveTab] = useState<'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats'>('papers');
+  // Tab states: 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats' | 'gallery'
+  const [activeTab, setActiveTab] = useState<'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats' | 'gallery'>('papers');
+
+  // ── Gallery state ──
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryUploadFile, setGalleryUploadFile] = useState<File | null>(null);
+  const [galleryUploadPreview, setGalleryUploadPreview] = useState<string>('');
+  const [galleryUploadTitle, setGalleryUploadTitle] = useState('');
+  const [galleryUploadDesc, setGalleryUploadDesc] = useState('');
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [galleryUploadProgress, setGalleryUploadProgress] = useState(0);
+  const galleryFileInputRef = useReactRef<HTMLInputElement>(null);
+
+  const fetchGallery = React.useCallback(async () => {
+    setGalleryLoading(true);
+    const photos = await dbLoadGallery();
+    if (photos) setGalleryPhotos(photos);
+    setGalleryLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'gallery' && isAuthenticated) {
+      fetchGallery();
+    }
+  }, [activeTab, isAuthenticated]);
+
+  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setGalleryUploadFile(file);
+    // Show original preview before compression
+    const url = URL.createObjectURL(file);
+    setGalleryUploadPreview(url);
+  };
+
+  const handleGalleryUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!galleryUploadFile || !galleryUploadTitle.trim()) {
+      showFlash('Please choose a photo and enter a title.', true);
+      return;
+    }
+    setGalleryUploading(true);
+    setGalleryUploadProgress(0);
+    try {
+      const { hex, mimeType, fileSizeKB } = await imageFileToHex(galleryUploadFile, setGalleryUploadProgress);
+      const newPhoto: GalleryPhoto = {
+        id: crypto.randomUUID(),
+        title: galleryUploadTitle.trim(),
+        description: galleryUploadDesc.trim(),
+        imageHex: hex,
+        mimeType,
+        sortOrder: galleryPhotos.length,
+        createdAt: new Date().toISOString(),
+      };
+      const { error } = await dbSaveGalleryPhoto(newPhoto);
+      if (error) {
+        showFlash(`Upload failed: ${error}`, true);
+      } else {
+        showFlash(`Photo saved! (~${fileSizeKB} KB compressed)`);
+        setGalleryPhotos(prev => [...prev, newPhoto]);
+        setGalleryUploadFile(null);
+        setGalleryUploadPreview('');
+        setGalleryUploadTitle('');
+        setGalleryUploadDesc('');
+        if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
+      }
+    } catch (err: any) {
+      showFlash(`Error: ${err?.message || 'Upload failed'}`, true);
+    } finally {
+      setGalleryUploading(false);
+      setGalleryUploadProgress(0);
+    }
+  };
+
+  const handleGalleryDelete = async (id: string) => {
+    if (!window.confirm('Delete this photo from the gallery?')) return;
+    const { error } = await dbDeleteGalleryPhoto(id);
+    if (error) {
+      showFlash(`Delete failed: ${error}`, true);
+    } else {
+      setGalleryPhotos(prev => prev.filter(p => p.id !== id));
+      showFlash('Photo deleted.');
+    }
+  };
+
+  const handleGalleryMoveUp = async (index: number) => {
+    if (index === 0) return;
+    const updated = [...galleryPhotos];
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    const reordered = updated.map((p, i) => ({ ...p, sortOrder: i }));
+    setGalleryPhotos(reordered);
+    await dbUpdateGalleryPhotoOrder(reordered[index - 1].id, index - 1);
+    await dbUpdateGalleryPhotoOrder(reordered[index].id, index);
+  };
+
+  const handleGalleryMoveDown = async (index: number) => {
+    if (index === galleryPhotos.length - 1) return;
+    const updated = [...galleryPhotos];
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    const reordered = updated.map((p, i) => ({ ...p, sortOrder: i }));
+    setGalleryPhotos(reordered);
+    await dbUpdateGalleryPhotoOrder(reordered[index].id, index);
+    await dbUpdateGalleryPhotoOrder(reordered[index + 1].id, index + 1);
+  };
 
   // ── Database Storage Usage State ──
   interface StorageTableInfo {
@@ -1220,6 +1327,16 @@ export default function AdminPanel({
           >
             <BarChart2 className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">Stats</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('gallery')}
+            className={`shrink-0 min-h-[44px] px-4 sm:px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 cursor-pointer ${activeTab === 'gallery'
+              ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+              : `${surfaceBg} border ${cardBdr} ${textMuted} ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`
+              }`}
+          >
+            <Images className="w-4 h-4 shrink-0" />
+            <span className="whitespace-nowrap">Gallery</span>
           </button>
         </div>
 
@@ -2949,7 +3066,185 @@ export default function AdminPanel({
           </div>
         )}
 
+        {/* GALLERY TAB */}
+        {activeTab === 'gallery' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            {/* Upload Form */}
+            <div className={`lg:col-span-4 ${cardBg} border ${cardBdr} rounded-2xl p-6 self-start ${isDark ? '' : 'shadow-md'}`}>
+              <h2 className={`text-lg font-bold ${textPrimary} mb-4 flex items-center gap-2`}>
+                <Images className="w-4 h-4 text-emerald-400" />
+                Add New Photo
+              </h2>
+
+              <form onSubmit={handleGalleryUpload} className="space-y-4">
+                {/* File picker */}
+                <div>
+                  <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>Photo File</label>
+                  <input
+                    ref={galleryFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleGalleryFileChange}
+                    className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-emerald-500 transition-colors file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-emerald-500/10 file:text-emerald-400 cursor-pointer`}
+                  />
+                  <p className={`text-[10px] mt-1 ${textFaint}`}>Auto-compressed to max 1200px JPEG before saving as hex.</p>
+                </div>
+
+                {/* Preview */}
+                {galleryUploadPreview && (
+                  <div className={`rounded-xl overflow-hidden border ${cardBdr}`}>
+                    <img src={galleryUploadPreview} alt="Preview" className="w-full max-h-48 object-cover" />
+                  </div>
+                )}
+
+                {/* Title */}
+                <div>
+                  <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>Title *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Annual Prize Giving 2025"
+                    value={galleryUploadTitle}
+                    onChange={(e) => setGalleryUploadTitle(e.target.value)}
+                    className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-emerald-500 transition-colors`}
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>Description (optional)</label>
+                  <textarea
+                    placeholder="Short description of this photo..."
+                    value={galleryUploadDesc}
+                    onChange={(e) => setGalleryUploadDesc(e.target.value)}
+                    rows={3}
+                    className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-emerald-500 transition-colors resize-none`}
+                  />
+                </div>
+
+                {/* Progress bar */}
+                {galleryUploading && (
+                  <div className={`rounded-xl overflow-hidden border ${cardBdr} h-2 ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-200 rounded-xl"
+                      style={{ width: `${galleryUploadProgress}%` }}
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={galleryUploading || !galleryUploadFile}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold font-sans text-xs tracking-widest transition-all cursor-pointer"
+                >
+                  {galleryUploading ? `Encoding... ${galleryUploadProgress}%` : 'Save Photo to Gallery'}
+                </button>
+              </form>
+            </div>
+
+            {/* Gallery List */}
+            <div className="lg:col-span-8 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
+                  <Images className="w-4 h-4 text-emerald-400" />
+                  Gallery Photos
+                  <span className={`text-xs font-mono ${textFaint} border ${cardBdr} px-2 py-0.5 rounded-lg`}>{galleryPhotos.length}</span>
+                </h2>
+                <button
+                  onClick={fetchGallery}
+                  disabled={galleryLoading}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 ${subtleBg} border ${subtleBdr} ${textMuted} hover:text-emerald-400 rounded-xl text-xs font-semibold cursor-pointer transition-colors`}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${galleryLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
+
+              {galleryLoading && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[1,2,3,4,5,6].map(i => (
+                    <div key={i} className={`rounded-xl overflow-hidden animate-pulse ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                      <div className={`w-full aspect-[4/3] ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                      <div className="p-2 space-y-1">
+                        <div className={`h-3 w-3/4 rounded ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!galleryLoading && galleryPhotos.length === 0 && (
+                <div className={`text-center py-16 rounded-2xl border border-dashed ${cardBdr} ${textFaint} text-xs`}>
+                  <Images className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p>No photos uploaded yet.</p>
+                  <p className="mt-1 text-[10px]">Use the form on the left to add your first photo.</p>
+                </div>
+              )}
+
+              {!galleryLoading && galleryPhotos.length > 0 && (
+                <div className="space-y-3">
+                  {galleryPhotos.map((photo, index) => {
+                    const dataUrl = photo.imageHex ? hexToDataUrl(photo.imageHex, photo.mimeType) : '';
+                    return (
+                      <div
+                        key={photo.id}
+                        className={`flex items-start gap-4 p-3 rounded-2xl border ${cardBdr} ${isDark ? 'bg-slate-900/50' : 'bg-white'} transition-all`}
+                      >
+                        {/* Thumbnail */}
+                        <div className="shrink-0 w-20 h-16 rounded-xl overflow-hidden border border-slate-700/30">
+                          {dataUrl && (
+                            <img src={dataUrl} alt={photo.title} className="w-full h-full object-cover" />
+                          )}
+                        </div>
+
+                        {/* Details */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold ${textPrimary} truncate`}>{photo.title}</p>
+                          {photo.description && (
+                            <p className={`text-xs ${textMuted} mt-0.5 line-clamp-2`}>{photo.description}</p>
+                          )}
+                          <p className={`text-[10px] font-mono ${textFaint} mt-1`}>
+                            #{index + 1} · {photo.mimeType} · {Math.round(photo.imageHex.length / 2048)} KB
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <button
+                            onClick={() => handleGalleryMoveUp(index)}
+                            disabled={index === 0}
+                            className={`p-1.5 rounded-lg border ${cardBdr} ${textMuted} disabled:opacity-20 hover:text-emerald-400 transition-colors cursor-pointer`}
+                            title="Move up"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleGalleryMoveDown(index)}
+                            disabled={index === galleryPhotos.length - 1}
+                            className={`p-1.5 rounded-lg border ${cardBdr} ${textMuted} disabled:opacity-20 hover:text-emerald-400 transition-colors cursor-pointer`}
+                            title="Move down"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleGalleryDelete(photo.id)}
+                            className="p-1.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title="Delete photo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
       </div>
     </div >
   );
-}
+}

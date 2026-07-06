@@ -73,6 +73,8 @@ export default function BootLoader({ onBootComplete }: BootLoaderProps) {
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-widest font-display text-transparent bg-clip-text bg-gradient-to-r from-sky-450 via-cyan-300 to-sky-400 drop-shadow-[0_0_15px_rgba(56,189,248,0.5)]">
             මෙහෙවර
           </h1>
+
+
           <p className="mt-2 text-[10px] sm:text-xs md:text-sm font-mono tracking-[0.25em] sm:tracking-[0.4em] text-cyan-400 uppercase opacity-95">
             M E H E W A R A &nbsp;&nbsp; P L A T F O R M
           </p>

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Paper, Question, Subject } from './types';
+import type { Paper, Question, Subject, GalleryPhoto } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -246,3 +246,65 @@ export async function dbSaveAboutUs(aboutData: any): Promise<{error?: Error} | n
     return { error: err };
   }
 }
+
+// ─── Gallery ──────────────────────────────────────────────────────────────────
+
+/** Map a raw DB row to a GalleryPhoto object */
+function rowToPhoto(row: any): GalleryPhoto {
+  return {
+    id:          row.id,
+    title:       row.title ?? '',
+    description: row.description ?? '',
+    imageHex:    row.image_hex ?? '',
+    mimeType:    row.mime_type ?? 'image/jpeg',
+    sortOrder:   row.sort_order ?? 0,
+    createdAt:   row.created_at ?? '',
+  };
+}
+
+/** Load all gallery photos ordered by sort_order then created_at */
+export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
+  const { data, error } = await supabase
+    .from('gallery')
+    .select('id, title, description, image_hex, mime_type, sort_order, created_at')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) { console.error('dbLoadGallery:', error); return null; }
+  return (data ?? []).map(rowToPhoto);
+}
+
+/** Insert or update a gallery photo (upsert on id) */
+export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from('gallery')
+    .upsert(
+      {
+        id:          photo.id,
+        title:       photo.title,
+        description: photo.description ?? '',
+        image_hex:   photo.imageHex,
+        mime_type:   photo.mimeType,
+        sort_order:  photo.sortOrder,
+      },
+      { onConflict: 'id' }
+    );
+  if (error) { console.error('dbSaveGalleryPhoto:', error); return { error: error.message }; }
+  return {};
+}
+
+/** Delete a gallery photo by id */
+export async function dbDeleteGalleryPhoto(id: string): Promise<{ error?: string }> {
+  const { error } = await supabase.from('gallery').delete().eq('id', id);
+  if (error) { console.error('dbDeleteGalleryPhoto:', error); return { error: error.message }; }
+  return {};
+}
+
+/** Update only the sort_order of a gallery photo */
+export async function dbUpdateGalleryPhotoOrder(id: string, sortOrder: number): Promise<void> {
+  const { error } = await supabase
+    .from('gallery')
+    .update({ sort_order: sortOrder })
+    .eq('id', id);
+  if (error) console.error('dbUpdateGalleryPhotoOrder:', error);
+}
+

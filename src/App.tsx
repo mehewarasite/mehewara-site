@@ -19,9 +19,10 @@ import {
   Settings,
   Banknote,
   Map,
-  Landmark
+  Landmark,
+  Images
 } from 'lucide-react';
-import { Subject, Paper, Question, UserAttempt } from './types';
+import { Subject, Paper, Question, UserAttempt, GalleryPhoto } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
 import BootLoader from './components/BootLoader';
 import { useTheme } from './ThemeContext';
@@ -32,11 +33,12 @@ import DotMatrixBackground from './components/DotMatrixBackground';
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
 const PrivacyPolicyPage = React.lazy(() => import('./components/PrivacyPolicyPage'));
+const GalleryPage = React.lazy(() => import('./components/GalleryPage'));
 import {
   dbLoadSubjects, dbSaveSubjects,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
   dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
-  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, supabase
+  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery, supabase
 } from './supabase';
 
 import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
@@ -65,13 +67,18 @@ export default function App() {
   const [activePracticePaper, setActivePracticePaper] = useState<Paper | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
   const [showAboutUs, setShowAboutUs] = useState<boolean>(false);
+  const [showGallery, setShowGallery] = useState<boolean>(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
   const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
 
   // Handle Browser/Android hardware back button
   useEffect(() => {
     const handlePopState = () => {
-      if (showAboutUs) {
+      if (showGallery) {
+        setShowGallery(false);
+      } else if (showAboutUs) {
         setShowAboutUs(false);
       } else if (showAdminPanel) {
         setShowAdminPanel(false);
@@ -85,7 +92,7 @@ export default function App() {
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [showAboutUs, showAdminPanel, activePracticePaper, selectedSubject, selectedLevel]);
+  }, [showGallery, showAboutUs, showAdminPanel, activePracticePaper, selectedSubject, selectedLevel]);
 
   const handleSetLevel = (level: 'ol' | 'al') => {
     window.history.pushState({ layer: true }, '', '');
@@ -139,6 +146,17 @@ export default function App() {
   const handleOpenAboutUs = () => {
     window.history.pushState({ layer: true }, '', '');
     setShowAboutUs(true);
+  };
+
+  const handleOpenGallery = async () => {
+    window.history.pushState({ layer: true }, '', '');
+    setShowGallery(true);
+    if (galleryPhotos.length === 0) {
+      setGalleryLoading(true);
+      const photos = await dbLoadGallery();
+      if (photos) setGalleryPhotos(photos);
+      setGalleryLoading(false);
+    }
   };
 
   const loadFromLocal = async () => {
@@ -656,6 +674,16 @@ export default function App() {
             )}
 
             <button
+              onClick={handleOpenGallery}
+              id="gallery-nav-btn"
+              aria-label="Photo Gallery"
+              className={`flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] sm:min-w-0 px-3 sm:px-3.5 py-2 ${surfaceBg} ${cardHover} border ${surfaceBdr} hover:border-emerald-500/30 text-xs font-semibold ${textMuted} hover:text-emerald-400 rounded-xl transition-all shadow-sm cursor-pointer select-none`}
+            >
+              <Images className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">Gallery</span>
+            </button>
+
+            <button
               onClick={handleOpenAdminPanel}
               aria-label="Admin panel"
               className={`flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] sm:min-w-0 px-3 sm:px-3.5 py-2 ${surfaceBg} ${cardHover} border ${surfaceBdr} hover:border-slate-700/80 dark:hover:border-slate-700/80 text-xs font-semibold ${btnText} ${btnHover} rounded-xl transition-all shadow-sm cursor-pointer select-none`}
@@ -675,7 +703,21 @@ export default function App() {
           : 'px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8'
       }`}>
         
-        {activePracticePaper ? (
+        {showGallery ? (
+          <React.Suspense fallback={<div className="flex items-center justify-center p-20 w-full"><div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div></div>}>
+            <div className="animate-fade-in">
+              {/* Gallery back button */}
+              <button
+                onClick={() => window.history.back()}
+                className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-emerald-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer mb-6`}
+              >
+                <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+                <span>{isEn ? 'Back' : 'ආපසු'}</span>
+              </button>
+              <GalleryPage photos={galleryPhotos} isLoading={galleryLoading} />
+            </div>
+          </React.Suspense>
+        ) : activePracticePaper ? (
           <React.Suspense fallback={<div className="flex items-center justify-center p-20 w-full"><div className="w-8 h-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin"></div></div>}>
             <PracticeSession
               paper={activePracticePaper}
