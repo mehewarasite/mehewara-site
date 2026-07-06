@@ -12,7 +12,10 @@ CREATE POLICY "Allow anonymous inserts to site_visits" ON site_visits
     FOR INSERT
     WITH CHECK (true);
 
--- Only authenticated users (admins) can view the visits
-CREATE POLICY "Allow authenticated users to read site_visits" ON site_visits
+-- Allow anyone to read site_visits (required for the GitHub Action to count visits using the anon key)
+DROP POLICY IF EXISTS "Allow authenticated users to read site_visits" ON site_visits;
+DROP POLICY IF EXISTS "Allow public read of site_visits" ON site_visits;
+
+CREATE POLICY "Allow public read of site_visits" ON site_visits
     FOR SELECT
-    USING (auth.role() = 'authenticated');
+    USING (true);
