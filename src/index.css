@@ -299,3 +299,46 @@ html.light .theme-text-muted { color: var(--color-text-secondary) !important; }
   font-size: 1em;
   color: inherit;
 }
+
+/* ── Gallery DRM Protection ────────────────────────────────────────────── */
+
+/* Disable all selection and drag on protected gallery zones */
+.gallery-protected-zone,
+.gallery-protected-zone * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+}
+
+/* Prevent canvas and image elements from being dragged */
+.gallery-protected-zone canvas,
+.gallery-protected-zone img {
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+  pointer-events: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Hide gallery content when printing */
+@media print {
+  .gallery-protected-zone,
+  [data-gallery-protected],
+  [data-lightbox-active] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Show a protection message instead */
+  body::after {
+    content: "Gallery photos are protected and cannot be printed.";
+    display: block;
+    text-align: center;
+    padding: 4rem;
+    font-size: 1.2rem;
+    color: #666;
+  }
+}
