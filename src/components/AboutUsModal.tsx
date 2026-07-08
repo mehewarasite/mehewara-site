@@ -27,7 +27,7 @@ export default function AboutUsModal({ data, onClose }: AboutUsModalProps) {
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 backdrop-blur-sm ${isDark ? 'bg-black/60' : 'bg-slate-900/30'}`}>
-      <div 
+      <div
         className={`relative w-full max-w-2xl ${bgModal} border ${borderModal} shadow-2xl rounded-3xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-in`}
       >
         <button
@@ -43,17 +43,17 @@ export default function AboutUsModal({ data, onClose }: AboutUsModalProps) {
               <Info className="w-8 h-8" />
             </div>
             <h2 className={`text-2xl sm:text-3xl font-extrabold ${textPrimary} tracking-tight`}>About Us</h2>
-            <p className={`text-sm ${textMuted} mt-2 font-medium`}>MEHEWARA EDUCATIONAL PLATFORM</p>
+            <p className={`text-sm ${textMuted} mt-2 font-medium`}>FACULTY OF ENGINEERING, UNIVERSITY OF RUHUNA. ORGANISED BY THE ENGINEERING STUDENTS' UNION</p>
           </div>
 
           <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
             {data.image_url && (
               <div className="w-full md:w-1/2 shrink-0">
                 <div className={`rounded-2xl overflow-hidden border ${borderModal} shadow-lg relative group`}>
-                  <img 
-                    src={data.image_url} 
-                    alt="About Us" 
-                    className="w-full h-auto object-cover transform transition-transform duration-700 group-hover:scale-105" 
+                  <img
+                    src={data.image_url}
+                    alt="About Us"
+                    className="w-full h-auto object-cover transform transition-transform duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
                 </div>
@@ -62,7 +62,7 @@ export default function AboutUsModal({ data, onClose }: AboutUsModalProps) {
 
             <div className={`w-full ${data.image_url ? 'md:w-1/2' : 'max-w-xl mx-auto text-center'}`}>
               <div className={`prose ${isDark ? 'prose-invert' : ''} prose-sm sm:prose-base whitespace-pre-wrap ${textPrimary} leading-relaxed`}>
-                {data.description || "Welcome to Mehewara! We are dedicated to providing the best past paper practice experience."}
+                {data.description || ""}
               </div>
 
               <div className={`flex flex-wrap gap-4 mt-8 ${data.image_url ? '' : 'justify-center'}`}>
