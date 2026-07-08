@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.gallery (
   image_hex text NOT NULL,        -- Image stored as hex-encoded bytes (e.g. "ffd8ff...")
   mime_type text NOT NULL DEFAULT 'image/jpeg',
   sort_order integer NOT NULL DEFAULT 0,
+  pinned boolean NOT NULL DEFAULT false,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

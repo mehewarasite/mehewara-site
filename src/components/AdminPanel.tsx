@@ -33,7 +33,8 @@ import {
   X,
   Save,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Pin
 } from 'lucide-react';
 import { Subject, Paper, Question, GalleryPhoto } from '../types';
 import RichTextEditor from './RichTextEditor';
@@ -267,6 +268,7 @@ export default function AdminPanel({
   const [galleryUploadPreview, setGalleryUploadPreview] = useState<string>('');
   const [galleryUploadTitle, setGalleryUploadTitle] = useState('');
   const [galleryUploadDesc, setGalleryUploadDesc] = useState('');
+  const [galleryUploadPinned, setGalleryUploadPinned] = useState(false);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadProgress, setGalleryUploadProgress] = useState(0);
   const galleryFileInputRef = useReactRef<HTMLInputElement>(null);
@@ -302,8 +304,8 @@ export default function AdminPanel({
 
   const handleGalleryUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!galleryUploadFile || !galleryUploadTitle.trim()) {
-      showFlash('Please choose a photo and enter a title.', true);
+    if (!galleryUploadFile) {
+      showFlash('Please choose a photo.', true);
       return;
     }
     setGalleryUploading(true);
@@ -312,12 +314,13 @@ export default function AdminPanel({
       const { hex, mimeType, fileSizeKB } = await imageFileToHex(galleryUploadFile, setGalleryUploadProgress);
       const newPhoto: GalleryPhoto = {
         id: crypto.randomUUID(),
-        title: galleryUploadTitle.trim(),
+        title: galleryUploadTitle.trim() || undefined,
         description: galleryUploadDesc.trim(),
         imageHex: hex,
         mimeType,
         sortOrder: galleryPhotos.length,
         createdAt: new Date().toISOString(),
+        pinned: galleryUploadPinned,
       };
       const { error } = await dbSaveGalleryPhoto(newPhoto);
       if (error) {
@@ -329,6 +332,7 @@ export default function AdminPanel({
         setGalleryUploadPreview('');
         setGalleryUploadTitle('');
         setGalleryUploadDesc('');
+        setGalleryUploadPinned(false);
         if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
       }
     } catch (err: any) {
@@ -336,6 +340,17 @@ export default function AdminPanel({
     } finally {
       setGalleryUploading(false);
       setGalleryUploadProgress(0);
+    }
+  };
+
+  const handleGalleryTogglePin = async (photo: GalleryPhoto) => {
+    const updatedPhoto = { ...photo, pinned: !photo.pinned };
+    setGalleryPhotos(prev => prev.map(p => p.id === photo.id ? updatedPhoto : p));
+    const { error } = await dbSaveGalleryPhoto(updatedPhoto);
+    if (error) {
+      showFlash(`Failed to update pin: ${error}`, true);
+      // Revert on error
+      setGalleryPhotos(prev => prev.map(p => p.id === photo.id ? photo : p));
     }
   };
 
@@ -3121,7 +3136,7 @@ export default function AdminPanel({
 
                 {/* Title */}
                 <div>
-                  <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>Title *</label>
+                  <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>Title (optional)</label>
                   <input
                     type="text"
                     placeholder="e.g. Annual Prize Giving 2025"
@@ -3141,6 +3156,18 @@ export default function AdminPanel({
                     rows={3}
                     className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-emerald-500 transition-colors resize-none`}
                   />
+                </div>
+
+                {/* Pinned Checkbox */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="gallery-pin"
+                    checked={galleryUploadPinned}
+                    onChange={(e) => setGalleryUploadPinned(e.target.checked)}
+                    className="w-4 h-4 text-emerald-500 rounded focus:ring-emerald-500"
+                  />
+                  <label htmlFor="gallery-pin" className={`text-xs font-semibold ${textMuted}`}>Pin photo (show at the top of the gallery)</label>
                 </div>
 
                 {/* Progress bar */}
@@ -3225,13 +3252,16 @@ export default function AdminPanel({
                         {/* Thumbnail */}
                         <div className="shrink-0 w-20 h-16 rounded-xl overflow-hidden border border-slate-700/30">
                           {dataUrl && (
-                            <img src={dataUrl} alt={photo.title} className="w-full h-full object-cover" />
+                            <img src={dataUrl} alt={photo.title || 'Untitled'} className="w-full h-full object-cover" />
                           )}
                         </div>
 
                         {/* Details */}
                         <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold ${textPrimary} truncate`}>{photo.title}</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            {photo.pinned && <Pin className="w-3.5 h-3.5 text-sky-500 shrink-0" />}
+                            <p className={`text-sm font-bold ${textPrimary} truncate`}>{photo.title || 'Untitled'}</p>
+                          </div>
                           {photo.description && (
                             <p className={`text-xs ${textMuted} mt-0.5 line-clamp-2`}>{photo.description}</p>
                           )}
@@ -3257,6 +3287,17 @@ export default function AdminPanel({
                             title="Move down"
                           >
                             <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleGalleryTogglePin(photo)}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              photo.pinned 
+                                ? 'text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20' 
+                                : `${cardBdr} ${textMuted} hover:text-sky-400`
+                            }`}
+                            title={photo.pinned ? "Unpin photo" : "Pin photo"}
+                          >
+                            <Pin className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleGalleryDelete(photo.id)}

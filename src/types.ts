@@ -47,10 +47,11 @@ export interface UserAttempt {
 
 export interface GalleryPhoto {
   id: string;
-  title: string;
+  title?: string;
   description?: string;
   imageHex: string;    // Image bytes encoded as a lowercase hex string (e.g. "ffd8ffе0...")
   mimeType: string;   // e.g. "image/jpeg", "image/png", "image/webp"
   sortOrder: number;
   createdAt: string;  // ISO timestamp
+  pinned?: boolean;
 }

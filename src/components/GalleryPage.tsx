@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ShieldCheck, Shuffle } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ShieldCheck, Shuffle, Pin } from 'lucide-react';
 import { GalleryPhoto } from '../types';
 import { hexToDataUrl } from '../utils/imageHex';
 import { useTheme } from '../ThemeContext';
@@ -467,13 +467,13 @@ function Lightbox({ photos, index, onClose, onPrev, onNext, isPageVisible }: Lig
       >
         <ProtectedLightboxCanvas
           src={dataUrl}
-          alt={photo.title}
+          alt={photo.title || 'Untitled'}
           watermarkText="MEHEWARA"
         />
         <WatermarkOverlay />
 
         <div className="text-center space-y-1 max-w-xl px-4 z-[3]">
-          <h3 className="text-white font-bold text-lg leading-snug">{photo.title}</h3>
+          {photo.title && <h3 className="text-white font-bold text-lg leading-snug">{photo.title}</h3>}
           {photo.description && (
             <p className="text-white/60 text-sm leading-relaxed">{photo.description}</p>
           )}
@@ -518,7 +518,7 @@ function PhotoCard({ photo, onClick, isDark, isPageVisible }: PhotoCardProps) {
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
-      aria-label={`View photo: ${photo.title}`}
+      aria-label={`View photo: ${photo.title || 'Untitled'}`}
       data-gallery-protected
       style={{
         userSelect: 'none',
@@ -534,7 +534,7 @@ function PhotoCard({ photo, onClick, isDark, isPageVisible }: PhotoCardProps) {
         )}
         <ProtectedCanvas
           src={src}
-          alt={photo.title}
+          alt={photo.title || 'Untitled'}
           className="w-full h-full"
           onReady={() => setLoaded(true)}
         />
@@ -549,10 +549,17 @@ function PhotoCard({ photo, onClick, isDark, isPageVisible }: PhotoCardProps) {
       </div>
 
       {/* Caption */}
-      <div className="p-4">
-        <h3 className={`font-bold text-sm leading-snug mb-1 ${isDark ? 'text-white' : 'text-slate-900'} group-hover:text-sky-400 transition-colors line-clamp-1`}>
-          {photo.title}
-        </h3>
+      <div className="p-4 relative">
+        {photo.pinned && (
+           <div className="absolute top-0 right-4 -mt-3 w-6 h-6 bg-sky-500 rounded-full flex items-center justify-center text-white shadow-lg z-10" title="Pinned">
+             <Pin className="w-3 h-3 fill-current" />
+           </div>
+        )}
+        {photo.title && (
+          <h3 className={`font-bold text-sm leading-snug mb-1 ${isDark ? 'text-white' : 'text-slate-900'} group-hover:text-sky-400 transition-colors line-clamp-1`}>
+            {photo.title}
+          </h3>
+        )}
         {photo.description && (
           <p className={`text-xs leading-relaxed line-clamp-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             {photo.description}
@@ -604,8 +611,13 @@ export default function GalleryPage({ photos, isLoading = false }: GalleryPagePr
   const [shuffledPhotos, setShuffledPhotos] = useState<GalleryPhoto[]>([]);
   const [shuffleKey, setShuffleKey] = useState(0); // triggers re-render animation
 
-  // The display order: shuffled or original
-  const displayPhotos = isShuffled ? shuffledPhotos : photos;
+  // The display order: pinned first, then unpinned (respecting shuffled order if applicable)
+  const displayPhotos = useMemo(() => {
+    const base = isShuffled ? shuffledPhotos : photos;
+    const pinned = base.filter(p => p.pinned);
+    const unpinned = base.filter(p => !p.pinned);
+    return [...pinned, ...unpinned];
+  }, [isShuffled, shuffledPhotos, photos]);
 
   // Activate DRM protection when gallery has photos
   const { isPageVisible, devToolsOpen } = useImageProtection(displayPhotos.length > 0 || lightboxIndex !== null);

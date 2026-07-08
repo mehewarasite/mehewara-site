@@ -259,6 +259,7 @@ function rowToPhoto(row: any): GalleryPhoto {
     mimeType:    row.mime_type ?? 'image/jpeg',
     sortOrder:   row.sort_order ?? 0,
     createdAt:   row.created_at ?? '',
+    pinned:      row.pinned ?? false,
   };
 }
 
@@ -266,7 +267,7 @@ function rowToPhoto(row: any): GalleryPhoto {
 export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
   const { data, error } = await supabase
     .from('gallery')
-    .select('id, title, description, image_hex, mime_type, sort_order, created_at')
+    .select('id, title, description, image_hex, mime_type, sort_order, created_at, pinned')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) { console.error('dbLoadGallery:', error); return null; }
@@ -285,6 +286,7 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
         image_hex:   photo.imageHex,
         mime_type:   photo.mimeType,
         sort_order:  photo.sortOrder,
+        pinned:      photo.pinned ?? false,
       },
       { onConflict: 'id' }
     );
