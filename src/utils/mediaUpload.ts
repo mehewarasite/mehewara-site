@@ -47,12 +47,16 @@ export async function compressImageToBlob(file: File, maxWidth = 1024, quality =
 }
 
 export async function fileToImgHtml(file: File, className = 'mhw-q-img'): Promise<string> {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('Please upload an image file (PNG, JPG, WEBP, etc.).');
+  if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif|bmp|svg|tiff?|heic|heif|avif|ico)$/i.test(file.name)) {
+    throw new Error('Please upload an image file (PNG, JPG, WEBP, HEIC, TIFF, etc.).');
   }
   
+  // Normalise exotic formats (HEIC, TIFF, etc.) before compressing
+  const { normalizeImageFile } = await import('./imageHex');
+  const normalizedFile = await normalizeImageFile(file);
+  
   // Compress the image (max width 1024px, 75% quality webp)
-  const dataUrl = await compressImage(file, 1024, 0.75);
+  const dataUrl = await compressImage(normalizedFile, 1024, 0.75);
   
   const alt = file.name.replace(/"/g, '&quot;');
   return `<img src="${dataUrl}" alt="${alt}" class="${className}" />`;

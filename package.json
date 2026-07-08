@@ -25,6 +25,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "heic2any": "^0.0.4",
     "idb-keyval": "^6.2.5",
     "jimp": "^1.6.1",
     "jsdom": "^29.1.1",

@@ -44,7 +44,7 @@ import { parseTxtToQuizData, renderMathInHtml, unrenderMathHtml } from '../utils
 import { supabase, dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos } from '../supabase';
 import { DEFAULT_PRIVACY_POLICY } from '../privacyPolicyDefault';
 import { idbGet, idbSet } from '../utils/storage';
-import { imageFileToHex, hexToDataUrl } from '../utils/imageHex';
+import { imageFileToHex, hexToDataUrl, createPreviewUrl, GALLERY_ACCEPT } from '../utils/imageHex';
 // ── Inline HTML themer ──────────────────────────────────────────────────────
 const THEME_STYLE = `<style id="mehewara-theme">
 .mehewara-content *{font-family:var(--mhw-font,"Noto Sans Sinhala","Space Grotesk",system-ui,sans-serif)!important;color:var(--color-text-primary)!important;background-color:transparent!important;border-color:var(--color-border)!important}
@@ -284,13 +284,20 @@ export default function AdminPanel({
     }
   }, [activeTab, isAuthenticated]);
 
-  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setGalleryUploadFile(file);
-    // Show original preview before compression
-    const url = URL.createObjectURL(file);
-    setGalleryUploadPreview(url);
+    try {
+      // Normalise HEIC/TIFF/etc. so the browser can preview them
+      const { url, normalizedFile } = await createPreviewUrl(file);
+      setGalleryUploadFile(normalizedFile);
+      setGalleryUploadPreview(url);
+    } catch (err: any) {
+      showFlash(err?.message || 'Unsupported image format', true);
+      setGalleryUploadFile(null);
+      setGalleryUploadPreview('');
+      if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
+    }
   };
 
   const handleGalleryUpload = async (e: React.FormEvent) => {
@@ -3098,11 +3105,11 @@ export default function AdminPanel({
                   <input
                     ref={galleryFileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept={GALLERY_ACCEPT}
                     onChange={handleGalleryFileChange}
                     className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-emerald-500 transition-colors file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-emerald-500/10 file:text-emerald-400 cursor-pointer`}
                   />
-                  <p className={`text-[10px] mt-1 ${textFaint}`}>Auto-compressed to max 1200px JPEG before saving as hex.</p>
+                  <p className={`text-[10px] mt-1 ${textFaint}`}>Supports JPEG, PNG, WebP, HEIC, TIFF, GIF, BMP, AVIF & more. Auto-compressed to max 1200px JPEG.</p>
                 </div>
 
                 {/* Preview */}
