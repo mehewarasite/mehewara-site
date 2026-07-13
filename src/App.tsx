@@ -35,7 +35,7 @@ const PracticeSession = React.lazy(() => import('./components/PracticeSession'))
 const PrivacyPolicyPage = React.lazy(() => import('./components/PrivacyPolicyPage'));
 const GalleryPage = React.lazy(() => import('./components/GalleryPage'));
 import {
-  dbLoadSubjects, dbSaveSubjects,
+  dbLoadSubjects, dbSaveSubjects, dbDeleteSubject,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
   dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
   dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery, supabase
@@ -304,6 +304,35 @@ export default function App() {
     const updatedAttempts = [...attempts.filter(a => a.paperId !== newAttempt.paperId), newAttempt];
     setAttempts(updatedAttempts);
     idbSet('m_attempts', JSON.stringify(updatedAttempts));
+  };
+
+  const handleAddSubject = async (newSubject: Subject) => {
+    const updatedSubjects = [...subjects, newSubject];
+    setSubjects(updatedSubjects);
+    idbSet('m_subjects', JSON.stringify(updatedSubjects));
+    await dbSaveSubjects([newSubject]);
+  };
+
+  const handleUpdateSubject = async (updatedSubject: Subject) => {
+    const newSubjects = subjects.map(s => s.id === updatedSubject.id ? updatedSubject : s);
+    setSubjects(newSubjects);
+    idbSet('m_subjects', JSON.stringify(newSubjects));
+    await dbSaveSubjects([updatedSubject]);
+  };
+
+  const handleDeleteSubject = async (subjectId: string) => {
+    const hasPapers = papers.some(p => p.subjectId === subjectId);
+    if (hasPapers) {
+      alert("Cannot delete subject because it has papers associated with it. Please delete the papers first.");
+      return;
+    }
+    const newSubjects = subjects.filter(s => s.id !== subjectId);
+    setSubjects(newSubjects);
+    idbSet('m_subjects', JSON.stringify(newSubjects));
+    if (selectedSubject?.id === subjectId) {
+      setSelectedSubject(null);
+    }
+    await dbDeleteSubject(subjectId);
   };
 
   const handleUpdatePaper = async (updatedPaper: Paper) => {
@@ -1029,6 +1058,9 @@ export default function App() {
         <React.Suspense fallback={<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"><div className="w-8 h-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin"></div></div>}>
           <AdminPanel
             subjects={subjects}
+            onAddSubject={handleAddSubject}
+            onUpdateSubject={handleUpdateSubject}
+            onDeleteSubject={handleDeleteSubject}
             papers={papers}
             questions={questions}
             onAddPaper={handleAddPaper}

@@ -30,6 +30,11 @@ export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
   if (error) console.error('saveSubjects:', error);
 }
 
+export async function dbDeleteSubject(subjectId: string): Promise<void> {
+  const { error } = await supabase.from('subjects').delete().eq('id', subjectId);
+  if (error) console.error('dbDeleteSubject:', error);
+}
+
 // ─── Papers ──────────────────────────────────────────────────────────────────
 
 export async function dbLoadPapers(): Promise<Paper[] | null> {
