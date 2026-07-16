@@ -159,6 +159,15 @@ body {
   20%, 80% { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes cinematicReveal {
+  0% { opacity: 0; transform: translateY(20px) scale(0.98); filter: blur(10px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+}
+
+.animate-cinematic-reveal {
+  animation: cinematicReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Glassmorphism styling */
 .glass-panel {
   background: rgba(15, 23, 42, 0.4);

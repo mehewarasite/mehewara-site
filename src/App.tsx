@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Atom, 
   FlaskConical, 
@@ -28,7 +28,7 @@ import BootLoader from './components/BootLoader';
 import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
-import DotMatrixBackground from './components/DotMatrixBackground';
+import HeroSlideshow from './components/HeroSlideshow';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
@@ -56,6 +56,9 @@ export default function App() {
   const isEn = language === 'en';
 
   const [hasBooted, setHasBooted] = useState<boolean>(false);
+  const [showBootOverlay, setShowBootOverlay] = useState<boolean>(true);
+  const [heroOpacity, setHeroOpacity] = useState<number>(1);
+  const heroRef = useRef<HTMLDivElement>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -212,11 +215,16 @@ export default function App() {
   const syncFromSupabase = async () => {
     setIsSyncing(true);
     try {
-      const [remoteSubjects, remotePapers, remoteAbout] = await Promise.all([
+      const [remoteSubjects, remotePapers, remoteAbout, remoteGallery] = await Promise.all([
         dbLoadSubjects(),
         dbLoadPapers(),
         dbLoadAboutUs(),
+        dbLoadGallery(),
       ]);
+
+      if (remoteGallery) {
+        setGalleryPhotos(remoteGallery);
+      }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
         let filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
@@ -299,6 +307,23 @@ export default function App() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Scroll-based fade-out for the hero background photo
+  const handleHeroScroll = useCallback(() => {
+    if (!heroRef.current) return;
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const fadeDistance = window.innerHeight * 0.6; // fade fully over 60% of viewport
+    const opacity = Math.max(0, 1 - scrollTop / fadeDistance);
+    setHeroOpacity(opacity);
+  }, []);
+
+  useEffect(() => {
+    if (hasBooted && selectedLevel === null) {
+      window.addEventListener('scroll', handleHeroScroll, { passive: true });
+      handleHeroScroll(); // set initial state
+      return () => window.removeEventListener('scroll', handleHeroScroll);
+    }
+  }, [hasBooted, selectedLevel, handleHeroScroll]);
 
   const handleSaveAttempt = (newAttempt: UserAttempt) => {
     const updatedAttempts = [...attempts.filter(a => a.paperId !== newAttempt.paperId), newAttempt];
@@ -614,9 +639,11 @@ export default function App() {
     );
   }
 
-  if (!hasBooted) {
-    return <BootLoader onBootComplete={() => setHasBooted(true)} />;
-  }
+  const handleBootComplete = useCallback(() => {
+    setHasBooted(true);
+    // Keep the overlay mounted briefly so the zoom-through CSS transition finishes visually
+    setTimeout(() => setShowBootOverlay(false), 200);
+  }, []);
 
   // Shared class shortcuts based on theme
   const pageBg      = isDark ? 'bg-[#030304]'           : 'bg-[#f0f4f8]';
@@ -647,9 +674,6 @@ export default function App() {
       
       {/* GLOWING HEADER ACCENT */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[800px] h-32 bg-sky-500/5 blur-3xl rounded-full pointer-events-none" />
-
-      {/* DOT MATRIX BACKGROUND FOR HOME SCREEN */}
-      {selectedLevel === null && <DotMatrixBackground />}
 
       {/* GLOBAL SITE TOP HEAD BAR */}
       <header
@@ -768,63 +792,139 @@ export default function App() {
         ) : (
           <div className="space-y-6 sm:space-y-8 flex-grow flex flex-col">
             
-            {/* VIEW 1: CHOOSE LEVEL */}
+            {/* VIEW 1: MAIN LANDING — FULL-SCREEN PHOTO BG → LOGO → LEVEL CARDS */}
             {selectedLevel === null && (
-              <div className="flex-grow flex flex-col justify-center py-2 sm:py-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto w-full">
-                  
-                  {/* O/L Card */}
-                  <button
-                    onClick={() => handleSetLevel('ol')}
-                    className={`group relative ${cardBg} ${cardHover} border ${cardBdr} hover:border-emerald-500/30 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-left transition-all duration-350 shadow-lg sm:hover:shadow-[0_0_30px_rgba(16,185,129,0.06)] cursor-pointer select-none active:scale-[0.99]`}
-                  >
-                    <div className={`absolute top-0 right-0 p-4 sm:p-8 ${isDark ? 'text-slate-800/10' : 'text-slate-300/40'} group-hover:text-emerald-500/5 transition-colors pointer-events-none`}>
-                      <Layers className="w-16 h-16 sm:w-24 sm:h-24" />
-                    </div>
-                    <div className="w-11 h-11 sm:w-12 sm:h-12 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-emerald-400 sm:group-hover:scale-105 transition-all mb-4 sm:mb-6">
-                      <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </div>
-                    <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-emerald-400 transition-colors`}>
-                      {isEn ? 'Ordinary Level (O/L)' : 'සාමාන්‍ය පෙළ'}
-                    </h3>
-                    <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
-                      {isEn ? 'Practice Ordinary Level MCQ past papers for Science, Mathematics, and other main subjects.' : 'සාමාන්‍ය පෙළ විද්‍යාව, ගණිතය ඇතුළු ප්‍රධාන විෂයන්හි බහුවරණ ප්‍රශ්න පත්‍ර මෙහිදී සිංහල මාධ්‍යයෙන් පුහුණුවන්න.'}
-                    </p>
-                    <div className={`mt-5 sm:mt-8 flex items-center gap-1.5 text-xs font-bold ${textFaint} group-hover:text-emerald-400 transition-all`}>
-                      <span>{isEn ? 'Study active subjects' : 'සක්‍රිය විෂයන් අධ්‍යයනය කරන්න'}</span>
-                      <ChevronRight className="w-4 h-4 shrink-0 transform group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </button>
-
-                  {/* A/L Card */}
-                  <button
-                    onClick={() => handleSetLevel('al')}
-                    className={`group relative ${cardBg} ${cardHover} border ${cardBdr} hover:border-sky-500/30 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-left transition-all duration-350 shadow-lg sm:hover:shadow-[0_0_30px_rgba(14,165,233,0.06)] cursor-pointer select-none active:scale-[0.99]`}
-                  >
-                    <div className={`absolute top-0 right-0 p-4 sm:p-8 ${isDark ? 'text-slate-800/10' : 'text-slate-300/40'} group-hover:text-sky-500/5 transition-colors pointer-events-none`}>
-                      <GraduationCap className="w-16 h-16 sm:w-24 sm:h-24" />
-                    </div>
-                    <div className="w-11 h-11 sm:w-12 sm:h-12 bg-sky-500/10 border border-sky-500/30 rounded-2xl flex items-center justify-center text-sky-400 sm:group-hover:scale-105 transition-all mb-4 sm:mb-6">
-                      <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </div>
-                    <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-sky-400 transition-colors`}>
-                      {isEn ? 'Advanced Level (A/L)' : 'උසස් පෙළ'}
-                    </h3>
-                    <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
-                      {isEn ? 'Solve Advanced Level Science, Maths, and Tech MCQ past papers.' : 'භෞතික විද්‍යාව, රසායන විද්‍යාව සහ ජීව විද්‍යාව ඇතුළු උසස් පෙළ විද්‍යා/ගණිත/තාක්ෂණ විෂයන්හි MCQ පත්‍ර මෙහිදී විසඳන්න.'}
-                    </p>
-                    <div className={`mt-5 sm:mt-8 flex items-center gap-1.5 text-xs font-bold ${textFaint} group-hover:text-sky-400 transition-all`}>
-                      <span>{isEn ? 'Study active subjects' : 'සක්‍රිය විෂයන් අධ්‍යයනය කරන්න'}</span>
-                      <ChevronRight className="w-4 h-4 shrink-0 transform group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </button>
+              <>
+                {/* FIXED FULL-SCREEN BACKGROUND PHOTO — fades out on scroll */}
+                <div
+                  ref={heroRef}
+                  className="fixed inset-0 z-0 pointer-events-none"
+                  style={{ opacity: heroOpacity }}
+                >
+                  <HeroSlideshow photos={galleryPhotos} />
+                  {/* Dark overlay for readability */}
+                  <div 
+                    className="absolute inset-0"
+                    style={{
+                      background: isDark
+                        ? 'linear-gradient(to bottom, rgba(3,3,4,0.4) 0%, rgba(3,3,4,0.6) 50%, rgba(3,3,4,0.95) 100%)'
+                        : 'linear-gradient(to bottom, rgba(240,244,248,0.3) 0%, rgba(240,244,248,0.5) 50%, rgba(240,244,248,0.95) 100%)',
+                    }}
+                  />
                 </div>
-              </div>
+
+                <div className="flex flex-col items-center w-full animate-cinematic-reveal relative z-10" style={{ animationDelay: '0.2s', animationDuration: '0.8s' }}>
+                  
+                  {/* HERO: Mehewara Logo — fills viewport initially, sits on top of the photo */}
+                  <div className="flex flex-col items-center justify-center w-full" style={{ minHeight: '75vh' }}>
+                    <div className="relative flex flex-col items-center">
+                      {/* Ambient glow behind logo */}
+                      <div 
+                        className="absolute rounded-full pointer-events-none"
+                        style={{
+                          width: '300px', height: '300px',
+                          background: 'radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)',
+                          top: '50%', left: '50%',
+                          transform: 'translate(-50%, -50%) scale(1.5)',
+                        }}
+                      />
+                      <img
+                        src="/image/mehewara%20logo.png"
+                        alt="Mehewara"
+                        draggable={false}
+                        className="relative z-10"
+                        style={{
+                          width: 'clamp(200px, 45vw, 340px)',
+                          height: 'auto',
+                          filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.4))',
+                        }}
+                      />
+                      <p className="mt-4 text-[10px] sm:text-xs font-mono tracking-[0.2em] text-white/60 uppercase text-center drop-shadow-md">
+                        Mehewara Educational Platform
+                      </p>
+                    </div>
+
+                    {/* Scroll indicator */}
+                    <div className="mt-10 flex flex-col items-center gap-1 text-white/50 animate-bounce">
+                      <span className="text-[10px] font-mono tracking-widest uppercase">
+                        Scroll down
+                      </span>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* LEVEL SELECTION CARDS */}
+                  <div className="w-full mt-8 sm:mt-12 mb-4">
+                    <div className="text-center mb-6 sm:mb-8">
+                      <span className="text-[10px] tracking-widest text-sky-400 font-mono font-bold uppercase block mb-2">
+                        Get Started
+                      </span>
+                      <h2 className={`text-xl sm:text-2xl md:text-3xl font-extrabold ${textPrimary}`}>
+                        Choose Your Exam Level
+                      </h2>
+                      <p className={`text-xs ${textMuted} mt-2 max-w-md mx-auto`}>
+                        Select your exam level to start practicing past papers.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto w-full">
+                      
+                      {/* O/L Card */}
+                      <button
+                        onClick={() => handleSetLevel('ol')}
+                        className={`group relative ${cardBg} ${cardHover} border ${cardBdr} hover:border-emerald-500/30 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-left transition-all duration-350 shadow-lg sm:hover:shadow-[0_0_30px_rgba(16,185,129,0.06)] cursor-pointer select-none active:scale-[0.99]`}
+                      >
+                        <div className={`absolute top-0 right-0 p-4 sm:p-8 ${isDark ? 'text-slate-800/10' : 'text-slate-300/40'} group-hover:text-emerald-500/5 transition-colors pointer-events-none`}>
+                          <Layers className="w-16 h-16 sm:w-24 sm:h-24" />
+                        </div>
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-emerald-400 sm:group-hover:scale-105 transition-all mb-4 sm:mb-6">
+                          <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
+                        </div>
+                        <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-emerald-400 transition-colors`}>
+                          {isEn ? 'Ordinary Level (O/L)' : 'සාමාන්‍ය පෙළ'}
+                        </h3>
+                        <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
+                          {isEn ? 'Practice Ordinary Level MCQ past papers for Science, Mathematics, and other main subjects.' : 'සාමාන්‍ය පෙළ විද්‍යාව, ගණිතය ඇතුළු ප්‍රධාන විෂයන්හි බහුවරණ ප්‍රශ්න පත්‍ර මෙහිදී සිංහල මාධ්‍යයෙන් පුහුණුවන්න.'}
+                        </p>
+                        <div className={`mt-5 sm:mt-8 flex items-center gap-1.5 text-xs font-bold ${textFaint} group-hover:text-emerald-400 transition-all`}>
+                          <span>{isEn ? 'Study active subjects' : 'සක්‍රිය විෂයන් අධ්‍යයනය කරන්න'}</span>
+                          <ChevronRight className="w-4 h-4 shrink-0 transform group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </button>
+
+                      {/* A/L Card */}
+                      <button
+                        onClick={() => handleSetLevel('al')}
+                        className={`group relative ${cardBg} ${cardHover} border ${cardBdr} hover:border-sky-500/30 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-left transition-all duration-350 shadow-lg sm:hover:shadow-[0_0_30px_rgba(14,165,233,0.06)] cursor-pointer select-none active:scale-[0.99]`}
+                      >
+                        <div className={`absolute top-0 right-0 p-4 sm:p-8 ${isDark ? 'text-slate-800/10' : 'text-slate-300/40'} group-hover:text-sky-500/5 transition-colors pointer-events-none`}>
+                          <GraduationCap className="w-16 h-16 sm:w-24 sm:h-24" />
+                        </div>
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 bg-sky-500/10 border border-sky-500/30 rounded-2xl flex items-center justify-center text-sky-400 sm:group-hover:scale-105 transition-all mb-4 sm:mb-6">
+                          <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
+                        </div>
+                        <h3 className={`text-xl sm:text-2xl font-bold ${textPrimary} group-hover:text-sky-400 transition-colors`}>
+                          {isEn ? 'Advanced Level (A/L)' : 'උසස් පෙළ'}
+                        </h3>
+                        <p className={`text-xs ${textMuted} mt-2 leading-relaxed`}>
+                          {isEn ? 'Solve Advanced Level Science, Maths, and Tech MCQ past papers.' : 'භෞතික විද්‍යාව, රසායන විද්‍යාව සහ ජීව විද්‍යාව ඇතුළු උසස් පෙළ විද්‍යා/ගණිත/තාක්ෂණ විෂයන්හි MCQ පත්‍ර මෙහිදී විසඳන්න.'}
+                        </p>
+                        <div className={`mt-5 sm:mt-8 flex items-center gap-1.5 text-xs font-bold ${textFaint} group-hover:text-sky-400 transition-all`}>
+                          <span>{isEn ? 'Study active subjects' : 'සක්‍රිය විෂයන් අධ්‍යයනය කරන්න'}</span>
+                          <ChevronRight className="w-4 h-4 shrink-0 transform group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
 
             {/* VIEW 2: SUBJECTS LIST */}
             {selectedLevel !== null && selectedSubject === null && (
-              <div className="space-y-4 sm:space-y-6 flex-grow animate-fade-in">
+              <div className="space-y-4 sm:space-y-6 flex-grow animate-cinematic-reveal">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => window.history.back()}
@@ -888,7 +988,7 @@ export default function App() {
 
             {/* VIEW 3: PAST PAPERS LIST */}
             {selectedSubject !== null && activePracticePaper === null && (
-              <div className="space-y-4 sm:space-y-6 flex-grow animate-fade-in">
+              <div className="space-y-4 sm:space-y-6 flex-grow animate-cinematic-reveal">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => window.history.back()}
@@ -1082,6 +1182,8 @@ export default function App() {
         </React.Suspense>
       )}
 
+      {/* CINEMATIC BOOT OVERLAY — renders on top of main content, zooms through */}
+      {showBootOverlay && <BootLoader onBootComplete={handleBootComplete} />}
 
     </div>
   );
