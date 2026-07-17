@@ -22,6 +22,7 @@ import {
   Landmark,
   Images,
   Facebook,
+  Youtube,
   Linkedin
 } from 'lucide-react';
 import { Subject, Paper, Question, UserAttempt, GalleryPhoto } from './types';
@@ -31,6 +32,7 @@ import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
 import HeroSlideshow from './components/HeroSlideshow';
+import StarParticles from './components/StarParticles';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
@@ -208,6 +210,11 @@ export default function App() {
 
       const localAbout = await idbGet('m_about_us');
       if (localAbout) setAboutData(JSON.parse(localAbout));
+
+      const storedGallery = await idbGet('m_gallery');
+      if (storedGallery) {
+        setGalleryPhotos(JSON.parse(storedGallery));
+      }
     } catch (err) {
       console.error('Local load failed:', err);
     }
@@ -226,6 +233,7 @@ export default function App() {
 
       if (remoteGallery) {
         setGalleryPhotos(remoteGallery);
+        idbSet('m_gallery', JSON.stringify(remoteGallery));
       }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
@@ -649,27 +657,25 @@ export default function App() {
 
   // Shared class shortcuts based on theme
   const pageBg = isDark ? 'bg-[#030304]' : 'bg-[#f0f4f8]';
-  const headerBg = isDark ? 'bg-[#030304]/80' : 'bg-[#f0f4f8]/85';
-  const headerBdr = isDark ? 'border-slate-900' : 'border-slate-200';
-  const cardBg = isDark ? 'bg-slate-950/40' : 'bg-white/70';
-  const cardHover = isDark ? 'hover:bg-slate-900' : 'hover:bg-white';
-  const cardBdr = isDark ? 'border-slate-900' : 'border-slate-200';
-  const surfaceBg = isDark ? 'bg-slate-950' : 'bg-white';
-  const surfaceBdr = isDark ? 'border-slate-800/80' : 'border-slate-200';
+  const headerBg = isDark ? 'bg-[#030304]/40' : 'bg-[#f0f4f8]/40';
+  const headerBdr = isDark ? 'border-white/5' : 'border-white/30';
+  const cardBg = isDark ? 'bg-gradient-to-br from-slate-900/40 to-slate-950/40 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border-white/[0.05]' : 'bg-gradient-to-br from-white/60 to-white/30 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] border-white/60';
+  const cardHover = isDark ? 'hover:bg-slate-950/50' : 'hover:bg-white/60';
+  const cardBdr = isDark ? 'border-white/5' : 'border-white/40';
+  const surfaceBg = isDark ? 'bg-slate-950/40 backdrop-blur-lg' : 'bg-white/50 backdrop-blur-lg shadow-sm';
+  const surfaceBdr = isDark ? 'border-white/5' : 'border-white/40';
   const btnText = isDark ? 'text-slate-300' : 'text-slate-600';
   const btnHover = isDark ? 'hover:text-white' : 'hover:text-slate-900';
   const textPrimary = isDark ? 'text-white' : 'text-slate-900';
   const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
   const textFaint = isDark ? 'text-slate-500' : 'text-slate-400';
-  const dividerBdr = isDark ? 'border-slate-900' : 'border-slate-200';
-  const backBtn = isDark ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-200 shadow-sm';
-  const paperCard = isDark ? 'bg-slate-950/20 hover:bg-slate-900/30 border-slate-900' : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm';
-  const infoPanel = isDark ? 'bg-slate-950/40 border-slate-900' : 'bg-white border-slate-200 shadow-sm';
-  const statBox = isDark ? 'bg-slate-900 border-slate-800/50' : 'bg-slate-50 border-slate-200';
-  const paperDivider = isDark ? 'border-slate-900/50' : 'border-slate-100';
-  const footerBdr = isDark ? 'border-slate-900/80' : 'border-slate-200';
-  const footerText = isDark ? 'text-slate-500' : 'text-slate-400';
-  const footerSub = isDark ? 'text-slate-600' : 'text-slate-300';
+  const dividerBdr = isDark ? 'border-white/5' : 'border-slate-200/50';
+  const backBtn = isDark ? 'bg-slate-950/40 backdrop-blur-lg border-white/5' : 'bg-white/50 backdrop-blur-lg border-white/40 shadow-sm';
+  const paperCard = isDark ? 'bg-slate-950/20 backdrop-blur-lg hover:bg-slate-950/40 border-white/5 shadow-md' : 'bg-white/40 backdrop-blur-lg hover:bg-white/60 border-white/40 shadow-sm';
+  const infoPanel = isDark ? 'bg-slate-950/30 backdrop-blur-xl border-white/5 shadow-md' : 'bg-white/40 backdrop-blur-xl border-white/40 shadow-sm';
+  const statBox = isDark ? 'bg-slate-900/30 backdrop-blur-md border-white/5' : 'bg-slate-50/50 backdrop-blur-md border-white/30';
+  const paperDivider = isDark ? 'border-white/5' : 'border-white/30';
+
 
   return (
     <div className={`relative w-full min-h-screen min-h-[100dvh] ${pageBg} flex flex-col selection:bg-sky-500 selection:text-white`}>
@@ -681,6 +687,7 @@ export default function App() {
       <header
         className={`sticky top-0 z-30 ${headerBg} backdrop-blur-md border-b ${headerBdr} px-3 sm:px-4 md:px-8 py-3 sm:py-4 safe-top ${activePracticePaper ? 'hidden md:block' : ''
           }`}
+        style={{ opacity: showBootOverlay ? 0 : 1, pointerEvents: showBootOverlay ? 'none' : 'auto', transition: 'opacity 1s ease-in-out' }}
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 mt-[5px] mb-[5px]">
 
@@ -800,17 +807,20 @@ export default function App() {
                 {/* FIXED FULL-SCREEN BACKGROUND PHOTO — fades out on scroll */}
                 <div
                   ref={heroRef}
-                  className="fixed inset-0 z-0 pointer-events-none"
+                  className="fixed top-0 left-0 w-full h-[100dvh] z-0 pointer-events-none"
                   style={{ opacity: heroOpacity }}
                 >
                   <HeroSlideshow photos={galleryPhotos} />
-                  {/* Dark overlay for readability */}
+                  {/* Global dark overlay for contrast */}
+                  <div className="absolute inset-0 bg-black/0 z-[1]" />
+
+                  {/* Gradient overlay for blending into content */}
                   <div
                     className="absolute inset-0"
                     style={{
                       background: isDark
-                        ? 'linear-gradient(to bottom, rgba(3,3,4,0.4) 0%, rgba(3,3,4,0.6) 50%, rgba(3,3,4,0.95) 100%)'
-                        : 'linear-gradient(to bottom, rgba(240,244,248,0.3) 0%, rgba(240,244,248,0.5) 50%, rgba(240,244,248,0.95) 100%)',
+                        ? 'linear-gradient(to bottom, rgba(3,3,4,0.4) 0%, rgba(3,3,4,0.7) 50%, rgba(3,3,4,0.95) 100%)'
+                        : 'linear-gradient(to bottom, rgba(240,244,248,0.4) 0%, rgba(240,244,248,0.7) 50%, rgba(240,244,248,0.95) 100%)',
                     }}
                   />
                 </div>
@@ -819,7 +829,7 @@ export default function App() {
 
                   {/* HERO: Mehewara Logo — fills viewport initially, sits on top of the photo */}
                   <div className="flex flex-col items-center justify-center w-full" style={{ minHeight: '75vh' }}>
-                    <div className="relative flex flex-col items-center">
+                    <div className="relative flex flex-col items-center animate-cinematic-logo">
                       {/* Ambient glow behind logo */}
                       <div
                         className="absolute rounded-full pointer-events-none"
@@ -847,7 +857,7 @@ export default function App() {
                     </div>
 
                     {/* Scroll indicator */}
-                    <div className="mt-10 flex flex-col items-center gap-1 text-white/50 animate-bounce">
+                    <div className="mt-10 flex flex-col items-center gap-1 text-white/50 animate-bounce" style={{ opacity: showBootOverlay ? 0 : 1, pointerEvents: showBootOverlay ? 'none' : 'auto', transition: 'opacity 1s ease-in-out' }}>
                       <span className="text-[10px] font-mono tracking-widest uppercase">
                         Scroll down
                       </span>
@@ -858,7 +868,7 @@ export default function App() {
                   </div>
 
                   {/* LEVEL SELECTION CARDS */}
-                  <div className="w-full mt-8 sm:mt-12 mb-4">
+                  <div className="w-full mt-8 sm:mt-12 mb-4" style={{ opacity: showBootOverlay ? 0 : 1, pointerEvents: showBootOverlay ? 'none' : 'auto', transition: 'opacity 1s ease-in-out' }}>
                     <div className="text-center mb-6 sm:mb-8">
                       <span className="text-[10px] tracking-widest text-sky-400 font-mono font-bold uppercase block mb-2">
                         Get Started
@@ -1138,7 +1148,7 @@ export default function App() {
       </main>
 
       {/* FOOTER */}
-      <footer className={`${isDark ? 'bg-[#18181b] text-[#9ca3af]' : 'bg-white text-slate-600 border-t border-slate-200'} py-8 px-6 w-full mt-auto select-none safe-bottom flex flex-col items-center gap-6 ${activePracticePaper ? 'hidden md:block' : ''}`}>
+      <footer className={`${selectedLevel === null ? 'bg-transparent text-white/60 border-t border-white/10' : (isDark ? 'bg-[#18181b] text-[#9ca3af]' : 'bg-white text-slate-600 border-t border-slate-200')} py-8 px-6 w-full mt-auto select-none safe-bottom flex flex-col items-center gap-6 ${activePracticePaper ? 'hidden md:block' : ''}`} style={{ zIndex: 10, position: 'relative' }}>
         <div className="max-w-4xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
 
           <div className="space-y-1 text-sm">
@@ -1156,6 +1166,9 @@ export default function App() {
             </a>
             <a href="https://www.linkedin.com/company/%E0%B6%B8%E0%B7%99%E0%B7%84%E0%B7%99%E0%B7%80%E0%B6%BB-mehewara/?originalSubdomain=lk" className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 hover:text-slate-900'} flex items-center justify-center transition-colors`}>
               <Linkedin className="w-5 h-5" />
+            </a>
+            <a href="https://youtube.com/@mehewara-5108?si=N4X8F8jphX0XddXe" className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 hover:text-slate-900'} flex items-center justify-center transition-colors`}>
+              <Youtube className="w-5 h-5" />
             </a>
           </div>
 

@@ -89,29 +89,35 @@ export async function dbLoadQuestions(): Promise<Question[] | null> {
 
   const ids = allIdsData.map((row: any) => row.id);
   const results: Question[] = [];
-  const batchSize = 10; // Slightly larger batch for full sync to save time, but still avoids timeouts
+  const batchSize = 50; // Increased batch size for faster syncing
 
+  const batches: string[][] = [];
   for (let i = 0; i < ids.length; i += batchSize) {
-    const batchIds = ids.slice(i, i + batchSize);
-    
-    let success = false;
-    let attempts = 0;
-    while (!success && attempts < 3) {
-      attempts++;
-      const { data, error } = await supabase
-        .from('questions')
-        .select('data')
-        .in('id', batchIds);
-        
-      if (error) {
-        console.warn(`Batch ${i} failed, attempt ${attempts}:`, error.message);
-        if (attempts === 3) return null;
-      } else if (data) {
-        results.push(...data.map((r: any) => r.data as Question));
-        success = true;
-      }
-    }
+    batches.push(ids.slice(i, i + batchSize));
   }
+
+  // Execute batches in parallel to maximize network throughput
+  await Promise.all(
+    batches.map(async (batchIds, index) => {
+      let success = false;
+      let attempts = 0;
+      while (!success && attempts < 3) {
+        attempts++;
+        const { data, error } = await supabase
+          .from('questions')
+          .select('data')
+          .in('id', batchIds);
+
+        if (error) {
+          console.warn(`Batch ${index} failed, attempt ${attempts}:`, error.message);
+          if (attempts === 3) return; // Abort this batch if repeatedly failing
+        } else if (data) {
+          results.push(...data.map((r: any) => r.data as Question));
+          success = true;
+        }
+      }
+    })
+  );
 
   // Preserve the original created_at ordering using a Map for O(n) lookup
   const resultMap = new Map(results.map(r => [r.id, r]));
@@ -141,29 +147,35 @@ export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question
 
   const ids = idsData.map((row: any) => row.id);
   const results: Question[] = [];
-  const batchSize = 5; // Small batch size to prevent statement timeout on massive rows
+  const batchSize = 50; // Increased batch size for faster syncing
 
+  const batches: string[][] = [];
   for (let i = 0; i < ids.length; i += batchSize) {
-    const batchIds = ids.slice(i, i + batchSize);
-    
-    let success = false;
-    let attempts = 0;
-    while (!success && attempts < 3) {
-      attempts++;
-      const { data, error } = await supabase
-        .from('questions')
-        .select('data')
-        .in('id', batchIds);
-        
-      if (error) {
-        console.warn(`Batch ${i} failed, attempt ${attempts}:`, error.message);
-        if (attempts === 3) return null; // Abort if repeatedly failing
-      } else if (data) {
-        results.push(...data.map((r: any) => r.data as Question));
-        success = true;
-      }
-    }
+    batches.push(ids.slice(i, i + batchSize));
   }
+
+  // Execute batches in parallel to maximize network throughput
+  await Promise.all(
+    batches.map(async (batchIds, index) => {
+      let success = false;
+      let attempts = 0;
+      while (!success && attempts < 3) {
+        attempts++;
+        const { data, error } = await supabase
+          .from('questions')
+          .select('data')
+          .in('id', batchIds);
+
+        if (error) {
+          console.warn(`Batch ${index} failed, attempt ${attempts}:`, error.message);
+          if (attempts === 3) return; // Abort this batch if repeatedly failing
+        } else if (data) {
+          results.push(...data.map((r: any) => r.data as Question));
+          success = true;
+        }
+      }
+    })
+  );
 
   // Preserve the original created_at ordering using a Map for O(n) lookup
   const resultMap = new Map(results.map(r => [r.id, r]));

@@ -39,7 +39,10 @@ export default function HeroSlideshow({ photos }: HeroSlideshowProps) {
   const nextIndex = (currentIndex + 1) % photos.length;
 
   return (
-    <div className="absolute inset-0 w-full h-full overflow-hidden bg-black">
+    <div 
+      className="absolute inset-0 w-full h-full overflow-hidden bg-black"
+      style={{ animation: 'heroFadeIn 1.5s ease-in-out forwards' }}
+    >
       {photos.map((photo, index) => {
         const isActive = index === currentIndex;
         const isNext = index === nextIndex;
@@ -71,11 +74,15 @@ export default function HeroSlideshow({ photos }: HeroSlideshowProps) {
         );
       })}
 
-      {/* Ken Burns keyframes */}
+      {/* Ken Burns and Fade In keyframes */}
       <style>{`
         @keyframes heroKenBurns {
           0%   { transform: scale(1)    translate(0, 0); }
           100% { transform: scale(1.08) translate(-1%, -1%); }
+        }
+        @keyframes heroFadeIn {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
         }
       `}</style>
     </div>

@@ -8,9 +8,10 @@ import type { AdminThemeClasses } from './types';
 interface AboutTabProps {
   theme: AdminThemeClasses;
   onAboutUpdate?: (data: any) => void;
+  showFlash?: (message: string, isError?: boolean) => void;
 }
 
-export default function AboutTab({ theme, onAboutUpdate }: AboutTabProps) {
+export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabProps) {
   const { isDark, cardBg, cardBdr, inputBg, inputBdr, surfaceBdr, textPrimary, textMuted, subtleBg } = theme;
 
   const [aboutData, setAboutData] = useState({
@@ -132,13 +133,13 @@ export default function AboutTab({ theme, onAboutUpdate }: AboutTabProps) {
                   await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
                   await idbSet('m_about_us', JSON.stringify(newAboutData));
                   onAboutUpdate?.(newAboutData);
-                  alert("Image uploaded and saved successfully!");
+                  showFlash ? showFlash("Image uploaded and saved successfully!") : alert("Image uploaded and saved successfully!");
                 } catch (err: any) {
                   console.error("Failed to save to database", err);
-                  alert("Image uploaded but failed to save to database: " + err.message);
+                  showFlash ? showFlash("Image uploaded but failed to save to database: " + err.message, true) : alert("Image uploaded but failed to save to database: " + err.message);
                 }
               } else {
-                alert("Error uploading image: " + error.message);
+                showFlash ? showFlash("Error uploading image: " + error.message, true) : alert("Error uploading image: " + error.message);
               }
 
               e.target.value = '';
@@ -186,12 +187,12 @@ export default function AboutTab({ theme, onAboutUpdate }: AboutTabProps) {
                 if (error) throw error;
                 await idbSet('m_about_us', JSON.stringify(aboutData));
                 onAboutUpdate?.(aboutData);
-                alert("About Us page updated live!");
+                showFlash ? showFlash("About Us page updated live!") : alert("About Us page updated live!");
               } catch (err: any) {
                 console.error("About Us Save Error:", err);
                 await idbSet('m_about_us', JSON.stringify(aboutData));
                 onAboutUpdate?.(aboutData);
-                alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
+                showFlash ? showFlash(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback.`, true) : alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
               }
             }}
             className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98]"
