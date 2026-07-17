@@ -701,7 +701,7 @@ export default function App() {
               className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 sm:group-hover:scale-105 transition-all object-contain"
             />
             <div className="min-w-0">
-              <span className={`text-lg sm:text-xl md:text-2xl font-extrabold tracking-wide font-display text-transparent bg-clip-text bg-gradient-to-r ${isDark ? 'from-emerald-400 to-sky-400' : 'from-emerald-600 to-sky-600'}`}>
+              <span className={`text-lg sm:text-xl md:text-2xl font-extrabold tracking-wide font-display ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 මෙහෙවර
               </span>
               <p className={`hidden sm:block text-[9px] font-mono tracking-widest ${textFaint} uppercase opacity-90`}>MEHEWARA PAST PAPERS</p>
@@ -820,7 +820,7 @@ export default function App() {
                     style={{
                       background: isDark
                         ? 'linear-gradient(to bottom, rgba(3,3,4,0.4) 0%, rgba(3,3,4,0.7) 50%, rgba(3,3,4,0.95) 100%)'
-                        : 'linear-gradient(to bottom, rgba(240,244,248,0.4) 0%, rgba(240,244,248,0.7) 50%, rgba(240,244,248,0.95) 100%)',
+                        : 'linear-gradient(to bottom, rgba(240,244,248,0) 0%, rgba(240,244,248,0) 60%, rgba(240,244,248,0.95) 100%)',
                     }}
                   />
                 </div>

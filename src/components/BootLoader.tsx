@@ -29,9 +29,9 @@ export default function BootLoader({ onBootComplete }: BootLoaderProps) {
         top: (Math.random() * 100) + '%',
         moveX: (Math.random() * 200 - 100) + 'px',
         moveY: (Math.random() * 200 - 100) + 'px',
-        duration: (Math.random() * 4 + 3) + 's',
+        duration: (Math.random() * 2 + 1) + 's',
         moveDuration: (Math.random() * 12 + 15) + 's',
-        delay: (Math.random() * 3) + 's'
+        delay: '-' + (Math.random() * 4) + 's' // Negative delay = instantly visible!
       });
     }
     setStars(generatedStars);
@@ -39,14 +39,14 @@ export default function BootLoader({ onBootComplete }: BootLoaderProps) {
 
   useEffect(() => {
     // Timing sequence for background fade
-    const t1 = setTimeout(() => setPhase('reveal-logo'), 100);
-    const t2 = setTimeout(() => setPhase('reveal-text'), 1600);
-    const t3 = setTimeout(() => setPhase('zoom-through'), 2800);  // Start the background fade
+    // Start the fade out at 1 second
+    const t3 = setTimeout(() => setPhase('zoom-through'), 1000);  
+    // Unmount exactly at 2 seconds
     const t4 = setTimeout(() => {
       setPhase('done');
       onBootComplete();
-    }, 4400);  
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+    }, 2000);  
+    return () => { clearTimeout(t3); clearTimeout(t4); };
   }, [onBootComplete]);
 
   const isZooming = phase === 'zoom-through' || phase === 'done';
@@ -56,7 +56,7 @@ export default function BootLoader({ onBootComplete }: BootLoaderProps) {
       className="fixed inset-0 z-[5] overflow-hidden select-none pointer-events-none"
       style={{
         opacity: isZooming ? 0 : 1,
-        transition: 'opacity 1.6s ease-in-out',
+        transition: 'opacity 1s ease-in-out',
       }}
     >
       {/* BACKGROUND LAYER that fades out to reveal the slideshow */}
