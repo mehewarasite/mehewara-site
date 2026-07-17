@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart2, TrendingUp, Activity, Globe, HelpCircle, Database, HardDrive, RefreshCw, FileText, BookOpen } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
 import { supabase } from '../../supabase';

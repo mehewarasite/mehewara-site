@@ -5,7 +5,7 @@
   <!-- Homepage -->
   <url>
     <loc>https://mehewara.edu.lk/</loc>
-    <lastmod>2025-06-07</lastmod>
+    <lastmod>2026-07-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="si" href="https://mehewara.edu.lk/" />
@@ -15,7 +15,7 @@
   <!-- O/L Section -->
   <url>
     <loc>https://mehewara.edu.lk/ol</loc>
-    <lastmod>2025-06-07</lastmod>
+    <lastmod>2026-07-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -23,24 +23,25 @@
   <!-- A/L Section -->
   <url>
     <loc>https://mehewara.edu.lk/al</loc>
-    <lastmod>2025-06-07</lastmod>
+    <lastmod>2026-07-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
-  <!-- Individual quiz pages — add one <url> block per quiz -->
+  <!-- Gallery -->
   <url>
-    <loc>https://mehewara.edu.lk/quiz/al-physics-2023</loc>
-    <lastmod>2025-06-07</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>https://mehewara.edu.lk/gallery</loc>
+    <lastmod>2026-07-16</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
+  <!-- Privacy Policy -->
   <url>
-    <loc>https://mehewara.edu.lk/quiz/ol-mathematics-2023</loc>
-    <lastmod>2025-06-07</lastmod>
+    <loc>https://mehewara.edu.lk/privacy-policy.html</loc>
+    <lastmod>2026-07-16</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.5</priority>
   </url>
 
 </urlset>

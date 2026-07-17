@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Subject, Paper, Question } from '../../types';
 import { renderMathInHtml } from '../../utils/parseTxt';
 import type { AdminThemeClasses } from './types';

@@ -55,3 +55,13 @@ export interface GalleryPhoto {
   createdAt: string;  // ISO timestamp
   pinned?: boolean;
 }
+
+export interface AboutData {
+  description?: string;
+  image_url?: string;
+  facebook_link?: string;
+  youtube_link?: string;
+  linkedin_link?: string;
+  privacy_policy_statement?: string;
+  full_privacy_policy_html?: string;
+}

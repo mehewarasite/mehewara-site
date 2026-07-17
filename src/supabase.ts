@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Paper, Question, Subject, GalleryPhoto } from './types';
+import type { Paper, Question, Subject, GalleryPhoto, AboutData } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -226,7 +226,7 @@ export async function dbDeleteStudyHtml(paperId: string): Promise<void> {
 
 // ─── About Us ────────────────────────────────────────────────────────────────
 
-export async function dbLoadAboutUs(): Promise<any | null> {
+export async function dbLoadAboutUs(): Promise<AboutData | null> {
   try {
     const { data, error } = await supabase
       .from('about_us')
@@ -240,15 +240,15 @@ export async function dbLoadAboutUs(): Promise<any | null> {
   }
 }
 
-export async function dbSaveAboutUs(aboutData: any): Promise<{error?: Error} | null> {
+export async function dbSaveAboutUs(aboutData: AboutData): Promise<{ error?: string }> {
   try {
     const { error } = await supabase
       .from('about_us')
       .upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
-    if (error) return { error: new Error(error.message) };
-    return null;
+    if (error) return { error: error.message };
+    return {};
   } catch (err: any) {
-    return { error: err };
+    return { error: err.message || 'Failed to save about data' };
   }
 }
 

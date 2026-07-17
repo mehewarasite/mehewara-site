@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Atom, 
-  FlaskConical, 
-  Dna, 
-  Cpu, 
-  Lightbulb, 
-  Infinity as InfinityIcon, 
-  BookOpen, 
-  Compass, 
-  ChevronRight, 
-  ArrowLeft, 
+import {
+  Atom,
+  FlaskConical,
+  Dna,
+  Cpu,
+  Lightbulb,
+  Infinity as InfinityIcon,
+  BookOpen,
+  Compass,
+  ChevronRight,
+  ArrowLeft,
   Clock,
   BookMarked,
   Layers,
@@ -20,7 +20,9 @@ import {
   Banknote,
   Map,
   Landmark,
-  Images
+  Images,
+  Facebook,
+  Linkedin
 } from 'lucide-react';
 import { Subject, Paper, Question, UserAttempt, GalleryPhoto } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
@@ -118,7 +120,7 @@ export default function App() {
 
     const paperQuestions = questions.filter(q => q.paperId === paper.id);
     const expectedCount = paper.questionCount || 0;
-    
+
     if (paperQuestions.length === 0 || (expectedCount > 0 && paperQuestions.length < expectedCount)) {
       setIsLoadingQuestions(true);
       const remoteQuestions = await dbLoadQuestionsForPaper(paper.id);
@@ -175,16 +177,16 @@ export default function App() {
       const storedSubjects = await idbGet('m_subjects');
       if (storedSubjects) {
         let parsedSubjects = JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths');
-        
+
         // Merge any new subjects from INITIAL_SUBJECTS that aren't in local storage
         const existingIds = new Set(parsedSubjects.map((s: Subject) => s.id));
         const missingSubjects = INITIAL_SUBJECTS.filter(s => !existingIds.has(s.id));
-        
+
         if (missingSubjects.length > 0) {
           parsedSubjects = [...parsedSubjects, ...missingSubjects];
           idbSet('m_subjects', JSON.stringify(parsedSubjects));
         }
-        
+
         setSubjects(parsedSubjects);
       } else {
         setSubjects(INITIAL_SUBJECTS);
@@ -228,17 +230,17 @@ export default function App() {
 
       if (remoteSubjects && remoteSubjects.length > 0) {
         let filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
-        
+
         // Merge any new subjects from INITIAL_SUBJECTS that aren't in Supabase
         const existingIds = new Set(filtered.map((s: Subject) => s.id));
         const missingSubjects = INITIAL_SUBJECTS.filter(s => !existingIds.has(s.id));
-        
+
         if (missingSubjects.length > 0) {
           // Note: Assuming dbSaveSubjects can accept an array and insert/upsert them
           await dbSaveSubjects(missingSubjects);
           filtered = [...filtered, ...missingSubjects];
         }
-        
+
         setSubjects(filtered);
         idbSet('m_subjects', JSON.stringify(filtered));
       } else if (INITIAL_SUBJECTS.length > 0) {
@@ -273,10 +275,10 @@ export default function App() {
       // Attempts are always local (per-user)
       const storedAttempts = await idbGet('m_attempts');
       if (storedAttempts) { setAttempts(JSON.parse(storedAttempts)); }
-      
+
       // Load local data instantly
       await loadFromLocal();
-      
+
       // Sync from Supabase in background
       syncFromSupabase();
     };
@@ -386,7 +388,7 @@ export default function App() {
     if (newPaper.studyMaterialHtml) {
       await dbSaveStudyHtml(newPaper.id, newPaper.studyMaterialHtml);
       // Also keep in localStorage as offline cache
-      try { idbSet(`m_study_${newPaper.id}`, newPaper.studyMaterialHtml); } catch {}
+      try { idbSet(`m_study_${newPaper.id}`, newPaper.studyMaterialHtml); } catch { }
     }
 
     // Persist questions to Supabase
@@ -408,7 +410,7 @@ export default function App() {
       const dbHtml = await dbLoadStudyHtml(paperId);
       if (dbHtml) {
         html = dbHtml;
-        try { await idbSet(`m_study_${paperId}`, dbHtml); } catch {}
+        try { await idbSet(`m_study_${paperId}`, dbHtml); } catch { }
       }
     }
 
@@ -442,7 +444,7 @@ export default function App() {
     // Shift existing questions in the same paper whose qNumber >= newQuestion.qNumber
     const samePaperQuestions = questions.filter(q => q.paperId === newQuestion.paperId && q.id !== newQuestion.id);
     const hasConflict = samePaperQuestions.some(q => q.qNumber >= newQuestion.qNumber);
-    
+
     let shiftedQuestions: Question[] = [];
     let updatedQuestions: Question[];
 
@@ -516,7 +518,7 @@ export default function App() {
       p.id === paperId ? { ...p, studyMaterialHtml: html } : p
     ));
     // Cache locally too
-    try { idbSet(`m_study_${paperId}`, html); } catch {}
+    try { idbSet(`m_study_${paperId}`, html); } catch { }
   };
 
   const handleResetToDefaults = async () => {
@@ -572,7 +574,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `mehewara-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `mehewara-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -604,7 +606,7 @@ export default function App() {
         // Save study HTML to separate localStorage keys
         rehydratedPapers.forEach(p => {
           if (p.studyMaterialHtml) {
-            try { idbSet(`m_study_${p.id}`, p.studyMaterialHtml); } catch {}
+            try { idbSet(`m_study_${p.id}`, p.studyMaterialHtml); } catch { }
           } else {
             idbRemove(`m_study_${p.id}`);
           }
@@ -646,50 +648,51 @@ export default function App() {
   }, []);
 
   // Shared class shortcuts based on theme
-  const pageBg      = isDark ? 'bg-[#030304]'           : 'bg-[#f0f4f8]';
-  const headerBg    = isDark ? 'bg-[#030304]/80'         : 'bg-[#f0f4f8]/85';
-  const headerBdr   = isDark ? 'border-slate-900'        : 'border-slate-200';
-  const cardBg      = isDark ? 'bg-slate-950/40'         : 'bg-white/70';
-  const cardHover   = isDark ? 'hover:bg-slate-900'      : 'hover:bg-white';
-  const cardBdr     = isDark ? 'border-slate-900'        : 'border-slate-200';
-  const surfaceBg   = isDark ? 'bg-slate-950'            : 'bg-white';
-  const surfaceBdr  = isDark ? 'border-slate-800/80'     : 'border-slate-200';
-  const btnText     = isDark ? 'text-slate-300'          : 'text-slate-600';
-  const btnHover    = isDark ? 'hover:text-white'        : 'hover:text-slate-900';
-  const textPrimary = isDark ? 'text-white'              : 'text-slate-900';
-  const textMuted   = isDark ? 'text-slate-400'          : 'text-slate-500';
-  const textFaint   = isDark ? 'text-slate-500'          : 'text-slate-400';
-  const dividerBdr  = isDark ? 'border-slate-900'        : 'border-slate-200';
-  const backBtn     = isDark ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-200 shadow-sm';
-  const paperCard   = isDark ? 'bg-slate-950/20 hover:bg-slate-900/30 border-slate-900' : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm';
-  const infoPanel   = isDark ? 'bg-slate-950/40 border-slate-900' : 'bg-white border-slate-200 shadow-sm';
-  const statBox     = isDark ? 'bg-slate-900 border-slate-800/50' : 'bg-slate-50 border-slate-200';
-  const paperDivider= isDark ? 'border-slate-900/50'     : 'border-slate-100';
-  const footerBdr   = isDark ? 'border-slate-900/80'     : 'border-slate-200';
-  const footerText  = isDark ? 'text-slate-500'          : 'text-slate-400';
-  const footerSub   = isDark ? 'text-slate-600'          : 'text-slate-300';
+  const pageBg = isDark ? 'bg-[#030304]' : 'bg-[#f0f4f8]';
+  const headerBg = isDark ? 'bg-[#030304]/80' : 'bg-[#f0f4f8]/85';
+  const headerBdr = isDark ? 'border-slate-900' : 'border-slate-200';
+  const cardBg = isDark ? 'bg-slate-950/40' : 'bg-white/70';
+  const cardHover = isDark ? 'hover:bg-slate-900' : 'hover:bg-white';
+  const cardBdr = isDark ? 'border-slate-900' : 'border-slate-200';
+  const surfaceBg = isDark ? 'bg-slate-950' : 'bg-white';
+  const surfaceBdr = isDark ? 'border-slate-800/80' : 'border-slate-200';
+  const btnText = isDark ? 'text-slate-300' : 'text-slate-600';
+  const btnHover = isDark ? 'hover:text-white' : 'hover:text-slate-900';
+  const textPrimary = isDark ? 'text-white' : 'text-slate-900';
+  const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
+  const textFaint = isDark ? 'text-slate-500' : 'text-slate-400';
+  const dividerBdr = isDark ? 'border-slate-900' : 'border-slate-200';
+  const backBtn = isDark ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-200 shadow-sm';
+  const paperCard = isDark ? 'bg-slate-950/20 hover:bg-slate-900/30 border-slate-900' : 'bg-white hover:bg-slate-50 border-slate-200 shadow-sm';
+  const infoPanel = isDark ? 'bg-slate-950/40 border-slate-900' : 'bg-white border-slate-200 shadow-sm';
+  const statBox = isDark ? 'bg-slate-900 border-slate-800/50' : 'bg-slate-50 border-slate-200';
+  const paperDivider = isDark ? 'border-slate-900/50' : 'border-slate-100';
+  const footerBdr = isDark ? 'border-slate-900/80' : 'border-slate-200';
+  const footerText = isDark ? 'text-slate-500' : 'text-slate-400';
+  const footerSub = isDark ? 'text-slate-600' : 'text-slate-300';
 
   return (
     <div className={`relative w-full min-h-screen min-h-[100dvh] ${pageBg} flex flex-col selection:bg-sky-500 selection:text-white`}>
-      
+
       {/* GLOWING HEADER ACCENT */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[800px] h-32 bg-sky-500/5 blur-3xl rounded-full pointer-events-none" />
 
       {/* GLOBAL SITE TOP HEAD BAR */}
       <header
-        className={`sticky top-0 z-30 ${headerBg} backdrop-blur-md border-b ${headerBdr} px-3 sm:px-4 md:px-8 py-3 sm:py-4 safe-top ${
-          activePracticePaper ? 'hidden md:block' : ''
-        }`}
+        className={`sticky top-0 z-30 ${headerBg} backdrop-blur-md border-b ${headerBdr} px-3 sm:px-4 md:px-8 py-3 sm:py-4 safe-top ${activePracticePaper ? 'hidden md:block' : ''
+          }`}
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 mt-[5px] mb-[5px]">
-          
-          <div 
+
+          <div
             onClick={() => { setSelectedLevel(null); setSelectedSubject(null); setActivePracticePaper(null); }}
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group select-none min-w-0"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-sky-500/10 sm:group-hover:scale-105 transition-all">
-              <GraduationCap className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
-            </div>
+            <img
+              src="/image/efac.png"
+              alt="Home"
+              className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 sm:group-hover:scale-105 transition-all object-contain"
+            />
             <div className="min-w-0">
               <span className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-wide font-display text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-305 to-blue-400">
                 මෙහෙවර
@@ -703,8 +706,8 @@ export default function App() {
             {isSyncing && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20">
                 <svg className="w-3 h-3 text-sky-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                 </svg>
                 <span className="text-[10px] font-semibold text-sky-400 hidden sm:inline">Syncing</span>
               </div>
@@ -758,12 +761,11 @@ export default function App() {
       </header>
 
       {/* MAIN LAYOUT BODY */}
-      <main className={`flex-grow max-w-6xl w-full mx-auto relative z-10 flex flex-col safe-bottom ${
-        activePracticePaper
-          ? 'px-0 py-0 max-w-none'
-          : 'px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8'
-      }`}>
-        
+      <main className={`flex-grow max-w-6xl w-full mx-auto relative z-10 flex flex-col safe-bottom ${activePracticePaper
+        ? 'px-0 py-0 max-w-none'
+        : 'px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8'
+        }`}>
+
         {showGallery ? (
           <React.Suspense fallback={<div className="flex items-center justify-center p-20 w-full"><div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div></div>}>
             <div className="animate-fade-in">
@@ -791,7 +793,7 @@ export default function App() {
           </React.Suspense>
         ) : (
           <div className="space-y-6 sm:space-y-8 flex-grow flex flex-col">
-            
+
             {/* VIEW 1: MAIN LANDING — FULL-SCREEN PHOTO BG → LOGO → LEVEL CARDS */}
             {selectedLevel === null && (
               <>
@@ -803,7 +805,7 @@ export default function App() {
                 >
                   <HeroSlideshow photos={galleryPhotos} />
                   {/* Dark overlay for readability */}
-                  <div 
+                  <div
                     className="absolute inset-0"
                     style={{
                       background: isDark
@@ -814,12 +816,12 @@ export default function App() {
                 </div>
 
                 <div className="flex flex-col items-center w-full animate-cinematic-reveal relative z-10" style={{ animationDelay: '0.2s', animationDuration: '0.8s' }}>
-                  
+
                   {/* HERO: Mehewara Logo — fills viewport initially, sits on top of the photo */}
                   <div className="flex flex-col items-center justify-center w-full" style={{ minHeight: '75vh' }}>
                     <div className="relative flex flex-col items-center">
                       {/* Ambient glow behind logo */}
-                      <div 
+                      <div
                         className="absolute rounded-full pointer-events-none"
                         style={{
                           width: '300px', height: '300px',
@@ -870,7 +872,7 @@ export default function App() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto w-full">
-                      
+
                       {/* O/L Card */}
                       <button
                         onClick={() => handleSetLevel('ol')}
@@ -1038,20 +1040,20 @@ export default function App() {
                         const paperQuestions = questions.filter(q => q.paperId === paper.id);
                         let scoreBadge = null;
                         if (previousAttempt?.isCompleted && (previousAttempt.totalCount || paper.questionCount) > 0) {
-                          const correct = previousAttempt.correctCount !== undefined 
-                                        ? previousAttempt.correctCount 
-                                        : (paperQuestions.length > 0 ? (() => {
-                                            let c = 0;
-                                            paperQuestions.forEach(q => {
-                                              const userAns = previousAttempt.answers[q.id || q.qNumber.toString()];
-                                              if (userAns !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(userAns) ?? userAns === q.correctOption))) c++;
-                                            });
-                                            return c;
-                                          })() : 0);
-                          
+                          const correct = previousAttempt.correctCount !== undefined
+                            ? previousAttempt.correctCount
+                            : (paperQuestions.length > 0 ? (() => {
+                              let c = 0;
+                              paperQuestions.forEach(q => {
+                                const userAns = previousAttempt.answers[q.id || q.qNumber.toString()];
+                                if (userAns !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(userAns) ?? userAns === q.correctOption))) c++;
+                              });
+                              return c;
+                            })() : 0);
+
                           const total = previousAttempt.totalCount || paper.questionCount || paperQuestions.length;
                           const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
-                          
+
                           scoreBadge = (
                             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold font-mono">
                               ✓ {percent}% (Completed)
@@ -1136,13 +1138,38 @@ export default function App() {
       </main>
 
       {/* FOOTER */}
-      <footer className={`border-t ${footerBdr} py-4 sm:py-6 px-3 text-center text-xs ${footerText} select-none safe-bottom flex flex-col items-center gap-1 ${activePracticePaper ? 'hidden md:block' : ''}`}>
-        <p className="font-mono text-[11px] sm:text-xs">මෙහෙවර &copy; 2026 MEHEWARA EDUCATIONAL PLATFORM</p>
-        <div className="mt-0.5 text-[10px]">
-          <span className={`hidden sm:inline ${footerSub}`}>by 26 E-FAC RUH - MADE WITH ❤️ &nbsp;&nbsp;&nbsp;&nbsp;</span>
-          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-sky-400 transition-colors">Privacy Policy</a>
-          <span className="mx-2 opacity-50">|</span>
-          <button onClick={handleOpenAboutUs} className="hover:underline hover:text-sky-400 transition-colors cursor-pointer min-h-[44px] min-w-[44px] inline-flex items-center justify-center">About Us</button>
+      <footer className={`bg-[#18181b] text-[#9ca3af] py-8 px-6 w-full mt-auto select-none safe-bottom flex flex-col items-center gap-6 ${activePracticePaper ? 'hidden md:block' : ''}`}>
+        <div className="max-w-4xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
+
+          <div className="space-y-1 text-sm">
+            <h3 className="text-white font-bold text-base mb-2">E-FAC STUDENTS' UNION</h3>
+            <p>Faculty of Engineering, University of Ruhuna,</p>
+            <p>Hapugala, Galle, Sri Lanka.</p>
+            <p className="pt-2">
+              <a href="mailto:contact@mehewara.edu.lk" className="hover:text-white transition-colors">contact@mehewara.edu.lk</a> &bull;
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <a href="https://www.facebook.com/ruhuna.efac.mehewara" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 hover:text-white transition-colors">
+              <Facebook className="w-5 h-5" />
+            </a>
+            <a href="https://www.linkedin.com/company/%E0%B6%B8%E0%B7%99%E0%B7%84%E0%B7%99%E0%B7%80%E0%B6%BB-mehewara/?originalSubdomain=lk" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 hover:text-white transition-colors">
+              <Linkedin className="w-5 h-5" />
+            </a>
+          </div>
+
+        </div>
+
+        <div className="w-full max-w-4xl border-t border-slate-800 pt-6 text-xs flex flex-col items-center justify-center gap-2">
+          <p>&copy; {new Date().getFullYear()} E-FAC Students' Union, All rights reserved.</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="font-mono text-[10px] tracking-widest uppercase opacity-50">Mehewara Educational Platform</span>
+            <span className="opacity-50">|</span>
+            <button onClick={handleOpenAboutUs} className="hover:text-white transition-colors">About Us</button>
+            <span className="opacity-50">|</span>
+            <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Privacy</a>
+          </div>
         </div>
       </footer>
 

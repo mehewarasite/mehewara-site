@@ -1,13 +1,6 @@
 import { X, Facebook, Youtube, Linkedin, Info } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
-
-interface AboutData {
-  description: string;
-  image_url: string;
-  facebook_link: string;
-  youtube_link: string;
-  linkedin_link: string;
-}
+import { AboutData } from '../types';
 
 interface AboutUsModalProps {
   data: AboutData | null;

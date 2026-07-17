@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Image } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
 import { supabase } from '../../supabase';

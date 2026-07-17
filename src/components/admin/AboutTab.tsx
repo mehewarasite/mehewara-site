@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { idbGet, idbSet } from '../../utils/storage';
 import { DEFAULT_PRIVACY_POLICY } from '../../privacyPolicyDefault';
@@ -8,10 +8,9 @@ import type { AdminThemeClasses } from './types';
 interface AboutTabProps {
   theme: AdminThemeClasses;
   onAboutUpdate?: (data: any) => void;
-  showFlash: (message: string, isError?: boolean) => void;
 }
 
-export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabProps) {
+export default function AboutTab({ theme, onAboutUpdate }: AboutTabProps) {
   const { isDark, cardBg, cardBdr, inputBg, inputBdr, surfaceBdr, textPrimary, textMuted, subtleBg } = theme;
 
   const [aboutData, setAboutData] = useState({
