@@ -1138,37 +1138,37 @@ export default function App() {
       </main>
 
       {/* FOOTER */}
-      <footer className={`bg-[#18181b] text-[#9ca3af] py-8 px-6 w-full mt-auto select-none safe-bottom flex flex-col items-center gap-6 ${activePracticePaper ? 'hidden md:block' : ''}`}>
+      <footer className={`${isDark ? 'bg-[#18181b] text-[#9ca3af]' : 'bg-white text-slate-600 border-t border-slate-200'} py-8 px-6 w-full mt-auto select-none safe-bottom flex flex-col items-center gap-6 ${activePracticePaper ? 'hidden md:block' : ''}`}>
         <div className="max-w-4xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
 
           <div className="space-y-1 text-sm">
-            <h3 className="text-white font-bold text-base mb-2">E-FAC STUDENTS' UNION</h3>
+            <h3 className={`${isDark ? 'text-white' : 'text-slate-900'} font-bold text-base mb-2`}>E-FAC STUDENTS' UNION</h3>
             <p>Faculty of Engineering, University of Ruhuna,</p>
             <p>Hapugala, Galle, Sri Lanka.</p>
             <p className="pt-2">
-              <a href="mailto:contact@mehewara.edu.lk" className="hover:text-white transition-colors">contact@mehewara.edu.lk</a> &bull;
+              <a href="mailto:contact@mehewara.edu.lk" className={`${isDark ? 'hover:text-white' : 'hover:text-slate-900'} transition-colors`}>contact@mehewara.edu.lk</a> &bull;
             </p>
           </div>
 
           <div className="flex items-center gap-4">
-            <a href="https://www.facebook.com/ruhuna.efac.mehewara" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 hover:text-white transition-colors">
+            <a href="https://www.facebook.com/ruhuna.efac.mehewara" className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 hover:text-slate-900'} flex items-center justify-center transition-colors`}>
               <Facebook className="w-5 h-5" />
             </a>
-            <a href="https://www.linkedin.com/company/%E0%B6%B8%E0%B7%99%E0%B7%84%E0%B7%99%E0%B7%80%E0%B6%BB-mehewara/?originalSubdomain=lk" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 hover:text-white transition-colors">
+            <a href="https://www.linkedin.com/company/%E0%B6%B8%E0%B7%99%E0%B7%84%E0%B7%99%E0%B7%80%E0%B6%BB-mehewara/?originalSubdomain=lk" className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 hover:text-slate-900'} flex items-center justify-center transition-colors`}>
               <Linkedin className="w-5 h-5" />
             </a>
           </div>
 
         </div>
 
-        <div className="w-full max-w-4xl border-t border-slate-800 pt-6 text-xs flex flex-col items-center justify-center gap-2">
+        <div className={`w-full max-w-4xl border-t ${isDark ? 'border-slate-800' : 'border-slate-200'} pt-6 text-xs flex flex-col items-center justify-center gap-2`}>
           <p>&copy; {new Date().getFullYear()} E-FAC Students' Union, All rights reserved.</p>
           <div className="flex items-center gap-2 mt-1">
             <span className="font-mono text-[10px] tracking-widest uppercase opacity-50">Mehewara Educational Platform</span>
             <span className="opacity-50">|</span>
-            <button onClick={handleOpenAboutUs} className="hover:text-white transition-colors">About Us</button>
+            <button onClick={handleOpenAboutUs} className={`${isDark ? 'hover:text-white' : 'hover:text-slate-900'} transition-colors`}>About Us</button>
             <span className="opacity-50">|</span>
-            <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Privacy</a>
+            <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className={`${isDark ? 'hover:text-white' : 'hover:text-slate-900'} transition-colors`}>Privacy</a>
           </div>
         </div>
       </footer>
