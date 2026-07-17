@@ -701,7 +701,7 @@ export default function App() {
               className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 sm:group-hover:scale-105 transition-all object-contain"
             />
             <div className="min-w-0">
-              <span className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-wide font-display text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-sky-305 to-blue-400">
+              <span className={`text-lg sm:text-xl md:text-2xl font-extrabold tracking-wide font-display text-transparent bg-clip-text bg-gradient-to-r ${isDark ? 'from-emerald-400 to-sky-400' : 'from-emerald-600 to-sky-600'}`}>
                 මෙහෙවර
               </span>
               <p className={`hidden sm:block text-[9px] font-mono tracking-widest ${textFaint} uppercase opacity-90`}>MEHEWARA PAST PAPERS</p>
