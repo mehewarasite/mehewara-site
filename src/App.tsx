@@ -1148,40 +1148,40 @@ export default function App() {
       </main>
 
       {/* FOOTER */}
-      <footer className={`${selectedLevel === null ? 'bg-transparent text-white/60 border-t border-white/10' : (isDark ? 'bg-[#18181b] text-[#9ca3af]' : 'bg-white text-slate-600 border-t border-slate-200')} py-8 px-6 w-full mt-auto select-none safe-bottom flex flex-col items-center gap-6 ${activePracticePaper ? 'hidden md:block' : ''}`} style={{ zIndex: 10, position: 'relative' }}>
+      <footer className={`${isDark ? 'bg-[#18181b] text-[#9ca3af] border-t border-slate-800' : 'bg-slate-200 text-slate-800 border-t border-slate-300'} py-8 px-6 w-full mt-auto select-none safe-bottom flex flex-col items-center gap-6 ${activePracticePaper ? 'hidden md:block' : ''}`} style={{ zIndex: 10, position: 'relative' }}>
         <div className="max-w-4xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
 
           <div className="space-y-1 text-sm">
-            <h3 className={`${isDark ? 'text-white' : 'text-slate-900'} font-bold text-base mb-2`}>E-FAC STUDENTS' UNION</h3>
+            <h3 className={`${isDark ? 'text-white' : 'text-black'} font-bold text-base mb-2`}>E-FAC STUDENTS' UNION</h3>
             <p>Faculty of Engineering, University of Ruhuna,</p>
             <p>Hapugala, Galle, Sri Lanka.</p>
             <p className="pt-2">
-              <a href="mailto:contact@mehewara.edu.lk" className={`${isDark ? 'hover:text-white' : 'hover:text-slate-900'} transition-colors`}>contact@mehewara.edu.lk</a> &bull;
+              <a href="mailto:contact@mehewara.edu.lk" className={`${isDark ? 'hover:text-white' : 'hover:text-black text-slate-700'} transition-colors`}>contact@mehewara.edu.lk</a> &bull;
             </p>
           </div>
 
           <div className="flex items-center gap-4">
-            <a href="https://www.facebook.com/ruhuna.efac.mehewara" className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 hover:text-slate-900'} flex items-center justify-center transition-colors`}>
+            <a href="https://www.facebook.com/ruhuna.efac.mehewara" className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-200 hover:bg-slate-300 hover:text-black text-slate-700'}`}>
               <Facebook className="w-5 h-5" />
             </a>
-            <a href="https://www.linkedin.com/company/%E0%B6%B8%E0%B7%99%E0%B7%84%E0%B7%99%E0%B7%80%E0%B6%BB-mehewara/?originalSubdomain=lk" className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 hover:text-slate-900'} flex items-center justify-center transition-colors`}>
+            <a href="https://www.linkedin.com/company/%E0%B6%B8%E0%B7%99%E0%B7%84%E0%B7%99%E0%B7%80%E0%B6%BB-mehewara/?originalSubdomain=lk" className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-200 hover:bg-slate-300 hover:text-black text-slate-700'}`}>
               <Linkedin className="w-5 h-5" />
             </a>
-            <a href="https://youtube.com/@mehewara-5108?si=N4X8F8jphX0XddXe" className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 hover:text-slate-900'} flex items-center justify-center transition-colors`}>
+            <a href="https://youtube.com/@mehewara-5108?si=N4X8F8jphX0XddXe" className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 hover:bg-slate-700 hover:text-white' : 'bg-slate-200 hover:bg-slate-300 hover:text-black text-slate-700'}`}>
               <Youtube className="w-5 h-5" />
             </a>
           </div>
 
         </div>
 
-        <div className={`w-full max-w-4xl border-t ${isDark ? 'border-slate-800' : 'border-slate-200'} pt-6 text-xs flex flex-col items-center justify-center gap-2`}>
+        <div className={`w-full max-w-4xl border-t pt-6 text-xs flex flex-col items-center justify-center gap-2 ${isDark ? 'border-slate-800' : 'border-slate-300'}`}>
           <p>&copy; {new Date().getFullYear()} E-FAC Students' Union, All rights reserved.</p>
           <div className="flex items-center gap-2 mt-1">
             <span className="font-mono text-[10px] tracking-widest uppercase opacity-50">Mehewara Educational Platform</span>
             <span className="opacity-50">|</span>
-            <button onClick={handleOpenAboutUs} className={`${isDark ? 'hover:text-white' : 'hover:text-slate-900'} transition-colors`}>About Us</button>
+            <button onClick={handleOpenAboutUs} className={`transition-colors ${isDark ? 'hover:text-white' : 'hover:text-black text-slate-700'}`}>About Us</button>
             <span className="opacity-50">|</span>
-            <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className={`${isDark ? 'hover:text-white' : 'hover:text-slate-900'} transition-colors`}>Privacy</a>
+            <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className={`transition-colors ${isDark ? 'hover:text-white' : 'hover:text-black text-slate-700'}`}>Privacy</a>
           </div>
         </div>
       </footer>
