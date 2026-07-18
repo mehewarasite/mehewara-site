@@ -819,7 +819,7 @@ export default function App() {
                     className="absolute inset-0"
                     style={{
                       background: isDark
-                        ? 'linear-gradient(to bottom, rgba(3,3,4,0.4) 0%, rgba(3,3,4,0.7) 50%, rgba(3,3,4,0.95) 100%)'
+                        ? 'linear-gradient(to bottom, rgba(3,3,4,0.1) 0%, rgba(3,3,4,0.2) 50%, rgba(3,3,4,0.95) 100%)'
                         : 'linear-gradient(to bottom, rgba(240,244,248,0) 0%, rgba(240,244,248,0) 60%, rgba(240,244,248,0.95) 100%)',
                     }}
                   />
