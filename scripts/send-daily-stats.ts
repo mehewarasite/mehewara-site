@@ -39,15 +39,43 @@ async function getCount(table: string): Promise<number> {
   return count ?? 0;
 }
 
+async function getDailyCount(table: string, dateColumn: string): Promise<number> {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Colombo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+  
+  const startOfDayISO = `${year}-${month}-${day}T00:00:00+05:30`;
+
+  const { count, error } = await supabase
+    .from(table)
+    .select('*', { count: 'exact', head: true })
+    .gte(dateColumn, startOfDayISO);
+
+  if (error) {
+    console.warn(`⚠️  Could not fetch daily count for "${table}":`, error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 async function sendDailyStats() {
   console.log('📊 Fetching daily stats from Supabase...');
 
-  const [subjectsCount, papersCount, questionsCount, galleryCount, visitsCount] = await Promise.all([
+  const [subjectsCount, papersCount, questionsCount, galleryCount, totalVisitsCount, dailyVisitsCount] = await Promise.all([
     getCount('subjects'),
     getCount('papers'),
     getCount('questions'),
     getCount('gallery'),
     getCount('site_visits'),
+    getDailyCount('site_visits', 'visited_at'),
   ]);
 
   const now = new Date();
@@ -61,7 +89,8 @@ async function sendDailyStats() {
     { label: '📄 Total Papers', value: papersCount },
     { label: '❓ Total Questions', value: questionsCount },
     { label: '🖼️  Total Gallery Photos', value: galleryCount },
-    { label: '👥 Total Site Visits', value: visitsCount },
+    { label: '👥 Daily Site Visits', value: dailyVisitsCount },
+    { label: '📈 Total Site Visits', value: totalVisitsCount },
   ];
 
   const tableRows = statsRows.map(r => `
