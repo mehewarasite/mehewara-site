@@ -206,8 +206,8 @@ export default function SubjectsTab({ theme, subjects, onAddSubject, onUpdateSub
               <div key={s.id} className={`${surfaceBg} border ${surfaceBdr} rounded-xl p-4 flex flex-col gap-3 group hover:border-emerald-500/30 transition-colors`}>
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className={`text-xs font-bold text-white px-2 py-0.5 rounded flex w-max items-center gap-1.5 mb-2 bg-gradient-to-r ${s.color}`}>
-                      {s.examType.toUpperCase()} | {s.code.toUpperCase()}
+                    <div className={`text-xs font-bold text-white px-2 py-0.5 rounded flex w-max items-center gap-1.5 mb-2 bg-gradient-to-r ${s.color || 'from-blue-600 to-indigo-700'}`}>
+                      {(s.examType || 'ol').toUpperCase()} | {(s.code || '').toUpperCase()}
                     </div>
                     <div className={`text-sm font-bold ${textPrimary}`}>{s.name}</div>
                     <div className={`text-xs ${textMuted}`}>{s.sinhalaName}</div>
