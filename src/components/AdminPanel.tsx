@@ -114,6 +114,10 @@ export default function AdminPanel({
   // Login state
   const [authLevel, setAuthLevel] = useState<'admin' | 'superadmin' | null>(null);
   const [passcode, setPasscode] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string>('');
+  const [isVerifyingBot, setIsVerifyingBot] = useState<boolean>(false);
+  const turnstileContainerRef = React.useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = React.useRef<string | null>(null);
   
   const [activeTab, setActiveTab] = useState<AdminTab>('subjects');
 
@@ -133,7 +137,7 @@ export default function AdminPanel({
 
   // Auth Effect
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuth = () => {
       const storedHash = localStorage.getItem('mhw_admin_hash');
       if (!storedHash) return;
 
@@ -148,8 +152,82 @@ export default function AdminPanel({
     checkAuth();
   }, []);
 
+  // Turnstile Widget Effect
+  useEffect(() => {
+    if (authLevel) return;
+    const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAElpXtkwfy5K8yzw';
+    let pollTimer: any;
+
+    const renderWidget = () => {
+      const turnstile = (window as any).turnstile;
+      if (turnstile && turnstileContainerRef.current && !turnstileWidgetIdRef.current) {
+        try {
+          turnstileWidgetIdRef.current = turnstile.render(turnstileContainerRef.current, {
+            sitekey: siteKey,
+            action: 'admin_login',
+            theme: isDark ? 'dark' : 'light',
+            callback: (token: string) => setTurnstileToken(token),
+            'expired-callback': () => setTurnstileToken(''),
+            'error-callback': () => setTurnstileToken(''),
+          });
+          if (pollTimer) clearInterval(pollTimer);
+        } catch (err) {
+          console.error('Turnstile render error:', err);
+        }
+      }
+    };
+
+    if ((window as any).turnstile) {
+      renderWidget();
+    } else {
+      pollTimer = setInterval(renderWidget, 250);
+    }
+
+    return () => {
+      if (pollTimer) clearInterval(pollTimer);
+      if (turnstileWidgetIdRef.current && (window as any).turnstile) {
+        try {
+          (window as any).turnstile.remove(turnstileWidgetIdRef.current);
+        } catch {}
+        turnstileWidgetIdRef.current = null;
+      }
+    };
+  }, [authLevel, isDark]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!turnstileToken) {
+      alert('Please complete the Turnstile security check.');
+      return;
+    }
+
+    setIsVerifyingBot(true);
+    try {
+      const res = await fetch('/api/verify-turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: turnstileToken,
+          action: 'admin_login',
+        }),
+      });
+      const verifyData = await res.json();
+      if (!res.ok || !verifyData.success) {
+        alert(verifyData.error || 'Turnstile verification failed. Please try again.');
+        setPasscode('');
+        setTurnstileToken('');
+        if (turnstileWidgetIdRef.current && (window as any).turnstile) {
+          (window as any).turnstile.reset(turnstileWidgetIdRef.current);
+        }
+        return;
+      }
+    } catch (err) {
+      console.warn('Turnstile verification endpoint error:', err);
+    } finally {
+      setIsVerifyingBot(false);
+    }
+
     const encoder = new TextEncoder();
     const data = encoder.encode(passcode);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -167,6 +245,10 @@ export default function AdminPanel({
     } else {
       alert('Access Denied');
       setPasscode('');
+      setTurnstileToken('');
+      if (turnstileWidgetIdRef.current && (window as any).turnstile) {
+        (window as any).turnstile.reset(turnstileWidgetIdRef.current);
+      }
     }
   };
 
@@ -211,12 +293,19 @@ export default function AdminPanel({
               className={`w-full px-4 py-3 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800 text-white focus:border-sky-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-sky-500'} focus:outline-none transition-colors font-mono tracking-widest text-center text-lg`}
               autoFocus
             />
+            
+            {/* Cloudflare Turnstile Widget */}
+            <div className="flex justify-center my-3 min-h-[65px] overflow-hidden rounded-xl">
+              <div ref={turnstileContainerRef} />
+            </div>
+
             <button
               type="submit"
-              className="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg flex items-center justify-center gap-2"
+              disabled={isVerifyingBot || !turnstileToken}
+              className="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white font-bold py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-100 cursor-pointer"
             >
               <Unlock className="w-4 h-4" />
-              Unlock Panel
+              {isVerifyingBot ? 'Verifying...' : 'Unlock Panel'}
             </button>
           </form>
           <button onClick={onClose} className={`mt-6 w-full text-xs font-semibold ${textMuted} hover:${textPrimary} transition-colors`}>
