@@ -32,6 +32,7 @@ import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
 import HeroSlideshow from './components/HeroSlideshow';
+import SiteEntryGate from './components/SiteEntryGate';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
@@ -57,6 +58,14 @@ export default function App() {
   const isDark = theme === 'dark';
   const { language, toggleLanguage } = useLanguage();
   const isEn = language === 'en';
+
+  const [isHumanVerified, setIsHumanVerified] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('mhw_human_verified') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const [hasBooted, setHasBooted] = useState<boolean>(false);
   const [showBootOverlay, setShowBootOverlay] = useState<boolean>(true);
@@ -1223,6 +1232,15 @@ export default function App() {
 
       {/* CINEMATIC BOOT OVERLAY — renders on top of main content, zooms through */}
       {showBootOverlay && <BootLoader onBootComplete={handleBootComplete} />}
+
+      {/* SITE ENTRY GATE — requires Turnstile verification for all visitors */}
+      {!isHumanVerified && (
+        <SiteEntryGate
+          isDark={isDark}
+          isEn={isEn}
+          onVerified={() => setIsHumanVerified(true)}
+        />
+      )}
 
     </div>
   );

@@ -24,7 +24,7 @@ export async function onRequestPost(context: {
   }
 
   const { token, action } = body || {};
-  const expectedAction = 'admin_login';
+  const allowedActions = new Set(['admin_login', 'site_entry']);
 
   if (typeof token !== 'string' || token.length === 0 || token.length > 2048) {
     return new Response(JSON.stringify({ error: 'Invalid or missing Turnstile token' }), {
@@ -33,7 +33,7 @@ export async function onRequestPost(context: {
     });
   }
 
-  if (action && action !== expectedAction) {
+  if (action && !allowedActions.has(action)) {
     return new Response(JSON.stringify({ error: 'Turnstile action mismatch' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' }
@@ -70,7 +70,7 @@ export async function onRequestPost(context: {
       });
     }
 
-    if (outcome.action && outcome.action !== expectedAction) {
+    if (outcome.action && action && outcome.action !== action) {
       return new Response(JSON.stringify({ error: 'Turnstile action mismatch' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' }
