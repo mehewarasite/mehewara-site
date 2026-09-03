@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 
 // Compress image using Canvas API
-export async function compressImage(file: File, maxWidth = 1024, quality = 0.75): Promise<string> {
+export async function compressImage(file: File, maxWidth = 800, quality = 0.62): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -13,7 +13,7 @@ export async function compressImage(file: File, maxWidth = 1024, quality = 0.75)
         let width = img.width;
         let height = img.height;
 
-        // Calculate new dimensions while maintaining aspect ratio
+        // Calculate new dimensions while maintaining aspect ratio (default max 800px)
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
           width = maxWidth;
@@ -28,10 +28,11 @@ export async function compressImage(file: File, maxWidth = 1024, quality = 0.75)
           return;
         }
 
-        // Draw image on canvas
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Compress to WebP (or JPEG if WebP isn't supported)
+        // Compress to WebP at high compression
         const compressedDataUrl = canvas.toDataURL('image/webp', quality);
         resolve(compressedDataUrl);
       };
@@ -41,19 +42,67 @@ export async function compressImage(file: File, maxWidth = 1024, quality = 0.75)
   });
 }
 
-// Compress image and return a Blob (useful for uploading to Supabase Storage)
-export async function compressImageToBlob(file: File, maxWidth = 1024, quality = 0.75): Promise<Blob> {
-  const dataUrl = await compressImage(file, maxWidth, quality);
-  const res = await fetch(dataUrl);
-  return await res.blob();
+// Compress image natively to a WebP Blob (high compression, zero base64 overhead)
+export async function compressImageToBlob(file: File, maxWidth = 800, quality = 0.62): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          fetch(img.src).then(r => r.blob()).then(resolve).catch(reject);
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Native binary WebP blob export
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              // Fallback to JPEG if WebP blob generation fails
+              canvas.toBlob(
+                (fallbackBlob) => fallbackBlob ? resolve(fallbackBlob) : reject(new Error('Failed to compress image to blob')),
+                'image/jpeg',
+                quality
+              );
+            }
+          },
+          'image/webp',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('Failed to load image for compression'));
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+  });
 }
 
 // Upload image directly to Supabase Storage (question-images bucket)
 export async function uploadImageToSupabaseStorage(
   file: File,
   folder = 'diagrams',
-  maxWidth = 1024,
-  quality = 0.8
+  maxWidth = 800,
+  quality = 0.62
 ): Promise<string> {
   if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif|bmp|svg|tiff?|heic|heif|avif|ico)$/i.test(file.name)) {
     throw new Error('Please upload an image file (PNG, JPG, WEBP, HEIC, TIFF, etc.).');
@@ -63,7 +112,7 @@ export async function uploadImageToSupabaseStorage(
   const { normalizeImageFile } = await import('./imageHex');
   const normalizedFile = await normalizeImageFile(file);
 
-  // Compress the image to a WebP blob
+  // Compress the image to a WebP blob with higher compression
   const blob = await compressImageToBlob(normalizedFile, maxWidth, quality);
 
   // Generate a clean, unique file path in Supabase Storage
@@ -93,7 +142,12 @@ export async function uploadImageToSupabaseStorage(
 }
 
 export async function fileToImgHtml(file: File, className = 'mhw-q-img', folder = 'diagrams'): Promise<string> {
-  const publicUrl = await uploadImageToSupabaseStorage(file, folder);
+  // Use aggressive compression for small option thumbnails vs main question diagrams
+  const isOptionImg = className.includes('mhw-opt-img');
+  const maxWidth = isOptionImg ? 480 : 800;
+  const quality = isOptionImg ? 0.58 : 0.62;
+
+  const publicUrl = await uploadImageToSupabaseStorage(file, folder, maxWidth, quality);
   const alt = file.name.replace(/"/g, '&quot;');
   return `<img src="${publicUrl}" alt="${alt}" class="${className}" />`;
 }

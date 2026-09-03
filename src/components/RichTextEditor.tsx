@@ -227,7 +227,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
   const handleImageUpload = async (file: File) => {
     try {
       const { compressImageToBlob } = await import('../utils/mediaUpload');
-      const blob = await compressImageToBlob(file, 1024, 0.75);
+      const blob = await compressImageToBlob(file, 800, 0.62);
       
       const fileExt = 'webp'; // Since compressImageToBlob returns webp
       const fileName = `editor-${Date.now()}.${fileExt}`;

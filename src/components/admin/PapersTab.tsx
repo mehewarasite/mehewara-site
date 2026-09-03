@@ -149,9 +149,13 @@ export default function PapersTab({
 
     try {
       setUploadingImageIndex(index);
-      const publicUrl = await uploadImageToSupabaseStorage(file, 'diagrams');
+      const isOption = typeof target === 'number';
+      const maxWidth = isOption ? 480 : 800;
+      const quality = isOption ? 0.58 : 0.62;
+      const publicUrl = await uploadImageToSupabaseStorage(file, 'diagrams', maxWidth, quality);
       const alt = file.name.replace(/"/g, '&quot;');
-      const imgHtml = `<img src="${publicUrl}" alt="${alt}" class="mhw-q-img max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
+      const imgClass = isOption ? 'mhw-opt-img' : 'mhw-q-img';
+      const imgHtml = `<img src="${publicUrl}" alt="${alt}" class="${imgClass} max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
 
       setParsedQuestions(prev => {
         const updated = [...prev];
