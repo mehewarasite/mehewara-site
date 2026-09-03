@@ -3,7 +3,7 @@ import { FileText, FileCode, Upload, Edit2, Trash2, X, Save } from 'lucide-react
 import { Subject, Paper, Question } from '../../types';
 import { parseTxtToQuizData, renderMathInHtml } from '../../utils/parseTxt';
 import { themeHtml } from '../../utils/themeHtml';
-import { supabase } from '../../supabase';
+import { uploadImageToSupabaseStorage, insertOrReplaceImage } from '../../utils/mediaUpload';
 import type { AdminThemeClasses, AdminTab } from './types';
 
 // The parser returns objects with this rough shape:
@@ -57,6 +57,7 @@ export default function PapersTab({
   const [studyFileName, setStudyFileName] = useState('');
   const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestion[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
   
   const [paperSearchQuery, setPaperSearchQuery] = useState('');
   const [editingPaperId, setEditingPaperId] = useState<string | null>(null);
@@ -143,47 +144,39 @@ export default function PapersTab({
     input.value = '';
   };
 
-  const handleQuestionImageUpload = async (file: File, index: number) => {
+  const handleQuestionImageUpload = async (file: File, index: number, target: 'question' | 'explanation' | number = 'question') => {
     if (!file) return;
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `diagrams/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('question-images')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('question-images')
-        .getPublicUrl(filePath);
-
-      const imgHtml = `<img src="${publicUrl}" alt="Question Diagram" class="max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
+      setUploadingImageIndex(index);
+      const publicUrl = await uploadImageToSupabaseStorage(file, 'diagrams');
+      const alt = file.name.replace(/"/g, '&quot;');
+      const imgHtml = `<img src="${publicUrl}" alt="${alt}" class="mhw-q-img max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
 
       setParsedQuestions(prev => {
         const updated = [...prev];
-        let currentQuestionText = updated[index].question;
+        const targetQ = { ...updated[index] };
 
-        if (currentQuestionText.includes('class="image-placeholder')) {
-          currentQuestionText = currentQuestionText.replace(
-            /<div class="image-placeholder[^>]*>.*?<\/div>/i,
-            imgHtml
-          );
-        } else {
-          currentQuestionText += imgHtml;
+        if (target === 'question') {
+          targetQ.question = insertOrReplaceImage(targetQ.question, imgHtml);
+        } else if (target === 'explanation') {
+          targetQ.explanation = insertOrReplaceImage(targetQ.explanation || '', imgHtml);
+        } else if (typeof target === 'number' && targetQ.options && targetQ.options[target] !== undefined) {
+          const newOpts = [...targetQ.options];
+          newOpts[target] = insertOrReplaceImage(newOpts[target], imgHtml);
+          targetQ.options = newOpts;
         }
 
-        updated[index].question = currentQuestionText;
+        updated[index] = targetQ;
         return updated;
       });
 
-      alert("Image uploaded and added to question successfully!");
-    } catch (error) {
+      showFlash("Image uploaded and added to question successfully!");
+    } catch (error: any) {
       console.error("Error uploading image:", error);
-      alert("Failed to upload image to Supabase.");
+      showFlash(error?.message || "Failed to upload image to Supabase Storage.", true);
+    } finally {
+      setUploadingImageIndex(null);
     }
   };
 
@@ -420,13 +413,21 @@ export default function PapersTab({
                           rows={4}
                         />
                       </div>
-                      <div className={`p-4 ${isDark ? 'bg-slate-800/50 border-slate-600' : 'bg-slate-50 border-slate-300'} border border-dashed rounded-md`}>
-                        <label className={`block text-sm font-medium mb-3 ${textPrimary}`}>
-                          🖼️ Upload Missing Diagram/Image
-                        </label>
+                      <div className={`p-4 ${isDark ? 'bg-slate-800/50 border-slate-600' : 'bg-slate-50 border-slate-300'} border border-dashed rounded-md space-y-3`}>
+                        <div className="flex items-center justify-between">
+                          <label className={`block text-sm font-medium ${textPrimary}`}>
+                            🖼️ Upload Missing Diagram/Image to Supabase
+                          </label>
+                          {uploadingImageIndex === index && (
+                            <span className="text-xs text-sky-400 font-semibold animate-pulse">
+                              Compressing & uploading to Supabase...
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="file"
                           accept="image/*"
+                          disabled={uploadingImageIndex === index}
                           className={`block w-full text-sm ${textMuted}
                             file:mr-4 file:py-2 file:px-4
                             file:rounded-md file:border-0
@@ -434,15 +435,16 @@ export default function PapersTab({
                             file:bg-blue-50 file:text-blue-700
                             hover:file:bg-blue-100
                             dark:file:bg-blue-900/30 dark:file:text-blue-400
-                            dark:hover:file:bg-blue-900/50 cursor-pointer`}
+                            dark:hover:file:bg-blue-900/50 cursor-pointer disabled:opacity-50`}
                           onChange={(e) => {
                             if (e.target.files && e.target.files[0]) {
                               handleQuestionImageUpload(e.target.files[0], index);
+                              e.target.value = '';
                             }
                           }}
                         />
-                        <p className={`text-xs ${textFaint} mt-2`}>
-                          This will automatically replace the image placeholder.
+                        <p className={`text-xs ${textFaint}`}>
+                          Automatically compresses to WebP, uploads to Supabase Storage, and replaces any [IMAGE: ...] placeholder.
                         </p>
                       </div>
                       <button
@@ -456,7 +458,14 @@ export default function PapersTab({
                   ) : (
                     <div>
                       <div className="flex justify-between items-start mb-2">
-                        <h4 className={`font-bold text-lg ${textMuted}`}>Q{q.id || index + 1}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`font-bold text-lg ${textMuted}`}>Q{q.id || index + 1}</h4>
+                          {(q.question.includes('image-placeholder') || q.options.some(opt => opt.includes('image-placeholder'))) && (
+                            <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-md animate-pulse">
+                              ⚠️ Missing Image Placeholder
+                            </span>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => setEditingIndex(index)}

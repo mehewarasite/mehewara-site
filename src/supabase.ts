@@ -192,14 +192,37 @@ export async function dbSaveQuestion(question: Question): Promise<void> {
   const { error } = await supabase
     .from('questions')
     .upsert({ id: question.id, paper_id: question.paperId, data: question }, { onConflict: 'id' });
-  if (error) console.error('saveQuestion:', error);
+  if (error) {
+    console.error('saveQuestion:', error);
+    throw error;
+  }
 }
 
 export async function dbSaveQuestions(questions: Question[]): Promise<void> {
   if (!questions.length) return;
   const rows = questions.map(q => ({ id: q.id, paper_id: q.paperId, data: q }));
-  const { error } = await supabase.from('questions').upsert(rows, { onConflict: 'id' });
-  if (error) console.error('saveQuestions:', error);
+
+  // Batch upsert in chunks of 10 to avoid PostgREST payload-too-large errors and gateway timeouts
+  const chunkSize = 10;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    let attempts = 0;
+    let saved = false;
+    while (!saved && attempts < 3) {
+      attempts++;
+      const { error } = await supabase.from('questions').upsert(chunk, { onConflict: 'id' });
+      if (error) {
+        console.warn(`saveQuestions batch ${Math.floor(i / chunkSize) + 1} attempt ${attempts} failed:`, error.message);
+        if (attempts >= 3) {
+          console.error('Failed to save questions chunk after 3 attempts:', error);
+          throw error;
+        }
+        await new Promise(r => setTimeout(r, 500 * attempts));
+      } else {
+        saved = true;
+      }
+    }
+  }
 }
 
 export async function dbDeleteQuestion(questionId: string): Promise<void> {

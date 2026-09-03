@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, CircleHelp, Image } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
-import { appendHtml, fileToImgHtml, hasRealContent, optionHasContent } from '../../utils/mediaUpload';
+import { fileToImgHtml, insertOrReplaceImage, hasRealContent, optionHasContent } from '../../utils/mediaUpload';
 import { renderMathInHtml } from '../../utils/parseTxt';
 import RichTextEditor from '../RichTextEditor';
 import MathTextInput from '../MathTextInput';
@@ -38,6 +38,7 @@ export default function AddQuestionTab({
   const [correctOptions, setCorrectOptions] = useState<number[]>([0]);
   const [isAllCorrect, setIsAllCorrect] = useState(false);
   const [explanationHtml, setExplanationHtml] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const isALPaper = (() => {
     const paper = papers.find(p => p.id === targetPaperId);
@@ -52,10 +53,17 @@ export default function AddQuestionTab({
     className = 'mhw-q-img'
   ) => {
     try {
-      const html = await fileToImgHtml(file, className);
+      setIsUploadingImage(true);
+      showFlash("Uploading image to Supabase Storage...");
+      const html = await fileToImgHtml(file, className, 'diagrams');
       apply(html);
+      showFlash("Image uploaded to Supabase Storage successfully!");
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Image upload failed.');
+      const msg = err instanceof Error ? err.message : 'Image upload failed.';
+      showFlash(msg, true);
+      alert(msg);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -283,7 +291,7 @@ export default function AddQuestionTab({
                 className="sr-only"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleImageFileUpload(file, (html) => setQuestionHtml((prev) => appendHtml(prev, html)));
+                  if (file) handleImageFileUpload(file, (html) => setQuestionHtml((prev) => insertOrReplaceImage(prev, html)));
                   e.target.value = '';
                 }}
               />
@@ -322,7 +330,7 @@ export default function AddQuestionTab({
                     className="sr-only"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleImageFileUpload(file, setter, 'mhw-opt-img');
+                      if (file) handleImageFileUpload(file, (html) => setter(insertOrReplaceImage(value, html)), 'mhw-opt-img');
                       e.target.value = '';
                     }}
                   />
@@ -374,7 +382,7 @@ export default function AddQuestionTab({
                 className="sr-only"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleImageFileUpload(file, (html) => setExplanationHtml((prev) => appendHtml(prev, html)));
+                  if (file) handleImageFileUpload(file, (html) => setExplanationHtml((prev) => insertOrReplaceImage(prev, html)));
                   e.target.value = '';
                 }}
               />
@@ -400,9 +408,10 @@ export default function AddQuestionTab({
           </button>
           <button
             type="submit"
-            className="px-8 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-450 hover:to-blue-500 text-white rounded-xl font-bold text-xs tracking-widest transition-all shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_20px_rgba(14,165,233,0.35)] cursor-pointer"
+            disabled={isUploadingImage}
+            className="px-8 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-450 hover:to-blue-500 text-white rounded-xl font-bold text-xs tracking-widest transition-all shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_20px_rgba(14,165,233,0.35)] cursor-pointer disabled:opacity-50"
           >
-            ප්‍රශ්නය සුරකින්න (Save Question &rarr;)
+            {isUploadingImage ? 'Uploading Image...' : 'ප්‍රශ්නය සුරකින්න (Save Question →)'}
           </button>
         </div>
       </form>

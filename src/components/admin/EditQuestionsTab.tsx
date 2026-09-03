@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Image } from 'lucide-react';
+import { Image, AlertCircle } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
 import { supabase } from '../../supabase';
-import { appendHtml, fileToImgHtml } from '../../utils/mediaUpload';
+import { fileToImgHtml, insertOrReplaceImage } from '../../utils/mediaUpload';
 import { renderMathInHtml, unrenderMathHtml } from '../../utils/parseTxt';
 import type { AdminThemeClasses } from './types';
 
@@ -23,6 +23,7 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
   const [targetPaperId, setTargetPaperId] = useState<string>(papers[0]?.id || '');
   const [editingLiveId, setEditingLiveId] = useState<string | null>(null);
   const [liveEditData, setLiveEditData] = useState<Question | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const handleImageFileUpload = async (
     file: File,
@@ -30,10 +31,17 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
     className = 'mhw-q-img'
   ) => {
     try {
-      const html = await fileToImgHtml(file, className);
+      setIsUploadingImage(true);
+      showFlash("Uploading image to Supabase Storage...");
+      const html = await fileToImgHtml(file, className, 'diagrams');
       apply(html);
+      showFlash("Image uploaded to Supabase Storage successfully!");
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Image upload failed.');
+      const msg = err instanceof Error ? err.message : 'Image upload failed.';
+      showFlash(msg, true);
+      alert(msg);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -240,6 +248,17 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
                         </div>
                       </div>
 
+                      {/* Placeholder Detection Notice */}
+                      {(liveEditData.questionHtml.includes('image-placeholder') || liveEditData.optionsHtml.some(o => o.includes('image-placeholder'))) && (
+                        <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between text-xs text-amber-400">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                            <span>This question contains an image placeholder. Uploading an image below will automatically replace it with a Supabase Storage CDN image.</span>
+                          </div>
+                          {isUploadingImage && <span className="font-bold text-sky-400 animate-pulse">Uploading...</span>}
+                        </div>
+                      )}
+
                       {/* Question Text Input */}
                       <div>
                         <div className="flex justify-between items-center mb-1">
@@ -250,10 +269,11 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
                             <input
                               type="file"
                               accept="image/*"
+                              disabled={isUploadingImage}
                               className="sr-only"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) handleImageFileUpload(file, (html) => setLiveEditData({ ...liveEditData, questionHtml: appendHtml(liveEditData.questionHtml, html) }));
+                                if (file) handleImageFileUpload(file, (html) => setLiveEditData({ ...liveEditData, questionHtml: insertOrReplaceImage(liveEditData.questionHtml, html) }));
                                 e.target.value = '';
                               }}
                             />
@@ -279,12 +299,13 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
                               <input
                                 type="file"
                                 accept="image/*"
+                                disabled={isUploadingImage}
                                 className="sr-only"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (file) handleImageFileUpload(file, (html) => {
                                     const newOpts = [...liveEditData.optionsHtml];
-                                    newOpts[oIdx] = appendHtml(newOpts[oIdx], html);
+                                    newOpts[oIdx] = insertOrReplaceImage(newOpts[oIdx], html);
                                     setLiveEditData({ ...liveEditData, optionsHtml: newOpts as any });
                                   }, 'mhw-opt-img');
                                   e.target.value = '';
@@ -352,10 +373,11 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
                             <input
                               type="file"
                               accept="image/*"
+                              disabled={isUploadingImage}
                               className="sr-only"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) handleImageFileUpload(file, (html) => setLiveEditData({ ...liveEditData, explanationHtml: appendHtml(liveEditData.explanationHtml || '', html) }));
+                                if (file) handleImageFileUpload(file, (html) => setLiveEditData({ ...liveEditData, explanationHtml: insertOrReplaceImage(liveEditData.explanationHtml || '', html) }));
                                 e.target.value = '';
                               }}
                             />
@@ -388,7 +410,14 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
                     </div>
                   ) : (
                     <div className="flex-1 min-w-0 pr-4">
-                      <div className={`font-bold text-sm ${textPrimary} mb-2`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`font-bold text-sm ${textPrimary}`}>ප්‍රශ්න අංකය (Q Number): {q.qNumber}</div>
+                        {(q.questionHtml.includes('image-placeholder') || q.optionsHtml.some(o => o.includes('image-placeholder'))) && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-md animate-pulse">
+                            ⚠️ Missing Diagram
+                          </span>
+                        )}
+                      </div>
                       <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
                       <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700 space-y-1">
                         {q.optionsHtml.map((opt, oIdx) => (

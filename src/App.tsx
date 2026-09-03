@@ -32,7 +32,6 @@ import { useTheme } from './ThemeContext';
 import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
 import HeroSlideshow from './components/HeroSlideshow';
-import StarParticles from './components/StarParticles';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
