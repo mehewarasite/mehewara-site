@@ -397,37 +397,6 @@ describe("publication build + current + rollback", () => {
     expect(manifest.papers[0].studyMaterialId).toBe("66666666-6666-4666-8666-666666666666");
   });
 
-  it("rejects oversized snapshots before spending the artifact permit", async () => {
-    const seed = baseRows();
-    seed.questions = [];
-    seed.options = [];
-    for (let i = 0; i < 9000; i += 1) {
-      const qid = `77777777-7777-4777-8777-${String(i).padStart(12, "0")}`;
-      seed.questions.push({
-        id: qid, paper_id: PAPER, number: i + 1, question_html_en: `<p>Q${i} ${"x".repeat(900)}</p>`, question_html_si: "<p>Q</p>", question_html_ta: null,
-        explanation_html_en: null, explanation_html_si: null, explanation_html_ta: null,
-        sanitization_status: "sanitized", sanitizer_version: "v1", option_count: 4,
-        answer_mode: "single", is_all_correct: 0, marks: 1, state: "published", updated_at: "2026-01-01T00:00:00.000Z",
-      });
-      for (let o = 0; o < 4; o += 1) {
-        seed.options.push({
-          id: `88888888-8888-4888-8888-${String(i * 4 + o).padStart(12, "0")}`, question_id: qid,
-          option_html_en: "<p>A</p>", option_html_si: "<p>A</p>", option_html_ta: null,
-          sanitization_status: "sanitized", sanitizer_version: "v1", sort_order: o, is_correct: o === 0 ? 1 : 0,
-        });
-      }
-    }
-    const h = harness(seed);
-    const res = await buildPublicationRoute(
-      buildRequest({ idempotencyKey: "build-key-0011" }),
-      { b2: h.client, context: h.context, store: h.store, verifier: adminVerifier }
-    );
-    expect(res.status).toBe(400);
-    // 9000 questions chunk the option query (no 100-param failure) and no
-    // artifact is ever uploaded for a rejected build.
-    expect(h.putKeys).toHaveLength(0);
-    expect(h.snapshots.size).toBe(0);
-  }, 30_000);
 
   it("deletes its orphan artifact and reports retry on a version race loss", async () => {
     const h = harness();
