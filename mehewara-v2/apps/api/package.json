@@ -1,0 +1,25 @@
+{
+  "name": "@mehewara-v2/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@mehewara-v2/contracts": "file:../../packages/contracts",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.19",
+    "@cloudflare/workers-types": "^4.20250331.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1",
+    "wrangler": "^4.11.1"
+  }
+}

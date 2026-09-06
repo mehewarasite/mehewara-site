@@ -1,0 +1,58 @@
+name = "mehewara-v2-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+# Bindings intentionally contain placeholders. Replace IDs only in deployment configuration.
+# B2 endpoint, region, and bucket are non-secret Worker vars and live below
+# (placeholders are REPLACE_WITH_*_B2_*). The application key ID and
+# application key are Worker secrets and must be set with
+# `wrangler secret put` per environment. They are never committed.
+# Custom domains/routes should be configured by the deployment owner, not accepted from requests.
+[[d1_databases]]
+binding = "D1"
+database_name = "mehewara-v2-production"
+database_id = "0765f10f-0c5e-4c01-a437-5b4c5126d812"
+migrations_dir = "../../migrations"
+
+[[durable_objects.bindings]]
+name = "BUDGET_AUTHORITY"
+class_name = "BudgetAuthority"
+
+[vars]
+ENVIRONMENT = "development"
+ADMIN_SECRET = ""
+SUPER_ADMIN_SECRET = ""
+ALLOWED_ORIGINS = "http://localhost:5173"
+B2_ENDPOINT = "https://s3.us-west-004.backblazeb2.com"
+B2_REGION = "s3.us-east-005.backblazeb2.com"
+B2_BUCKET = "mehewara-v2-dev-media"
+
+[env.staging]
+name = "mehewara-v2-api-staging"
+vars = { ENVIRONMENT = "staging", ADMIN_SECRET = "", SUPER_ADMIN_SECRET = "", ALLOWED_ORIGINS = "", B2_ENDPOINT = "REPLACE_WITH_STAGING_B2_ENDPOINT", B2_REGION = "REPLACE_WITH_STAGING_B2_REGION", B2_BUCKET = "mehewara-v2-staging-media" }
+[[env.staging.d1_databases]]
+binding = "D1"
+database_name = "mehewara-v2-staging"
+database_id = "REPLACE_WITH_STAGING_D1_DATABASE_ID"
+migrations_dir = "../../migrations"
+[[env.staging.durable_objects.bindings]]
+name = "BUDGET_AUTHORITY"
+class_name = "BudgetAuthority"
+
+[env.production]
+name = "mehewara-v2-api-production"
+vars = { ENVIRONMENT = "production", ADMIN_SECRET = "", SUPER_ADMIN_SECRET = "", ALLOWED_ORIGINS = "", B2_ENDPOINT = "REPLACE_WITH_PRODUCTION_B2_ENDPOINT", B2_REGION = "REPLACE_WITH_PRODUCTION_B2_REGION", B2_BUCKET = "mehewara-v2-production-media" }
+[[env.production.d1_databases]]
+binding = "D1"
+database_name = "mehewara-v2-production"
+database_id = "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID"
+migrations_dir = "../../migrations"
+[[env.production.durable_objects.bindings]]
+name = "BUDGET_AUTHORITY"
+class_name = "BudgetAuthority"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BudgetAuthority"]
