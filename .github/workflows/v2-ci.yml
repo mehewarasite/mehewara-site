@@ -1,0 +1,53 @@
+name: v2 CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: mehewara-v2
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check tracked files for credentials
+        run: npm run check:secrets
+      - name: Install dependencies deterministically when locked
+        shell: bash
+        run: |
+          if [[ -f package-lock.json ]]; then
+            npm ci --ignore-scripts --no-audit --no-fund
+          else
+            # Temporary transition safety for branches created before the
+            # reviewed root lockfile. Once that lockfile is present, this path
+            # is never taken and npm ci is the deterministic install.
+            npm install --ignore-scripts --no-audit --no-fund
+          fi
+      - name: Build contracts (required by API typecheck and migration round-trip)
+        run: npm run build --workspace @mehewara-v2/contracts
+      - name: Type check
+        run: npm run check
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Deploy-config validator self-test
+        run: npm run test:env
+      - name: Migration round-trip
+        run: npm run test:migration
+      - name: Build
+        run: npm run build
+      # CI must not deploy, mutate Cloudflare, or run migrations.
