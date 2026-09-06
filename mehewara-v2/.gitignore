@@ -27,3 +27,10 @@ mehewara-v2-backup.json
 mehewara-v2-publish.json
 legacy-export.json
 dump*.sql
+
+# Large SQL and JSON chunks
+*.sql
+*.json
+!package.json
+!tsconfig.json
+!turbo.json

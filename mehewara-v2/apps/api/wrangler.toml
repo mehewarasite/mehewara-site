@@ -2,7 +2,7 @@ name = "mehewara-v2-api"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
-workers_dev = false
+workers_dev = true
 
 # Bindings intentionally contain placeholders. Replace IDs only in deployment configuration.
 # B2 endpoint, region, and bucket are non-secret Worker vars and live below
@@ -22,8 +22,6 @@ class_name = "BudgetAuthority"
 
 [vars]
 ENVIRONMENT = "development"
-ADMIN_SECRET = ""
-SUPER_ADMIN_SECRET = ""
 ALLOWED_ORIGINS = "http://localhost:5173"
 B2_ENDPOINT = "https://s3.us-west-004.backblazeb2.com"
 B2_REGION = "s3.us-east-005.backblazeb2.com"
@@ -31,7 +29,6 @@ B2_BUCKET = "mehewara-v2-dev-media"
 
 [env.staging]
 name = "mehewara-v2-api-staging"
-vars = { ENVIRONMENT = "staging", ADMIN_SECRET = "", SUPER_ADMIN_SECRET = "", ALLOWED_ORIGINS = "", B2_ENDPOINT = "REPLACE_WITH_STAGING_B2_ENDPOINT", B2_REGION = "REPLACE_WITH_STAGING_B2_REGION", B2_BUCKET = "mehewara-v2-staging-media" }
 [[env.staging.d1_databases]]
 binding = "D1"
 database_name = "mehewara-v2-staging"
@@ -43,15 +40,21 @@ class_name = "BudgetAuthority"
 
 [env.production]
 name = "mehewara-v2-api-production"
-vars = { ENVIRONMENT = "production", ADMIN_SECRET = "", SUPER_ADMIN_SECRET = "", ALLOWED_ORIGINS = "", B2_ENDPOINT = "REPLACE_WITH_PRODUCTION_B2_ENDPOINT", B2_REGION = "REPLACE_WITH_PRODUCTION_B2_REGION", B2_BUCKET = "mehewara-v2-production-media" }
 [[env.production.d1_databases]]
 binding = "D1"
 database_name = "mehewara-v2-production"
-database_id = "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID"
+database_id = "0765f10f-0c5e-4c01-a437-5b4c5126d812"
 migrations_dir = "../../migrations"
 [[env.production.durable_objects.bindings]]
 name = "BUDGET_AUTHORITY"
 class_name = "BudgetAuthority"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://mehewara.edu.lk"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
+B2_REGION = "us-east-005"
+B2_BUCKET = "mehewara"
 
 [[migrations]]
 tag = "v1"

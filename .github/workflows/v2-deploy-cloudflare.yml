@@ -1,0 +1,158 @@
+name: Deploy to Cloudflare
+
+on:
+  # Auto-deploy to production on every push to main
+  push:
+    branches: [main]
+    paths:
+      - 'mehewara-v2/**'
+  # Manual dispatch for selective deploys or preview environment
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options: [preview, production]
+      deploy_pages:
+        description: Deploy the static frontend to Cloudflare Pages
+        required: true
+        default: true
+        type: boolean
+      deploy_worker:
+        description: Deploy the API Worker
+        required: true
+        default: true
+        type: boolean
+      confirm_production:
+        description: Type DEPLOY-PRODUCTION when deploying production
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: mehewara-v2
+
+jobs:
+  # Resolve which environment and what to deploy based on the trigger type.
+  # On push to main: always production, always deploy both.
+  # On manual dispatch: use workflow inputs (with production confirmation gate).
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+      wrangler_env: ${{ steps.resolve.outputs.wrangler_env }}
+      deploy_pages: ${{ steps.resolve.outputs.deploy_pages }}
+      deploy_worker: ${{ steps.resolve.outputs.deploy_worker }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve deployment parameters
+        id: resolve
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # Auto-deploy: always production, always both
+            echo "environment=production"  >> "$GITHUB_OUTPUT"
+            echo "wrangler_env=production" >> "$GITHUB_OUTPUT"
+            echo "deploy_pages=true"       >> "$GITHUB_OUTPUT"
+            echo "deploy_worker=true"      >> "$GITHUB_OUTPUT"
+          else
+            # Manual dispatch: use inputs
+            ENV="${{ inputs.environment }}"
+            # Confirm production gate
+            if [[ "$ENV" == "production" && "${{ inputs.confirm_production }}" != "DEPLOY-PRODUCTION" ]]; then
+              echo "Production requires confirm_production=DEPLOY-PRODUCTION." >&2
+              exit 1
+            fi
+            if [[ "$ENV" == "production" && "${{ github.ref }}" != "refs/heads/main" ]]; then
+              echo "Production deployments must be dispatched from main." >&2
+              exit 1
+            fi
+            # Map preview → staging wrangler env
+            if [[ "$ENV" == "preview" ]]; then
+              WRANGLER_ENV="staging"
+            else
+              WRANGLER_ENV="production"
+            fi
+            echo "environment=$ENV"                          >> "$GITHUB_OUTPUT"
+            echo "wrangler_env=$WRANGLER_ENV"               >> "$GITHUB_OUTPUT"
+            echo "deploy_pages=${{ inputs.deploy_pages }}"  >> "$GITHUB_OUTPUT"
+            echo "deploy_worker=${{ inputs.deploy_worker }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  pages:
+    needs: setup
+    if: ${{ needs.setup.outputs.deploy_pages == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build static frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars[format('VITE_API_BASE_URL_{0}', needs.setup.outputs.environment)] }}
+      - name: Verify frontend API origin is configured
+        run: |
+          test -n "${{ vars[format('VITE_API_BASE_URL_{0}', needs.setup.outputs.environment)] }}" || {
+            echo "VITE_API_BASE_URL_${{ needs.setup.outputs.environment }} is empty; refusing Pages deployment." >&2
+            exit 1
+          }
+      - name: Verify static output
+        run: test -f apps/web/dist/index.html
+      - name: Deploy Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT_NAME: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Pages API token"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
+          test -n "$CLOUDFLARE_PAGES_PROJECT_NAME" || { echo "Missing Pages project name"; exit 1; }
+          if [[ "${{ needs.setup.outputs.environment }}" == "production" ]]; then
+            PAGES_BRANCH="main"
+          else
+            PAGES_BRANCH="preview"
+          fi
+          npx --yes wrangler pages deploy apps/web/dist \
+            --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME" \
+            --branch "$PAGES_BRANCH"
+
+  worker:
+    needs: setup
+    if: ${{ needs.setup.outputs.deploy_worker == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build contracts and API
+        run: npm run build
+      - name: Verify Worker environment is provisioned
+        env:
+          ENVIRONMENT: ${{ needs.setup.outputs.wrangler_env }}
+        run: |
+          python3 scripts/verify-wrangler-env.py apps/api/wrangler.toml "$ENVIRONMENT"
+      - name: Deploy Cloudflare Worker API
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ENVIRONMENT: ${{ needs.setup.outputs.wrangler_env }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Worker API token"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
+          npx --yes wrangler deploy --config apps/api/wrangler.toml --env "$ENVIRONMENT"
+
+# Auto-deploy: triggers on push to main when mehewara-v2/** changes.
+# Manual dispatch: supports preview/production with confirmation gate for production.
