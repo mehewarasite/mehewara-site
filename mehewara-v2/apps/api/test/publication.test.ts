@@ -20,8 +20,8 @@ function fakeGate() {
       };
       return capability;
     },
-    async commit() {},
-    async release() {},
+    async commit() { },
+    async release() { },
   };
   return { gate, reserves };
 }
