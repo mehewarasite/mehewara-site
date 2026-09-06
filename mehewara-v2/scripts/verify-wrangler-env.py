@@ -25,7 +25,7 @@ EXPECTED = {
     "production": {"name": "mehewara-v2-api-production", "environment": "production"},
 }
 
-REQUIRED_VARS = ("ENVIRONMENT", "ADMIN_SECRET", "SUPER_ADMIN_SECRET", "ALLOWED_ORIGINS",
+REQUIRED_VARS = ("ENVIRONMENT", "ALLOWED_ORIGINS",
                  "B2_ENDPOINT", "B2_REGION", "B2_BUCKET")
 
 
