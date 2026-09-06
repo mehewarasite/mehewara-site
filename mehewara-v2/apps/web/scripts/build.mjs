@@ -35,9 +35,13 @@ export function build(outDir = dist, apiBaseUrl = process.env.VITE_API_BASE_URL 
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="api-base-url" content="${api}" />
-<title>Mehewara v2</title>
+<link rel="icon" type="image/png" href="/image/favicon.png" />
+<title>මෙහෙවර | Mehewara Past Papers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>

@@ -24,11 +24,12 @@ function getTheme() {
     const saved = localStorage.getItem(THEME_KEY);
     if (saved === "light" || saved === "dark") return saved;
   } catch { /* ignore */ }
-  return "light";
+  return "dark";
 }
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+  document.documentElement.classList.toggle("light", theme === "light");
   try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
 }
 
@@ -127,6 +128,7 @@ function wire(route) {
   const themeBtn = document.getElementById("theme-toggle");
   themeBtn?.addEventListener("click", () => {
     applyTheme(getTheme() === "dark" ? "light" : "dark");
+    render();
   });
 
   if (route.name === "home") {
@@ -135,6 +137,33 @@ function wire(route) {
         state.examFilter = btn.getAttribute("data-filter") ?? "";
         render();
       });
+    });
+  }
+
+  if (route.name === "gallery") {
+    const lightbox = document.getElementById("gallery-lightbox");
+    const lightboxImg = document.getElementById("lightbox-img");
+    const lightboxCaption = document.getElementById("lightbox-caption");
+    const closeBtn = document.getElementById("lightbox-close");
+
+    root().querySelectorAll("[data-lightbox-src]").forEach((card) => {
+      card.addEventListener("click", () => {
+        const src = card.getAttribute("data-lightbox-src");
+        const caption = card.getAttribute("data-lightbox-title");
+        if (lightbox && lightboxImg) {
+          lightboxImg.src = src;
+          if (lightboxCaption) lightboxCaption.textContent = caption || "";
+          lightbox.style.display = "flex";
+        }
+      });
+    });
+
+    closeBtn?.addEventListener("click", () => {
+      if (lightbox) lightbox.style.display = "none";
+    });
+
+    lightbox?.addEventListener("click", (e) => {
+      if (e.target === lightbox) lightbox.style.display = "none";
     });
   }
 
