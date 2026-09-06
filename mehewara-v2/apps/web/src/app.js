@@ -77,11 +77,16 @@ function revealedFor(paperId) {
   return rev;
 }
 
+const activeCleanups = [];
+
 function root() {
   return document.getElementById("root");
 }
 
 function render() {
+  while (activeCleanups.length > 0) {
+    try { activeCleanups.pop()(); } catch { /* ignore */ }
+  }
   const route = parseRoute(location.hash);
   const { manifest, lang } = state;
   let html;
@@ -138,6 +143,42 @@ function wire(route) {
         render();
       });
     });
+
+    if (!state.examFilter) {
+      // Scroll listener for hero background opacity
+      const heroBg = document.getElementById("hero-bg");
+      if (heroBg) {
+        const updateHeroScroll = () => {
+          const scrollTop = window.scrollY || document.documentElement.scrollTop;
+          const fadeDistance = window.innerHeight * 0.6;
+          const opacity = Math.max(0, 1 - scrollTop / fadeDistance);
+          heroBg.style.opacity = String(opacity);
+        };
+        window.addEventListener("scroll", updateHeroScroll, { passive: true });
+        activeCleanups.push(() => window.removeEventListener("scroll", updateHeroScroll));
+        updateHeroScroll();
+      }
+
+      // Hero slideshow rotation if multiple photos
+      const slides = Array.from(root().querySelectorAll(".hero-slide"));
+      if (slides.length > 1) {
+        let currentIndex = 0;
+        const timer = setInterval(() => {
+          const nextIndex = (currentIndex + 1) % slides.length;
+          const currentSlide = slides[currentIndex];
+          const nextSlide = slides[nextIndex];
+          if (currentSlide && nextSlide) {
+            nextSlide.classList.add("active");
+            currentSlide.classList.add("fade-out");
+            setTimeout(() => {
+              currentSlide.classList.remove("active", "fade-out");
+              currentIndex = nextIndex;
+            }, 1200);
+          }
+        }, 4000);
+        activeCleanups.push(() => clearInterval(timer));
+      }
+    }
   }
 
   if (route.name === "gallery") {

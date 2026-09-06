@@ -71,6 +71,43 @@ function chrome(lang, manifest, active, body) {
 </div>`;
 }
 
+function renderStarParticles(count = 120) {
+  let stars = "";
+  for (let i = 0; i < count; i++) {
+    const size = (1 + ((i * 13) % 20) / 10).toFixed(1) + "px";
+    const left = ((i * 37) % 100).toFixed(1) + "%";
+    const top = ((i * 53) % 100).toFixed(1) + "%";
+    const moveX = (((i * 43) % 200) - 100) + "px";
+    const moveY = (((i * 67) % 200) - 100) + "px";
+    const duration = (3 + ((i * 11) % 40) / 10).toFixed(1) + "s";
+    const moveDuration = (14 + ((i * 17) % 120) / 10).toFixed(1) + "s";
+    const delay = "-" + (((i * 19) % 50) / 10).toFixed(1) + "s";
+    stars += `<div class="star-particle" style="width:${size};height:${size};left:${left};top:${top};--moveX:${moveX};--moveY:${moveY};--duration:${duration};--move-duration:${moveDuration};--delay:${delay};"></div>`;
+  }
+  return `<div class="star-particles-container">${stars}</div>`;
+}
+
+function renderHeroBackground(manifest) {
+  const galleryItems = (manifest.gallery ?? [])
+    .map((g) => (g.image && typeof g.image === "object" ? g.image.url : (typeof g.image === "string" ? g.image : null)))
+    .filter(Boolean);
+  const photos = galleryItems.length > 0 ? galleryItems : ["/image/gorung.jpg"];
+
+  const slides = photos.map((src, i) => `
+    <div class="hero-slide ${i === 0 ? "active" : ""}" data-slide-index="${i}">
+      <img src="${escapeHtml(src)}" alt="" draggable="false" />
+    </div>`).join("");
+
+  return `
+    <div class="hero-bg-container" id="hero-bg">
+      <div class="hero-slideshow">
+        ${slides}
+      </div>
+      <div class="hero-bg-overlay"></div>
+      ${renderStarParticles(120)}
+    </div>`;
+}
+
 export function renderHome(manifest, lang, examFilter) {
   const allSubjects = manifest.subjects ?? [];
   const subjects = allSubjects.filter((s) => !examFilter || s.examType === examFilter);
@@ -94,10 +131,13 @@ export function renderHome(manifest, lang, examFilter) {
 
   // Hero section and Level Cards shown on top-level home view
   const heroSection = !examFilter ? `
+    ${renderHeroBackground(manifest)}
     <div class="hero-container animate-reveal">
-      <div class="hero-glow-back"></div>
-      <img src="/image/mehewara%20logo.png" alt="Mehewara" class="hero-logo-img animate-logo" />
-      <p class="hero-subtitle">Mehewara Educational Platform</p>
+      <div class="hero-logo-wrapper animate-logo">
+        <div class="hero-glow-back"></div>
+        <img src="/image/mehewara%20logo.png" alt="Mehewara" class="hero-logo-img" draggable="false" />
+        <p class="hero-subtitle">Mehewara Educational Platform</p>
+      </div>
       <div class="hero-scroll-indicator animate-bounce-slow">
         <span>${escapeHtml(t(lang, "scrollDown"))}</span>
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
