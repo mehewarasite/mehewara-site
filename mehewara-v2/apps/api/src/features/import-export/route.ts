@@ -128,12 +128,11 @@ async function parseBoundedJson<T>(request: Request, schema: { safeParse(raw: un
     throw new HttpError("BAD_REQUEST", 400, "Malformed JSON body");
   }
   const result = schema.safeParse(raw);
-  if (!result.success) { console.error(JSON.stringify(result.error.issues, null, 2));
+  if (!result.success) {
     throw new HttpError("BAD_REQUEST", 400, "Request validation failed", {
       issue: result.error.issues[0]?.message ?? "invalid body",
     });
   }
-  if (!result.success) console.error(JSON.stringify(result.error.issues, null, 2));
   return result.data;
 }
 
