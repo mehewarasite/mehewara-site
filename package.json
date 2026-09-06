@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "build": "node mehewara-v2/apps/web/scripts/build.mjs && rm -rf dist && cp -r mehewara-v2/apps/web/dist dist",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
@@ -44,9 +44,5 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.4.3"
-  },
-  "workspaces": [
-    "mehewara-v2/apps/*",
-    "mehewara-v2/packages/*"
-  ]
+  }
 }
