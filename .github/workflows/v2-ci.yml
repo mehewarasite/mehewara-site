@@ -36,8 +36,8 @@ jobs:
             # is never taken and npm ci is the deterministic install.
             npm install --ignore-scripts --no-audit --no-fund
           fi
-      - name: Build contracts (required by API typecheck and migration round-trip)
-        run: npm run build --workspace @mehewara-v2/contracts
+      - name: Build
+        run: npm run build
       - name: Type check
         run: npm run check
       - name: Lint
@@ -48,6 +48,4 @@ jobs:
         run: npm run test:env
       - name: Migration round-trip
         run: npm run test:migration
-      - name: Build
-        run: npm run build
       # CI must not deploy, mutate Cloudflare, or run migrations.
