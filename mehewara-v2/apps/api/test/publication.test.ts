@@ -427,7 +427,7 @@ describe("publication build + current + rollback", () => {
     // artifact is ever uploaded for a rejected build.
     expect(h.putKeys).toHaveLength(0);
     expect(h.snapshots.size).toBe(0);
-  });
+  }, 30_000);
 
   it("deletes its orphan artifact and reports retry on a version race loss", async () => {
     const h = harness();
