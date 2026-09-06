@@ -1,0 +1,14 @@
+{
+  "name": "@mehewara-v2/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mehewara v2 public SPA (vanilla ESM, zero dependencies) served by Cloudflare Pages; reads the publication manifest from the Worker API",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "check": "node scripts/check.mjs",
+    "lint": "node --check scripts/build.mjs && node --check scripts/check.mjs && node --check scripts/serve.mjs",
+    "test": "node --test test/",
+    "build": "node scripts/build.mjs"
+  }
+}

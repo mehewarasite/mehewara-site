@@ -9,3 +9,6 @@ coverage/
 
 # Scratch scripts
 scratch/
+
+# Local deepwork progress state
+.slim/deepwork/

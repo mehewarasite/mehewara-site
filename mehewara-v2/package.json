@@ -1,0 +1,26 @@
+{
+  "name": "mehewara-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated Mehewara web and Cloudflare Worker workspace",
+  "packageManager": "npm@10.9.3",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.8.2"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/workspace-command.mjs dev",
+    "check": "node scripts/workspace-command.mjs check",
+    "lint": "node scripts/workspace-command.mjs lint",
+    "test": "node scripts/workspace-command.mjs test",
+    "test:env": "python3 scripts/verify-wrangler-env.py --self-test",
+    "build": "node scripts/workspace-command.mjs build",
+    "audit:migration": "node --env-file=.env scripts/migration-audit.mjs",
+    "test:migration": "node scripts/migration-roundtrip.mjs",
+    "check:secrets": "node scripts/check-no-secrets.mjs"
+  }
+}

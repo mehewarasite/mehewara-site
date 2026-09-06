@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-01-02T03:04:05.000Z",
+  "subjects": [
+    {
+      "id": "legacy-subject-physics",
+      "name": "Physics",
+      "sinhalaName": "භෞතික විද්‍යාව",
+      "examType": "A/L",
+      "code": "phy",
+      "icon": "Atom",
+      "color": "from-blue-600 to-indigo-700"
+    }
+  ],
+  "papers": [
+    {
+      "id": "legacy-paper-2024-physics",
+      "subjectId": "legacy-subject-physics",
+      "examType": "A/L",
+      "title": "2024 A/L Physics MCQ",
+      "sinhalaTitle": "2024 උසස් පෙළ භෞතික විද්‍යාව",
+      "year": 2024,
+      "durationMinutes": 120,
+      "questionCount": 3,
+      "language": "si"
+    }
+  ],
+  "studyHtml": [
+    {
+      "paperId": "legacy-paper-2024-physics",
+      "html": "<h1>Study notes / අධ්‍යයන සටහන්</h1><p>Review the formula sheet.</p><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\" />"
+    }
+  ],
+  "questions": [
+    {
+      "id": "legacy-question-single",
+      "paperId": "legacy-paper-2024-physics",
+      "qNumber": 1,
+      "questionHtml": "<p>Which unit measures force? බලය මනින ඒකකය කුමක්ද?</p><img src=\"https://old-project.supabase.co/storage/v1/object/public/question-images/force.png\" />",
+      "optionsHtml": ["<span>Joule</span>", "<span>Newton</span>", "<span>Watt</span>", "<span>Pascal</span>"],
+      "correctOption": 1,
+      "explanationHtml": "<p>Force is measured in newtons.</p>"
+    },
+    {
+      "id": "legacy-question-multiple",
+      "paperId": "legacy-paper-2024-physics",
+      "qNumber": 2,
+      "questionHtml": "<p>Select the scalar quantities.</p>",
+      "optionsHtml": ["<span>Mass</span>", "<span>Velocity</span>", "<span>Time</span>", "<span>Force</span>"],
+      "correctOptions": [0, 2]
+    },
+    {
+      "id": "legacy-question-all",
+      "paperId": "legacy-paper-2024-physics",
+      "qNumber": 3,
+      "questionHtml": "<p>All statements below are correct.</p>",
+      "optionsHtml": ["<span>A</span>", "<span>B</span>", "<span>C</span>", "<span>D</span>", "<span>E</span>"],
+      "isAllCorrect": true
+    }
+  ],
+  "gallery": [
+    {
+      "id": "legacy-gallery-hex",
+      "title": "Science day",
+      "sinhalaTitle": "විද්‍යා දිනය",
+      "description": "A school science day.",
+      "descriptionSinhala": "පාසල් විද්‍යා දිනයක්.",
+      "imageHex": "ffd8ffe000104a464946",
+      "mimeType": "image/jpeg",
+      "sortOrder": 2,
+      "createdAt": "2025-12-01T00:00:00Z",
+      "pinned": true,
+      "width": 1200,
+      "height": 800
+    }
+  ],
+  "about": {
+    "description": "Mehewara helps students revise past papers.",
+    "image_url": "https://old-project.supabase.co/storage/v1/object/public/question-images/about.png",
+    "facebook_link": "https://facebook.com/mehewara",
+    "youtube_link": "https://youtube.com/@mehewara",
+    "linkedin_link": "https://linkedin.com/company/mehewara",
+    "privacy_policy_statement": "We keep practice attempts on the learner's device.",
+    "full_privacy_policy_html": "<h2>Privacy / පෞද්ගලිකත්වය</h2><p>No account attempt history is imported.</p>"
+  },
+  "attempts": [
+    { "paperId": "legacy-paper-2024-physics", "startedAt": 1733000000000, "answers": { "legacy-question-single": 1 }, "isCompleted": false }
+  ],
+  "siteVisits": [
+    { "path": "/", "visitedAt": "2025-12-01T10:00:00Z" },
+    { "path": "/", "visitedAt": "2025-12-01T10:01:00Z" },
+    { "path": "/privacy-policy", "visitedAt": "2025-12-01T10:02:00Z" }
+  ],
+  "publicationHistory": [
+    { "version": 1, "publishedAt": "2025-12-01T00:00:00Z" },
+    { "version": 2, "publishedAt": "2025-12-15T00:00:00Z" }
+  ]
+}

@@ -1,0 +1,29 @@
+# Dependencies and generated output
+node_modules/
+apps/*/dist/
+apps/*/.vercel/
+packages/*/dist/
+coverage/
+.cache/
+
+# Local configuration and credentials. Keep only the documented examples.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Tool and operating-system files
+.wrangler/
+.dev.vars
+.DS_Store
+*.log
+*.tsbuildinfo
+
+# Local migration exports can contain personal data or credentials.
+migration-exports/
+*.dump
+*.sql.gz
+mehewara-v2-backup.json
+mehewara-v2-publish.json
+legacy-export.json
+dump*.sql
