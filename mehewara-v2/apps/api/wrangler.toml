@@ -43,11 +43,18 @@ name = "mehewara-v2-api-production"
 [[env.production.d1_databases]]
 binding = "D1"
 database_name = "mehewara-v2-production"
-database_id = "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID"
+database_id = "0765f10f-0c5e-4c01-a437-5b4c5126d812"
 migrations_dir = "../../migrations"
 [[env.production.durable_objects.bindings]]
 name = "BUDGET_AUTHORITY"
 class_name = "BudgetAuthority"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://mehewara.edu.lk"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
+B2_REGION = "us-east-005"
+B2_BUCKET = "mehewara"
 
 [[migrations]]
 tag = "v1"
