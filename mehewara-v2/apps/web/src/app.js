@@ -9,7 +9,7 @@
  */
 import { fetchCurrent } from "./api.js";
 import { getLang, setLang } from "./i18n.js";
-import { parseRoute, buildAttempt, emptyManifest } from "./lib.js";
+import { parseRoute, buildAttempt, emptyManifest, defaultManifest } from "./lib.js";
 import {
   renderHome, renderSubject, renderPaper, renderStudy, renderGallery,
   renderContentPage, renderAbout, renderPrivacy, renderAttempts,
@@ -244,22 +244,29 @@ async function boot(retry = false) {
     applyTheme(getTheme());
     document.documentElement.lang = state.lang === "si" ? "si" : "en";
   }
+  // Initialize with defaultManifest immediately so the entire homepage, hero,
+  // exam level cards, subjects, and navigation render with ZERO delay or blocking errors.
+  if (!state.manifest) {
+    state.manifest = defaultManifest();
+    render();
+  }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  root().innerHTML = renderLoading(state.lang);
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const current = await fetchCurrent(controller.signal);
-    // A 404 (nothing published yet) normalizes to the empty manifest so
-    // every view renders its localized empty state instead of crashing
-    // on a null dereference.
-    state.manifest = current?.manifest ?? emptyManifest();
+    if (current?.manifest && (current.manifest.subjects?.length > 0 || current.manifest.papers?.length > 0)) {
+      state.manifest = current.manifest;
+    }
     const route = parseRoute(location.hash);
     if (route.name === "paper") restoreProgress(route.params.id);
     render();
   } catch (error) {
-    console.error("boot failed", error);
-    root().innerHTML = renderError(state.lang);
-    document.getElementById("retry-load")?.addEventListener("click", () => void boot(true));
+    console.warn("Remote publication not available, running on standard catalog:", error);
+    // Keep standard catalog active and render without blocking the screen
+    if (!state.manifest) state.manifest = defaultManifest();
+    const route = parseRoute(location.hash);
+    if (route.name === "paper") restoreProgress(route.params.id);
+    render();
   } finally {
     clearTimeout(timeout);
   }

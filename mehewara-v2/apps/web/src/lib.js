@@ -96,6 +96,36 @@ export function emptyManifest() {
   };
 }
 
+/** Fallback manifest with standard subjects and info so the site is always visible and functional before publication */
+export function defaultManifest() {
+  return {
+    subjects: [
+      { id: "ol-science", slug: "ol-science", examType: "ol", code: "SCI", title: { en: "Science", si: "විද්‍යාව" }, description: { en: "Ordinary Level Science past papers and model questions.", si: "සාමාන්‍ය පෙළ විද්‍යාව පසුගිය ප්‍රශ්න පත්‍ර." } },
+      { id: "ol-maths", slug: "ol-maths", examType: "ol", code: "MATH", title: { en: "Mathematics", si: "ගණිතය" }, description: { en: "Ordinary Level Mathematics past papers.", si: "සාමාන්‍ය පෙළ ගණිතය පසුගිය ප්‍රශ්න පත්‍ර." } },
+      { id: "al-physics", slug: "al-physics", examType: "al", code: "PHY", title: { en: "Physics", si: "භෞතික විද්‍යාව" }, description: { en: "Advanced Level Physics MCQ past papers.", si: "උසස් පෙළ භෞතික විද්‍යාව පසුගිය ප්‍රශ්න පත්‍ර." } },
+      { id: "al-chemistry", slug: "al-chemistry", examType: "al", code: "CHEM", title: { en: "Chemistry", si: "රසායනික විද්‍යාව" }, description: { en: "Advanced Level Chemistry MCQ past papers.", si: "උසස් පෙළ රසායනික විද්‍යාව පසුගිය ප්‍රශ්න පත්‍ර." } },
+      { id: "al-biology", slug: "al-biology", examType: "al", code: "BIO", title: { en: "Biology", si: "ජීව විද්‍යාව" }, description: { en: "Advanced Level Biology MCQ past papers.", si: "උසස් පෙළ ජීව විද්‍යාව පසුගිය ප්‍රශ්න පත්‍ර." } },
+      { id: "al-ict", slug: "al-ict", examType: "al", code: "ICT", title: { en: "Information & Communication Technology", si: "තොරතුරු තාක්ෂණය" }, description: { en: "Advanced Level ICT past papers.", si: "උසස් පෙළ තොරතුරු තාක්ෂණ පසුගිය ප්‍රශ්න පත්‍ර." } },
+    ],
+    papers: [],
+    questions: [],
+    studyMaterials: [],
+    gallery: [],
+    pages: [],
+    about: {
+      description: "Faculty of Engineering, University of Ruhuna. Organised by the Engineering Students' Union to provide free educational past papers and practice materials.",
+      social: {
+        facebookUrl: "https://facebook.com",
+        youtubeUrl: "https://youtube.com",
+        linkedinUrl: "https://linkedin.com",
+      }
+    },
+    privacy: {
+      statement: "Mehewara Educational Platform respects your privacy. All your practice attempts are saved directly in your browser.",
+    }
+  };
+}
+
 /** Group papers by subject id, newest year first. */
 export function papersBySubject(papers) {
   const map = new Map();

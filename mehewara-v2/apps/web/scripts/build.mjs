@@ -14,7 +14,7 @@ const dist = join(root, "dist");
 
 const APP_MODULES = ["lib.js", "i18n.js", "api.js", "views.js", "app.js"];
 
-export function build(outDir = dist, apiBaseUrl = process.env.VITE_API_BASE_URL ?? "") {
+export function build(outDir = dist, apiBaseUrl = process.env.VITE_API_BASE_URL || "https://mehewara-v2-api-production.mehewara-site.workers.dev") {
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
   const publicDir = join(root, "public");

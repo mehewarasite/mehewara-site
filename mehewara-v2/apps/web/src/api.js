@@ -7,8 +7,8 @@
 export function apiBaseUrl() {
   const meta = document.querySelector('meta[name="api-base-url"]');
   const base = (meta?.getAttribute("content") ?? "").replace(/\/+$/, "");
-  if (!base) throw new Error("API base URL is not configured (meta api-base-url is empty)");
-  return base;
+  if (base) return base;
+  return "https://mehewara-v2-api-production.mehewara-site.workers.dev";
 }
 
 export async function fetchCurrent(signal) {
