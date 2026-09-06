@@ -1,12 +1,7 @@
 name: Deploy to Cloudflare
 
 on:
-  # Auto-deploy to production on every push to main
-  push:
-    branches: [main]
-    paths:
-      - 'mehewara-v2/**'
-  # Manual dispatch for selective deploys or preview environment
+  # Manual dispatch for selective deploys or preview environment (auto-deploy disabled while v1 is active)
   workflow_dispatch:
     inputs:
       environment:
