@@ -1,9 +1,12 @@
-name: Deploy static content to Pages
+name: Deploy static content to Pages (DISABLED - replaced by V2 on Cloudflare)
 
 on:
-  push:
-    branches: ["main"]
+  # V1 GitHub Pages deployment is retired. V2 deploys via v2-deploy-cloudflare.yml.
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY-V1 to manually re-enable (not recommended)"
+        required: true
 
 permissions:
   contents: read
