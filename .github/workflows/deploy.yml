@@ -37,5 +37,5 @@ jobs:
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         run: |
           npx --yes wrangler pages deploy ./dist \
-            --project-name "mehewara" \
+            --project-name "${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME || 'mehewara-site' }}" \
             --branch "main"
