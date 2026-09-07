@@ -89,7 +89,7 @@ function fakeGate() {
   let failNextCommit = false;
   let failCommitOp: Operation | null = null;
   let reserveCalls = 0;
-  const gate: BudgetGate = {
+  const gate: BudgetGate = { async status() { return {} as any; }, async activateEmergency() {}, 
     async reserve(operation: Operation, opts?: { declaredBytes?: number; ttlSeconds?: number }) {
       reserveCalls += 1;
       if (failReserveAt !== null && reserveCalls >= failReserveAt) {

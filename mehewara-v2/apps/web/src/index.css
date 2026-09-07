@@ -1,0 +1,375 @@
+@import url('https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Enable class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* =============================================
+   LIGHT MODE OVERRIDES
+   Applied when <html> has class="light"
+   ============================================= */
+html.light {
+  --color-page-bg: #f0f4f8;
+  --color-page-bg-alt: #e2e8f0;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+  --color-header-bg: rgba(240, 244, 248, 0.85);
+  --color-scrollbar-track: rgba(148, 163, 184, 0.1);
+  --color-scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+}
+
+html.dark, html:not(.light) {
+  --color-page-bg: #030304;
+  --color-page-bg-alt: #0a0a0f;
+  --color-surface: #0c0c14;
+  --color-surface-hover: #111827;
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #475569;
+  --color-header-bg: rgba(3, 3, 4, 0.80);
+  --color-scrollbar-track: rgba(3, 3, 4, 0.4);
+  --color-scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+}
+
+@theme {
+  --font-sans: "Noto Sans Sinhala", "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-display: "Abhaya Libre", "Space Grotesk", sans-serif;
+}
+
+/* --- 1. GLOBAL BACKGROUND --- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-page-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Mobile: safe areas + touch-friendly controls */
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+@media (max-width: 640px) {
+  button,
+  [role="button"],
+  a[href] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hover-scale-touch-none:hover {
+    transform: none;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+/* --- 2. VECTOR BOOT LOADER ANIMATIONS --- */
+@keyframes cinematic-logo-intro {
+  0% {
+    opacity: 0;
+    filter: blur(20px);
+    transform: translateY(60px) scale(1.3);
+  }
+  30% {
+    opacity: 1;
+    filter: blur(0px) drop-shadow(0 0 20px rgba(255,255,255,0.4));
+    transform: translateY(40px) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 4px 20px rgba(0,0,0,0.4));
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-cinematic-logo {
+  animation: cinematic-logo-intro 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.logo-anim {
+  fill-opacity: 0;
+  stroke: #ffffff;
+  stroke-width: 0.3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 4000;
+  stroke-dashoffset: 4000;
+  animation: fullCycle 7s ease-in-out infinite;
+}
+
+@keyframes fullCycle {
+  0% { stroke-dashoffset: 4000; fill-opacity: 0; stroke: #ffffff; }
+  45% { stroke-dashoffset: 0; fill-opacity: 0; stroke: #ffffff; }
+  55% { stroke-dashoffset: 0; fill-opacity: 1; stroke: transparent; }
+  80% { stroke-dashoffset: 0; fill-opacity: 1; stroke: transparent; }
+  90% { stroke-dashoffset: 0; fill-opacity: 0; stroke: #ffffff; }
+  100% { stroke-dashoffset: 4000; fill-opacity: 0; stroke: #ffffff; }
+}
+
+.path-center {
+  fill: url(#linearGradient16);
+}
+
+.path-text {
+  fill: url(#linearGradient17);
+}
+
+/* Spinner and Loaders */
+.spinner-area {
+  margin-top: 30px;
+  animation: fadeInOut 7s ease-in-out infinite;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px dotted rgba(255, 255, 255, 0.1);
+  border-top: 4px dotted #38bdf8; /* sky-400 */
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; transform: translateY(10px); }
+  20%, 80% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cinematicReveal {
+  0% { opacity: 0; transform: translateY(20px) scale(0.98); filter: blur(10px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+}
+
+.animate-cinematic-reveal {
+  animation: cinematicReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Glassmorphism styling */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Math / Science Subscripts inside questions */
+.math-sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+}
+
+.math-super {
+  font-size: 0.75em;
+  vertical-align: super;
+}
+
+/* Background Stars */
+.star-particle {
+  position: absolute;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px #fff, 0 0 8px rgba(56, 189, 248, 0.4);
+  opacity: 0;
+  animation: 
+    twinkle var(--duration) ease-in-out infinite var(--delay),
+    drift var(--move-duration) ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+@keyframes drift {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(var(--moveX), var(--moveY)); }
+}
+
+/* Glow highlights */
+.radial-glow {
+  background: radial-gradient(circle 400px at var(--x, 50%) var(--y, 50%), rgba(56, 189, 248, 0.08), transparent 80%);
+}
+
+/* Theme transition smooth */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* Prevent transition flash on animations/transforms */
+.star-particle, .spinner, .logo-anim {
+  transition: none !important;
+}
+
+/* ============================================
+   LIGHT MODE UTILITY OVERRIDES
+   These use CSS vars so components don't need
+   to be individually updated.
+   ============================================ */
+html.light .theme-bg       { background-color: var(--color-page-bg) !important; }
+html.light .theme-surface  { background-color: var(--color-surface) !important; }
+html.light .theme-border   { border-color: var(--color-border) !important; }
+html.light .theme-text     { color: var(--color-text-primary) !important; }
+html.light .theme-text-muted { color: var(--color-text-secondary) !important; }
+
+/* MCQ question / option images (admin uploads & PDF import) */
+.mhw-q-img {
+  display: block;
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5em 0;
+  object-fit: contain;
+}
+
+.mhw-opt-img {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  object-fit: contain;
+}
+/* TipTap Editor Styles */
+.ProseMirror img {
+  display: block;
+  max-width: 100%;
+  max-height: 400px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5em 0;
+  object-fit: contain;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Ensure lists render properly inside the editor */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+}
+
+
+/* ── KaTeX inline equations ─────────────────────────────────────────────── */
+.mhw-eq {
+  display: inline;
+  vertical-align: middle;
+  line-height: 1;
+}
+.mhw-eq .katex {
+  font-size: 1em;
+  color: inherit;
+}
+
+/* ── Gallery DRM Protection ────────────────────────────────────────────── */
+
+/* Disable all selection and drag on protected gallery zones */
+.gallery-protected-zone,
+.gallery-protected-zone * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+}
+
+/* Prevent canvas and image elements from being dragged */
+.gallery-protected-zone canvas,
+.gallery-protected-zone img {
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+  pointer-events: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Hide gallery content when printing */
+@media print {
+  .gallery-protected-zone,
+  [data-gallery-protected],
+  [data-lightbox-active] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Show a protection message instead */
+  body::after {
+    content: "Gallery photos are protected and cannot be printed.";
+    display: block;
+    text-align: center;
+    padding: 4rem;
+    font-size: 1.2rem;
+    color: #666;
+  }
+}

@@ -20,8 +20,8 @@ function testD1(): D1Database {
   for (const file of ["0001_initial.sql", "0005_admin_idempotency.sql", "0006_study_guards.sql", "0007_paper_subject_guard.sql", "0008_monotonic_stamps.sql", "0009_study_subject_match.sql"]) {
     db.exec(readFileSync(join(root, "migrations", file), "utf8"));
   }
-  interface Bound { readonly sql: string; readonly params: unknown[]; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }>; }
-  const bind = (sql: string, params: unknown[]): Bound => ({
+  interface Bound { readonly sql: string; readonly params: any[]; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }>; }
+  const bind = (sql: string, params: any[]): Bound => ({
     sql, params,
     async first<T>() {
       try {
@@ -47,7 +47,7 @@ function testD1(): D1Database {
     },
   });
   return {
-    prepare: (sql: string) => ({ bind: (...params: unknown[]) => bind(sql, params) }),
+    prepare: (sql: string) => ({ bind: (...params: any[]) => bind(sql, params) }),
     async batch(statements: Bound[]) {
       // Match D1: the batch is one atomic transaction.
       db.exec("BEGIN;");
@@ -73,7 +73,7 @@ function testD1(): D1Database {
 
 function fakeGate() {
   const reserves: { operation: Operation }[] = [];
-  const gate: BudgetGate = {
+  const gate: BudgetGate = { async status() { return {} as any; }, async activateEmergency() {}, 
     async reserve(operation: Operation) {
       reserves.push({ operation });
       let started = false;

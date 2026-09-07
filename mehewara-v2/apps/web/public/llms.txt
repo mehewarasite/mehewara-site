@@ -1,0 +1,11 @@
+# Mehewara
+
+Mehewara is a platform for Sri Lankan O/L and A/L exam past papers MCQ practice.
+
+## Core Features
+- Browse O/L and A/L subjects
+- Practice past papers in Sinhala medium
+- View answers and explanations
+
+## Access
+All content is freely accessible.

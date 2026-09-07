@@ -10,7 +10,7 @@ import { publicationRoute } from "../src/features/public/route";
 
 function fakeGate() {
   const reserves: { operation: Operation }[] = [];
-  const gate: BudgetGate = {
+  const gate: BudgetGate = { async status() { return {} as any; }, async activateEmergency() {}, 
     async reserve(operation: Operation) {
       reserves.push({ operation });
       let started = false;

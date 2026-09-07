@@ -24,8 +24,8 @@ function testD1(): D1Database {
   ]) {
     db.exec(readFileSync(join(root, "migrations", file), "utf8"));
   }
-  interface Bound { readonly sql: string; readonly params: unknown[]; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }>; }
-  const bind = (sql: string, params: unknown[]): Bound => ({
+  interface Bound { readonly sql: string; readonly params: any[]; first<T>(): Promise<T | null>; all<T>(): Promise<{ results: T[] }>; run(): Promise<{ meta: { changes: number } }>; }
+  const bind = (sql: string, params: any[]): Bound => ({
     sql, params,
     async first<T>() {
       try {
@@ -51,7 +51,7 @@ function testD1(): D1Database {
     },
   });
   return {
-    prepare: (sql: string) => ({ bind: (...params: unknown[]) => bind(sql, params) }),
+    prepare: (sql: string) => ({ bind: (...params: any[]) => bind(sql, params) }),
     async batch(statements: Bound[]) {
       db.exec("BEGIN;");
       try {
@@ -76,7 +76,7 @@ function testD1(): D1Database {
 
 function fakeGate() {
   const reserves: { operation: Operation }[] = [];
-  const gate: BudgetGate = {
+  const gate: BudgetGate = { async status() { return {} as any; }, async activateEmergency() {}, 
     async reserve(operation: Operation) {
       reserves.push({ operation });
       let started = false;

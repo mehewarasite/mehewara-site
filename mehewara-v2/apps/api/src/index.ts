@@ -74,13 +74,14 @@ export default {
       else if (url.pathname === "/api/v1/admin/import") { requireMethod(request, "POST"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
       else if (url.pathname === "/api/v1/admin/publications/build") { requireMethod(request, "POST"); response = await buildPublicationRoute(request, { b2, context, store: context.publications }); }
       else if (url.pathname === "/api/v1/admin/publications/rollback") { requireMethod(request, "POST"); response = await rollbackPublicationRoute(request, { context, store: context.publications }); }
-      else if (url.pathname.startsWith("/api/v1/admin/")) { response = await adminRouter(request, { context, store: context.admin }); }
+      else if (url.pathname.startsWith("/api/v1/admin/")) { response = await adminRouter(request, { context, store: context.admin, db: env.D1 }); }
       else if (url.pathname === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2, context }); }
       else if (url.pathname === "/api/v1/media/upload-confirm") { requireMethod(request, "POST"); response = await confirmUploadHttpRoute(request, { b2, context }); }
       else if (url.pathname.startsWith("/api/v1/media/")) { requireMethod(request, "GET"); const objectKey = decodeURIComponent(url.pathname.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2, objectKey, context }); }
       else throw new HttpError("NOT_FOUND", 404, "Route not found");
       return withRequestHeaders(response, corsHeaders, id);
     } catch (error) {
+      console.error("Unhandled API error:", error);
       // Error responses carry the same CORS + request-id + security headers
       // as success responses: cross-origin admin clients must be able to
       // read the 401/403/429 status instead of seeing an opaque network

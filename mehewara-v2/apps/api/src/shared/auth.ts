@@ -1,4 +1,5 @@
 import { HttpError } from "./errors";
+import { verifyJwt } from "./jwt";
 
 export interface AdminPrincipal { subject: string; roles: readonly string[]; }
 export interface AccessConfig { adminSecret: string; superAdminSecret: string; }
@@ -11,16 +12,23 @@ export const accessVerifier: AccessVerifier = {
       if (!config.adminSecret || !config.superAdminSecret) return null;
       const authHeader = request.headers.get("Authorization");
       if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) return null;
-      
+
       const token = authHeader.slice(7).trim();
-      
+
       if (token === config.superAdminSecret) {
         return { subject: "api-key-super-admin", roles: ["admin", "super-admin"] };
       }
       if (token === config.adminSecret) {
         return { subject: "api-key-admin", roles: ["admin"] };
       }
-      
+
+      // If it's not a static key, try to verify it as a JWT
+      const payload = await verifyJwt<{ sub: string; role: string }>(token, config.adminSecret);
+      if (payload && payload.sub && payload.role) {
+        const roles = payload.role === "super-admin" ? ["admin", "super-admin"] : ["admin"];
+        return { subject: payload.sub, roles };
+      }
+
       return null;
     } catch {
       return null;

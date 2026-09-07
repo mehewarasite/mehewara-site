@@ -22,6 +22,7 @@ import type {
 export interface AdminDeps {
   context: FeatureContext;
   store: AdminStore;
+  db?: any; // Raw D1Database for auth endpoints
   verifier?: AccessVerifier;
   /** Set by the router after authentication; handlers must use it instead
    *  of re-verifying (and must never run without it). */
@@ -1105,12 +1106,13 @@ async function statsRoute(request: Request, deps: AdminDeps): Promise<Response> 
   return Response.json(AdminContentStatistics.parse({ generatedAt: new Date().toISOString(), ...counts }));
 }
 
+import { loginRoute, usersRoute } from "./auth-routes";
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Admin router: `/api/v1/admin/<resource>[/<id>[/state]]`, plus the
- * `stats`, `about`, and `privacy` singletons. Unknown resources 404 before
- * authentication (nothing to leak); every recognized route authenticates
+ * Validates the admin principal, enforces idempotency, and routes to the correct handler.
+ * D1 mutations should NOT instantiate a new IdempotencyGate; it is enforced
  * exactly once here, and handlers receive the principal through deps.
  * Every read is budget-permitted (adminContentRead); every mutation
  * additionally requires a valid Idempotency-Key and records an audit row.
@@ -1120,10 +1122,19 @@ export async function adminRouter(request: Request, deps: AdminDeps): Promise<Re
   const rest = url.pathname.slice("/api/v1/admin/".length);
   const [resource, id, sub, extra] = rest.split("/");
   if (!resource || extra !== undefined) throw new HttpError("NOT_FOUND", 404, "Route not found");
-  const known = ["stats", "about", "privacy", "subjects", "papers", "questions", "study-materials", "gallery-items", "content-pages"];
+
+  if (resource === "login") { return loginRoute(request, deps); }
+  if (resource === "users") { return usersRoute(request, deps, id ?? null); }
+
+  const known = ["stats", "about", "privacy", "subjects", "papers", "questions", "study-materials", "gallery-items", "content-pages", "publications", "budget"];
   if (!known.includes(resource)) throw new HttpError("NOT_FOUND", 404, "Route not found");
+
   const principal = await requireAdmin(request, deps.context.access, deps.verifier);
   const authedDeps: AdminDeps = { ...deps, principal };
+
+
+  if (resource === "budget" && id === "status") { return import("./budget-route").then(m => m.budgetStatusRoute(request, authedDeps)); }
+  if (resource === "budget" && id === "emergency") { return import("./budget-route").then(m => m.budgetEmergencyRoute(request, authedDeps)); }
   if (resource === "stats") { requireMethod(request, "GET"); return statsRoute(request, authedDeps); }
   if (resource === "about" && id === undefined) { requireMethod(request, "GET", "PUT", "PATCH"); return aboutRoute(request, authedDeps); }
   if (resource === "privacy" && id === undefined) { requireMethod(request, "GET", "PUT", "PATCH"); return privacyRoute(request, authedDeps); }

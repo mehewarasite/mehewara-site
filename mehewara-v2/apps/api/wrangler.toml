@@ -51,7 +51,7 @@ class_name = "BudgetAuthority"
 
 [env.production.vars]
 ENVIRONMENT = "production"
-ALLOWED_ORIGINS = "https://mehewara.edu.lk,https://mehewara-site.pages.dev,https://mehewara.pages.dev"
+ALLOWED_ORIGINS = "https://mehewara.edu.lk,https://mehewara-site.pages.dev,https://mehewara.pages.dev,http://localhost:5173,http://localhost:5174"
 B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
 B2_REGION = "us-east-005"
 B2_BUCKET = "mehewara"
