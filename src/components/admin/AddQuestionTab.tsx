@@ -54,10 +54,10 @@ export default function AddQuestionTab({
   ) => {
     try {
       setIsUploadingImage(true);
-      showFlash("Uploading image to Supabase Storage...");
+      showFlash("Uploading image to Cloud Storage...");
       const html = await fileToImgHtml(file, className, 'diagrams');
       apply(html);
-      showFlash("Image uploaded to Supabase Storage successfully!");
+      showFlash("Image uploaded to Cloud Storage successfully!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Image upload failed.';
       showFlash(msg, true);

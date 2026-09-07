@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart2, TrendingUp, Activity, Globe, HelpCircle, Database, HardDrive, RefreshCw, FileText, BookOpen } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
-import { supabase } from '../../supabase';
+
 import type { AdminThemeClasses } from './types';
 
 interface StorageTableInfo {
@@ -28,50 +28,42 @@ export default function StatsTab({ theme, subjects, papers, questions, activeUse
   const [storageError, setStorageError] = useState<string | null>(null);
   const [storageBucketSize, setStorageBucketSize] = useState<{ files: number; sizeBytes: number }>({ files: 0, sizeBytes: 0 });
 
+  const [budgetStatus, setBudgetStatus] = useState<any>(null);
+
   const fetchStorageUsage = useCallback(async () => {
     setStorageLoading(true);
     setStorageError(null);
     try {
-      const tables = [
-        { name: 'subjects', label: 'Subjects', color: '#10b981' },
-        { name: 'papers', label: 'Papers', color: '#3b82f6' },
-        { name: 'questions', label: 'Questions', color: '#a855f7' },
-        { name: 'study_html', label: 'Study HTML', color: '#f59e0b' },
-        { name: 'about_us', label: 'About Us', color: '#ef4444' },
+      const { dbLoadBudgetStatus } = await import('../../api');
+      const status = await dbLoadBudgetStatus();
+      setBudgetStatus(status);
+      
+      const results: StorageTableInfo[] = [
+        { name: 'subjects', label: 'Subjects', rows: subjects.length, sizeBytes: new TextEncoder().encode(JSON.stringify(subjects)).length, color: '#3b82f6' },
+        { name: 'papers', label: 'Papers', rows: papers.length, sizeBytes: new TextEncoder().encode(JSON.stringify(papers)).length, color: '#f59e0b' },
+        { name: 'questions', label: 'Questions', rows: questions.length, sizeBytes: new TextEncoder().encode(JSON.stringify(questions)).length, color: '#10b981' }
       ];
-
-      const results: StorageTableInfo[] = [];
-      for (const t of tables) {
-        try {
-          const { data, error } = await supabase.from(t.name).select('*');
-          if (error) {
-            results.push({ name: t.name, label: t.label, rows: 0, sizeBytes: 0, color: t.color });
-          } else {
-            const jsonStr = JSON.stringify(data || []);
-            const sizeBytes = new TextEncoder().encode(jsonStr).length;
-            results.push({ name: t.name, label: t.label, rows: data?.length || 0, sizeBytes, color: t.color });
-          }
-        } catch {
-          results.push({ name: t.name, label: t.label, rows: 0, sizeBytes: 0, color: t.color });
-        }
-      }
       setStorageData(results);
-
-      try {
-        const { data: files } = await supabase.storage.from('question-images').list('', { limit: 1000 });
-        const { data: diagrams } = await supabase.storage.from('question-images').list('diagrams', { limit: 1000 });
-        const allFiles = [...(files || []), ...(diagrams || [])];
-        const totalSize = allFiles.reduce((sum, f) => sum + (f.metadata?.size || 0), 0);
-        setStorageBucketSize({ files: allFiles.length, sizeBytes: totalSize });
-      } catch {
-        setStorageBucketSize({ files: 0, sizeBytes: 0 });
-      }
+      setStorageBucketSize({ files: 0, sizeBytes: 0 });
     } catch (err: any) {
       setStorageError(err?.message || 'Failed to fetch storage data');
     } finally {
       setStorageLoading(false);
     }
-  }, []);
+  }, [subjects, papers, questions]);
+
+  const handleReleaseLimit = async () => {
+    try {
+      setStorageLoading(true);
+      const { dbReleaseLimit } = await import('../../api');
+      await dbReleaseLimit('Admin manual override', 24 * 60 * 60 * 1000); // 24 hours
+      await fetchStorageUsage();
+    } catch (err: any) {
+      setStorageError(err?.message || 'Failed to release limits');
+    } finally {
+      setStorageLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (storageData.length === 0) {
@@ -253,7 +245,61 @@ export default function StatsTab({ theme, subjects, papers, questions, activeUse
 
         </div>
 
-        {/* RIGHT: Database Storage Usage */}
+        {/* RIGHT: Database Storage Usage & Limits */}
+        {budgetStatus && (
+          <div className={`lg:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4 flex flex-col mb-4`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${isDark ? 'bg-fuchsia-500/10 border-fuchsia-500/20' : 'bg-fuchsia-50 border-fuchsia-200'} border`}>
+                  <Activity className={`w-4 h-4 ${isDark ? 'text-fuchsia-400' : 'text-fuchsia-600'}`} />
+                </div>
+                <div>
+                  <div className="text-fuchsia-500 font-bold text-xs">QUOTA LIMITS</div>
+                  <p className={`text-[10px] ${textMuted}`}>API Budget & Usage</p>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleReleaseLimit}
+                disabled={storageLoading || budgetStatus.emergencyUntil}
+                className={`flex items-center gap-1 px-3 py-1 text-[10px] font-semibold rounded-lg transition-all ${
+                  budgetStatus.emergencyUntil 
+                    ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700')
+                    : (isDark ? 'bg-fuchsia-500/20 text-fuchsia-400 hover:bg-fuchsia-500/30' : 'bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200')
+                }`}
+              >
+                {budgetStatus.emergencyUntil ? 'Limits Released (24h)' : 'Release Limits'}
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {['admin', 'public'].map(pool => {
+                const b2Bytes = budgetStatus.poolResourceAllocations[pool]?.b2Bytes;
+                if (!b2Bytes) return null;
+                const used = b2Bytes.reserved + b2Bytes.committed;
+                const limit = b2Bytes.limit;
+                const percent = Math.min(100, Math.max(0, (used / limit) * 100));
+                
+                return (
+                  <div key={pool}>
+                    <div className="flex justify-between text-[10px] font-bold mb-1">
+                      <span className={textPrimary}>{pool.toUpperCase()} Pool (Files)</span>
+                      <span className={textMuted}>{formatBytes(used)} / {formatBytes(limit)} ({percent.toFixed(1)}%)</span>
+                    </div>
+                    <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                      <div 
+                        className={`h-full rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                        style={{ width: `${Math.max(percent, 1)}%` }} 
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* DB STORAGE TABLE */}
         <div className={`lg:col-span-2 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-4 relative overflow-hidden flex flex-col`}>
           <div className="flex items-center justify-between mb-3 gap-2">
             <div className="flex items-center gap-2">
@@ -262,7 +308,7 @@ export default function StatsTab({ theme, subjects, papers, questions, activeUse
               </div>
               <div>
                 <div className="text-cyan-500 font-bold text-xs">DB STORAGE</div>
-                <p className={`text-[10px] ${textMuted}`}>Supabase tables &amp; bucket</p>
+                <p className={`text-[10px] ${textMuted}`}>API tables &amp; bucket</p>
               </div>
             </div>
             <button

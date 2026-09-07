@@ -1,12 +1,12 @@
-name: Deploy Mehewara V1
+name: Deploy Mehewara (V2)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   workflow_dispatch:
 
 concurrency:
-  group: "cloudflare-pages"
+  group: "cloudflare-pages-${{ github.ref_name }}"
   cancel-in-progress: true
 
 jobs:
@@ -30,12 +30,12 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://mehewara-v2-api-production.mehewara-site.workers.dev' }}
 
       - name: Deploy to Cloudflare Pages
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         run: |
           npx --yes wrangler pages deploy ./dist \
             --project-name "${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME || 'mehewara-site' }}" \
-            --branch "main"
+            --branch "${{ github.ref_name }}"
+

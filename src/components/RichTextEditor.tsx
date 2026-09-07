@@ -5,7 +5,6 @@ import Superscript from '@tiptap/extension-superscript';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
 import React, { useEffect, useRef, useState } from 'react';
-import { supabase } from '../supabase';
 import { useTheme } from '../ThemeContext';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -231,15 +230,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
       
       const fileExt = 'webp'; // Since compressImageToBlob returns webp
       const fileName = `editor-${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage.from('question-images').upload(fileName, blob, {
-        contentType: 'image/webp'
-      });
-      
-      if (error) {
-        console.error('Upload failed:', error);
-        return null;
-      }
-      const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
+      const { uploadToB2 } = await import('../apiClient');
+      const publicUrl = await uploadToB2(new File([blob], fileName, { type: 'image/webp' }), '/admin/gallery-items');
       return publicUrl;
     } catch (e) {
       console.error('Image compression or upload failed:', e);

@@ -285,7 +285,11 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
         {!galleryLoading && galleryPhotos.length > 0 && (
           <div className="space-y-3">
             {galleryPhotos.map((photo, index) => {
-              const dataUrl = photo.imageHex ? hexToDataUrl(photo.imageHex, photo.mimeType) : '';
+              const dataUrl = photo.imageHex
+                ? (photo.imageHex.startsWith('http') || photo.imageHex.startsWith('data:')
+                    ? photo.imageHex
+                    : hexToDataUrl(photo.imageHex, photo.mimeType))
+                : '';
               return (
                 <div
                   key={photo.id}

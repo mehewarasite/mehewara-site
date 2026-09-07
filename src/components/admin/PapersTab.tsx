@@ -3,7 +3,7 @@ import { FileText, FileCode, Upload, Edit2, Trash2, X, Save } from 'lucide-react
 import { Subject, Paper, Question } from '../../types';
 import { parseTxtToQuizData, renderMathInHtml } from '../../utils/parseTxt';
 import { themeHtml } from '../../utils/themeHtml';
-import { uploadImageToSupabaseStorage, insertOrReplaceImage } from '../../utils/mediaUpload';
+import { uploadImageToStorage, insertOrReplaceImage } from '../../utils/mediaUpload';
 import type { AdminThemeClasses, AdminTab } from './types';
 
 // The parser returns objects with this rough shape:
@@ -152,7 +152,7 @@ export default function PapersTab({
       const isOption = typeof target === 'number';
       const maxWidth = isOption ? 480 : 800;
       const quality = isOption ? 0.58 : 0.62;
-      const publicUrl = await uploadImageToSupabaseStorage(file, 'diagrams', maxWidth, quality);
+      const publicUrl = await uploadImageToStorage(file, 'diagrams', maxWidth, quality);
       const alt = file.name.replace(/"/g, '&quot;');
       const imgClass = isOption ? 'mhw-opt-img' : 'mhw-q-img';
       const imgHtml = `<img src="${publicUrl}" alt="${alt}" class="${imgClass} max-w-full h-auto my-4 rounded-md shadow-sm border border-gray-200 dark:border-gray-700" />`;
@@ -178,7 +178,7 @@ export default function PapersTab({
       showFlash("Image uploaded and added to question successfully!");
     } catch (error: any) {
       console.error("Error uploading image:", error);
-      showFlash(error?.message || "Failed to upload image to Supabase Storage.", true);
+      showFlash(error?.message || "Failed to upload image to Cloud Storage.", true);
     } finally {
       setUploadingImageIndex(null);
     }
@@ -420,11 +420,11 @@ export default function PapersTab({
                       <div className={`p-4 ${isDark ? 'bg-slate-800/50 border-slate-600' : 'bg-slate-50 border-slate-300'} border border-dashed rounded-md space-y-3`}>
                         <div className="flex items-center justify-between">
                           <label className={`block text-sm font-medium ${textPrimary}`}>
-                            🖼️ Upload Missing Diagram/Image to Supabase
+                            🖼️ Upload Missing Diagram/Image to API
                           </label>
                           {uploadingImageIndex === index && (
                             <span className="text-xs text-sky-400 font-semibold animate-pulse">
-                              Compressing & uploading to Supabase...
+                              Compressing & uploading to API...
                             </span>
                           )}
                         </div>
@@ -448,7 +448,7 @@ export default function PapersTab({
                           }}
                         />
                         <p className={`text-xs ${textFaint}`}>
-                          Automatically compresses to WebP, uploads to Supabase Storage, and replaces any [IMAGE: ...] placeholder.
+                          Automatically compresses to WebP, uploads to Cloud Storage, and replaces any [IMAGE: ...] placeholder.
                         </p>
                       </div>
                       <button

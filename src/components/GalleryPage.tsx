@@ -13,10 +13,18 @@ interface GalleryPageProps {
 const dataUrlCache = new Map<string, string>();
 
 function getDataUrl(photo: GalleryPhoto): string {
-  if (!dataUrlCache.has(photo.id)) {
-    dataUrlCache.set(photo.id, hexToDataUrl(photo.imageHex, photo.mimeType));
+  if (!photo?.imageHex) return '';
+  if (photo.imageHex.startsWith('http://') || photo.imageHex.startsWith('https://') || photo.imageHex.startsWith('data:')) {
+    return photo.imageHex;
   }
-  return dataUrlCache.get(photo.id)!;
+  if (!dataUrlCache.has(photo.id)) {
+    try {
+      dataUrlCache.set(photo.id, hexToDataUrl(photo.imageHex, photo.mimeType));
+    } catch {
+      return photo.imageHex;
+    }
+  }
+  return dataUrlCache.get(photo.id) || '';
 }
 
 // ── DRM / Protection utilities ────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef as useReactRef, useCallback } from 'react';
 import { Trash2, Images, RefreshCw, ChevronUp, ChevronDown, Pin } from 'lucide-react';
 import { GalleryPhoto } from '../../types';
-import { dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos } from '../../supabase';
+import { dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos } from '../../api';
 import { imageFileToHex, hexToDataUrl, createPreviewUrl, GALLERY_ACCEPT } from '../../utils/imageHex';
 import type { AdminThemeClasses } from './types';
 
@@ -285,7 +285,11 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
         {!galleryLoading && galleryPhotos.length > 0 && (
           <div className="space-y-3">
             {galleryPhotos.map((photo, index) => {
-              const dataUrl = photo.imageHex ? hexToDataUrl(photo.imageHex, photo.mimeType) : '';
+              const dataUrl = photo.imageHex
+                ? (photo.imageHex.startsWith('http') || photo.imageHex.startsWith('data:')
+                    ? photo.imageHex
+                    : hexToDataUrl(photo.imageHex, photo.mimeType))
+                : '';
               return (
                 <div
                   key={photo.id}

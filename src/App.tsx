@@ -41,9 +41,9 @@ const GalleryPage = React.lazy(() => import('./components/GalleryPage'));
 import {
   dbLoadSubjects, dbSaveSubjects, dbDeleteSubject,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
-  dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
-  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery, supabase
-} from './supabase';
+  dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
+  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery
+} from './api';
 
 import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
 
@@ -86,15 +86,7 @@ export default function App() {
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
-  const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
-
-  // Track site visit
-  useEffect(() => {
-    // Fire and forget visit tracking
-    supabase.from('site_visits').insert([{ path: window.location.pathname }]).then(({ error }) => {
-      if (error) console.error('Failed to track visit:', error);
-    });
-  }, []);
+  const [activeUsersCount] = useState<number>(1);
 
   // Handle Browser/Android hardware back button
   useEffect(() => {
@@ -113,8 +105,16 @@ export default function App() {
         setSelectedLevel(null);
       }
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    const handleLogout = () => {
+      setShowAdminPanel(false);
+      alert('Session expired. Please log in again.');
+    };
+    window.addEventListener('admin-logout', handleLogout);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('admin-logout', handleLogout);
+    };
   }, [showGallery, showAboutUs, showAdminPanel, activePracticePaper, selectedSubject, selectedLevel]);
 
   const handleSetLevel = (level: 'ol' | 'al') => {
@@ -146,13 +146,32 @@ export default function App() {
 
     setActivePracticePaper(paper);
   };
-  const handleOpenAdminPanel = () => {
+  const handleOpenAdminPanel = async () => {
+    const { isAdmin, api } = await import('./apiClient');
+    if (!isAdmin()) {
+      const username = prompt('Enter Admin Username (e.g. admin):');
+      if (!username) return;
+      const password = prompt('Enter Admin Password:');
+      if (!password) return;
+
+      try {
+        const res = await api.post('/admin/login', { username, password });
+        localStorage.setItem('adminToken', res.data.token);
+      } catch (e) {
+        alert('Invalid credentials');
+        return;
+      }
+    }
+
     window.history.pushState({ layer: true }, '', '');
     setShowAdminPanel(true);
+    // Reload subjects, papers, gallery, about us since admin sees drafts
+    syncFromApi();
 
     const fetchQuestions = async () => {
       setIsSyncing(true);
       try {
+        const { dbLoadQuestions } = await import('./api');
         const allQuestions = await dbLoadQuestions();
         if (allQuestions) {
           setQuestions(allQuestions);
@@ -228,8 +247,8 @@ export default function App() {
     }
   };
 
-  // Reusable sync function — pulls latest data from Supabase
-  const syncFromSupabase = async () => {
+  // Reusable sync function — pulls latest data from API
+  const syncFromApi = async () => {
     setIsSyncing(true);
     try {
       const [remoteSubjects, remotePapers, remoteAbout, remoteGallery] = await Promise.all([
@@ -247,31 +266,21 @@ export default function App() {
       if (remoteSubjects && remoteSubjects.length > 0) {
         let filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
 
-        // Merge any new subjects from INITIAL_SUBJECTS that aren't in Supabase
-        const existingIds = new Set(filtered.map((s: Subject) => s.id));
-        const missingSubjects = INITIAL_SUBJECTS.filter(s => !existingIds.has(s.id));
-
-        if (missingSubjects.length > 0) {
-          // Note: Assuming dbSaveSubjects can accept an array and insert/upsert them
-          await dbSaveSubjects(missingSubjects);
-          filtered = [...filtered, ...missingSubjects];
-        }
-
+        // Merge any new subjects from INITIAL_SUBJECTS that aren't in API
+        // In v2, we don't auto-seed from the client to prevent unauthorized admin calls.
         setSubjects(filtered);
         idbSet('m_subjects', JSON.stringify(filtered));
       } else if (INITIAL_SUBJECTS.length > 0) {
-        await dbSaveSubjects(INITIAL_SUBJECTS);
-        setSubjects(INITIAL_SUBJECTS);
-        idbSet('m_subjects', JSON.stringify(INITIAL_SUBJECTS));
+        // We only use remote subjects in v2.
+        // setSubjects(INITIAL_SUBJECTS);
       }
 
       if (remotePapers && remotePapers.length > 0) {
         setPapers(remotePapers);
         idbSet('m_papers', JSON.stringify(remotePapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
       } else if (INITIAL_PAPERS.length > 0) {
-        await Promise.all(INITIAL_PAPERS.map(p => dbSavePaper(p)));
-        setPapers(INITIAL_PAPERS);
-        idbSet('m_papers', JSON.stringify(INITIAL_PAPERS));
+        // We only use remote papers in v2.
+        // setPapers(INITIAL_PAPERS);
       }
 
       if (remoteAbout) {
@@ -279,7 +288,7 @@ export default function App() {
         idbSet('m_about_us', JSON.stringify(remoteAbout));
       }
     } catch (err) {
-      console.error('Supabase load failed:', err);
+      console.error('API load failed:', err);
     } finally {
       setIsSyncing(false);
     }
@@ -295,35 +304,10 @@ export default function App() {
       // Load local data instantly
       await loadFromLocal();
 
-      // Sync from Supabase in background
-      syncFromSupabase();
+      // Sync from API in background
+      syncFromApi();
     };
     init();
-
-    // Setup Supabase Realtime presence for active users counter
-    const channel = supabase.channel('online-users', {
-      config: {
-        presence: {
-          key: Math.random().toString(36).substring(7),
-        },
-      },
-    });
-
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const count = Object.keys(state).length;
-        setActiveUsersCount(count > 0 ? count : 1);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ online_at: new Date().toISOString() });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   // Scroll-based fade-out for the hero background photo
@@ -384,7 +368,7 @@ export default function App() {
     setPapers(newPapers);
     idbSet('m_papers', JSON.stringify(newPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
 
-    // Persist paper to Supabase
+    // Persist paper to API
     await dbSavePaper(updatedPaper);
   };
 
@@ -397,17 +381,17 @@ export default function App() {
     setPapers(updatedPapers);
     idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
 
-    // Persist paper to Supabase (without studyMaterialHtml — stored separately)
+    // Persist paper to API (without studyMaterialHtml — stored separately)
     await dbSavePaper(paperWithCount);
 
-    // Persist study HTML to Supabase if present
+    // Persist study HTML to API if present
     if (newPaper.studyMaterialHtml) {
       await dbSaveStudyHtml(newPaper.id, newPaper.studyMaterialHtml);
       // Also keep in localStorage as offline cache
       try { idbSet(`m_study_${newPaper.id}`, newPaper.studyMaterialHtml); } catch { }
     }
 
-    // Persist questions to Supabase
+    // Persist questions to API
     if (importQuestions && importQuestions.length > 0) {
       const updatedQuestions = [...questions, ...importQuestions];
       setQuestions(updatedQuestions);
@@ -448,7 +432,7 @@ export default function App() {
     idbSet('m_attempts', JSON.stringify(updatedAttempts));
     idbRemove(`m_study_${paperId}`);
 
-    // Delete from Supabase
+    // Delete from API
     await Promise.all([
       dbDeletePaper(paperId),
       dbDeleteStudyHtml(paperId),
@@ -493,7 +477,7 @@ export default function App() {
       await dbSavePaper({ ...paper, questionCount: qCount });
     }
 
-    // Persist the new question and any shifted questions to Supabase
+    // Persist the new question and any shifted questions to API
     await dbSaveQuestion(newQuestion);
     if (shiftedQuestions.length > 0) {
       await dbSaveQuestions(shiftedQuestions);
@@ -527,7 +511,7 @@ export default function App() {
   };
 
   const handleUpdateStudyHtml = async (paperId: string, html: string) => {
-    // Save to Supabase
+    // Save to API
     await dbSaveStudyHtml(paperId, html);
     // Update local state so it shows immediately without reload
     setPapers(prev => prev.map(p =>
@@ -541,7 +525,7 @@ export default function App() {
     if (confirm('Do you want to reset the database to default values? This will delete all custom papers and questions from ALL devices.')) {
       setIsSyncing(true);
       try {
-        // Delete all current data from Supabase then reseed
+        // Delete all current data from API then reseed
         await Promise.all(
           papers.map(p => Promise.all([
             dbDeletePaper(p.id),
@@ -1221,7 +1205,7 @@ export default function App() {
             onResetToDefaults={handleResetToDefaults}
             onExportData={handleExportData}
             onImportData={handleImportData}
-            onSync={syncFromSupabase}
+            onSync={syncFromApi}
             isSyncing={isSyncing}
             onAboutUpdate={setAboutData}
             onClose={() => window.history.back()}

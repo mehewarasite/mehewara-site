@@ -88,14 +88,6 @@ export default function App() {
   const [aboutData, setAboutData] = useState<any>(null);
   const [activeUsersCount] = useState<number>(1);
 
-  // Track site visit
-  useEffect(() => {
-    // Fire and forget visit tracking
-    //    api.from('site_visits').insert([{ path: window.location.pathname }]).then(({ error }) => {
-    //      if (error) console.error('Failed to track visit:', error);
-    //    });
-  }, []);
-  //
   // Handle Browser/Android hardware back button
   useEffect(() => {
     const handlePopState = () => {
@@ -316,33 +308,6 @@ export default function App() {
       syncFromApi();
     };
     init();
-
-    // Setup API    // Online users tracking requires a realtime backend (disabled in v2)
-    /*
-    const channel = api.channel('online-users', {
-      config: { presence: { key: String(Date.now()) } },
-    });
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const count = Object.keys(state).length;
-        // Optional jitter to smooth count jumps
-        if (count > 0 && Math.abs(count - Math.round(count * 1.1)) < 2) {
-          setOnlineUsers(Math.round(count * 1.1));
-        } else {
-          setOnlineUsers(count);
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ online_at: new Date().toISOString() });
-        }
-      });
-
-    return () => {
-      // api.removeChannel(channel);
-    };
-    */
   }, []);
 
   // Scroll-based fade-out for the hero background photo

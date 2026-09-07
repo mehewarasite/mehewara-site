@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Image, AlertCircle } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
-import { supabase } from '../../supabase';
+
 import { fileToImgHtml, insertOrReplaceImage } from '../../utils/mediaUpload';
 import { renderMathInHtml, unrenderMathHtml } from '../../utils/parseTxt';
 import type { AdminThemeClasses } from './types';
@@ -32,10 +32,10 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
   ) => {
     try {
       setIsUploadingImage(true);
-      showFlash("Uploading image to Supabase Storage...");
+      showFlash("Uploading image to Cloud Storage...");
       const html = await fileToImgHtml(file, className, 'diagrams');
       apply(html);
-      showFlash("Image uploaded to Supabase Storage successfully!");
+      showFlash("Image uploaded to Cloud Storage successfully!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Image upload failed.';
       showFlash(msg, true);
@@ -85,12 +85,13 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
       setLiveEditData({ ...liveEditData, [field as 'questionHtml' | 'explanationHtml']: updatedHtml });
     }
 
-    if (src.includes('supabase.co/storage/v1/object/public/question-images/')) {
+    if (src.includes('api.co/storage/v1/object/public/question-images/')) {
       const filePath = src.split('question-images/')[1];
       if (filePath) {
         try {
-          await supabase.storage.from('question-images').remove([filePath]);
-          showFlash("Image deleted from database.");
+          // In v2, images are stored in B2 and don't need manual deletion here.
+          // await api.storage.from('question-images').remove([filePath]);
+          // showFlash("Image deleted from database.");
         } catch (err) {
           console.error("Failed to delete image from storage:", err);
         }
@@ -98,14 +99,10 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
     }
   };
 
-  const handleUpdateLiveQuestion = async (dbQuestionId: string, updatedQ: Question) => {
+  const handleUpdateLiveQuestion = async (updatedQ: Question) => {
     try {
-      const { error } = await supabase
-        .from('questions')
-        .update({ data: updatedQ })
-        .eq('id', dbQuestionId);
-
-      if (error) throw error;
+      const { dbSaveQuestion } = await import('../../api');
+      await dbSaveQuestion(updatedQ);
 
       alert("✅ Question updated successfully in the live database!");
       onUpdateQuestion(updatedQ);
@@ -253,7 +250,7 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
                         <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between text-xs text-amber-400">
                           <div className="flex items-center gap-2">
                             <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
-                            <span>This question contains an image placeholder. Uploading an image below will automatically replace it with a Supabase Storage CDN image.</span>
+                            <span>This question contains an image placeholder. Uploading an image below will automatically replace it with a Cloud Storage CDN image.</span>
                           </div>
                           {isUploadingImage && <span className="font-bold text-sky-400 animate-pulse">Uploading...</span>}
                         </div>
@@ -394,7 +391,7 @@ export default function EditQuestionsTab({ theme, subjects, papers, questions, o
                       <div className="flex gap-2 pt-2">
                         <button
                           type="button"
-                          onClick={() => handleUpdateLiveQuestion(q.id, liveEditData)}
+                          onClick={() => handleUpdateLiveQuestion(liveEditData)}
                           className="px-4 py-2 bg-blue-600 text-white font-semibold text-sm rounded-lg hover:bg-blue-700 transition-colors"
                         >
                           Save Changes to Database

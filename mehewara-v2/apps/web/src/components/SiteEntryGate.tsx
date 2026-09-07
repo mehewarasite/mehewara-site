@@ -75,6 +75,13 @@ export default function SiteEntryGate({ isDark, isEn, onVerified }: SiteEntryGat
               setErrorMessage(isEn ? 'Verification expired. Please check the box again.' : 'සත්‍යාපනය කල් ඉකුත් විය. නැවත සලකුණු කරන්න.');
             },
             'error-callback': () => {
+              if (import.meta.env.DEV) {
+                console.warn('Turnstile rejected on localhost/DEV; auto-bypassing gate');
+                sessionStorage.setItem('mhw_human_verified', 'true');
+                setIsFadingOut(true);
+                setTimeout(() => onVerified(), 300);
+                return;
+              }
               setErrorMessage(isEn ? 'Security challenge failed to load. Please refresh or retry.' : 'ආරක්ෂක පරීක්ෂාව පැටවීමේ දෝෂයක්. කරුණාකර නැවත උත්සාහ කරන්න.');
             },
           });
@@ -112,15 +119,32 @@ export default function SiteEntryGate({ isDark, isEn, onVerified }: SiteEntryGat
         {/* Only Cloudflare Turnstile verification widget */}
         <div ref={containerRef} className="rounded-xl overflow-hidden shadow-2xl min-h-[65px]" />
 
-        {errorMessage && (
-          <button
-            onClick={handleManualReset}
-            className="mt-4 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Retry"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Retry</span>
-          </button>
+        {(errorMessage || import.meta.env.DEV) && (
+          <div className="flex items-center gap-2 mt-4">
+            {errorMessage && (
+              <button
+                onClick={handleManualReset}
+                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Retry"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry</span>
+              </button>
+            )}
+            {import.meta.env.DEV && (
+              <button
+                onClick={() => {
+                  sessionStorage.setItem('mhw_human_verified', 'true');
+                  setIsFadingOut(true);
+                  setTimeout(() => onVerified(), 300);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Dev Skip"
+              >
+                <span>⚡ Dev Skip Verification</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

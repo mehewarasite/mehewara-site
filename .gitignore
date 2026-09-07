@@ -12,3 +12,6 @@ scratch/
 
 # Local deepwork progress state
 .slim/deepwork/
+
+# Local backups
+backup/

@@ -1,128 +1,59 @@
-# Mehewara Site - Documentation for Developers
+# Mehewara — Past Paper Practice Platform
 
-This document provides a comprehensive overview of the Mehewara educational platform codebase. It is designed to help future developers understand the architecture, technology stack, directory structure, and established patterns within the project.
+A free exam practice platform for Sri Lankan O/L and A/L students, built with React + Vite and powered by a Cloudflare Workers API backend.
 
-## 1. Project Overview
-Mehewara is a modern, highly interactive single-page application (SPA) designed to help students in Sri Lanka practice and review past papers for O/L and A/L examinations. The platform includes a complex administrative CMS for content management and a highly polished, cinematic frontend for students. 
+## Architecture
 
-## 2. Technical Specifications
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Frontend** | React 19 + Vite | Static SPA deployed to Cloudflare Pages |
+| **API** | Cloudflare Worker | All server-side logic, auth, and media serving |
+| **Database** | Cloudflare D1 | Relational data (subjects, papers, questions) |
+| **Media Storage** | Backblaze B2 | Private object storage with edge caching |
+| **Budget Controls** | Durable Objects | Rate limiting, quota management, abuse prevention |
 
-### Core Technologies
-| Category | Technology | Version | Description |
-| :--- | :--- | :--- | :--- |
-| **Framework** | React | 19.0.1 | UI library for building the SPA. |
-| **Build Tool** | Vite | 6.4.3 | Fast build tool and development server. |
-| **Language** | TypeScript | 5.8.2 | Strongly typed programming language. |
-| **Styling** | Tailwind CSS | 4.1.14 | Utility-first CSS framework for rapid UI development. |
-| **Database** | Supabase JS | 2.107.0 | PostgreSQL database, Authentication, and Storage client. |
-| **Caching** | idb-keyval | 6.2.5 | Promise-based wrapper for IndexedDB local storage. |
-| **Rich Text** | Tiptap | 3.26.0 | Headless rich text editor framework. |
-| **Mathematics** | KaTeX | 0.17.0 | Fast math typesetting library for LaTeX rendering. |
+## Environment Variables
 
-### Environment Variables
-The application requires the following environment variables defined in a `.env` file at the project root:
-| Variable | Purpose |
-| :--- | :--- |
-| `VITE_SUPABASE_URL` | The endpoint URL for the Supabase instance. |
-| `VITE_SUPABASE_ANON_KEY` | The anonymous public key for Supabase client initialization. |
+| Variable | Description |
+|---|---|
+| `VITE_API_BASE_URL` | The Cloudflare Worker API endpoint URL. Defaults to the production worker if omitted. |
 
-## 3. Architecture and Data Flow
+## Getting Started
 
-The application operates on a **Cache-First, Sync-Later** pattern to ensure instantaneous load times. 
+```bash
+# 1. Install dependencies
+npm install
 
-### Data Flow Sequence
-```mermaid
-sequenceDiagram
-    participant User
-    participant App as React App (App.tsx)
-    participant IDB as IndexedDB (Local Cache)
-    participant Boot as BootLoader
-    participant DB as Supabase (PostgreSQL)
+# 2. Copy env and configure
+cp .env.example .env
 
-    User->>App: Opens Application
-    App->>Boot: Mount BootLoader (Cinematic Splash)
-    App->>IDB: Fetch cached data (Subjects, Papers, Photos)
-    IDB-->>App: Return local data instantly
-    App->>App: Render UI behind BootLoader
-    App->>DB: Trigger Background Sync (Parallel Fetch)
-    DB-->>App: Return fresh remote data
-    App->>IDB: Update local cache with fresh data
-    App->>App: Re-render UI with updated data
-    Boot-->>User: Unmount after exactly 5 seconds
-    App-->>User: Display fully synced application
+# 3. Start dev server
+npm run dev
 ```
 
-## 4. Directory Structure
+## Project Structure
 
-| Directory/File | Purpose |
-| :--- | :--- |
-| `src/main.tsx` | Application entry point. Mounts the React root and Context providers. |
-| `src/App.tsx` | Core orchestrator. Handles boot sequence, global state, and background sync. |
-| `src/supabase.ts` | Contains all database interaction logic, abstracting the Supabase client. |
-| `src/types.ts` | Centralized TypeScript interfaces (`Subject`, `Paper`, `Question`, etc.). |
-| `src/components/` | Core UI components (`BootLoader`, `PracticeSession`, `RichTextEditor`). |
-| `src/components/admin/`| CMS interfaces (`SubjectsTab`, `PapersTab`, `EditQuestionsTab`). |
-| `src/utils/` | Helper functions (`storage.ts`, `parseTxt.ts`, `htmlThemer.ts`). |
-| `*.sql` files | Database migration files containing table schemas and RLS policies. |
+```
+src/                    # Frontend React SPA
+├── api.ts              # V2 API adapter (subjects, papers, questions, gallery, about)
+├── apiClient.ts        # Axios HTTP client with JWT auth
+├── App.tsx             # Main application with routing and data sync
+├── components/         # UI components (AdminPanel, PracticeSession, Gallery, etc.)
+├── utils/              # Media upload, storage, parsing utilities
+└── types.ts            # TypeScript type definitions
 
-## 5. Database Schema (Supabase PostgreSQL)
-
-The database strictly utilizes PostgreSQL but leverages a document-store pattern. Most entity properties are stored within a JSONB column named `data`.
-
-### Entity Relationship Diagram
-```mermaid
-erDiagram
-    SUBJECTS ||--o{ PAPERS : contains
-    PAPERS ||--o{ QUESTIONS : contains
-    QUESTIONS ||--|| STUDY_HTML : references
-    
-    SUBJECTS {
-        uuid id PK
-        timestamp created_at
-        jsonb data "Contains name, level, etc."
-    }
-    PAPERS {
-        uuid id PK
-        timestamp created_at
-        uuid subject_id FK
-        jsonb data "Contains year, type, duration, etc."
-    }
-    QUESTIONS {
-        uuid id PK
-        timestamp created_at
-        uuid paper_id FK
-        jsonb data "Contains questionText, options, correctOption"
-    }
-    STUDY_HTML {
-        uuid id PK
-        text html_content "Heavy HTML string for study materials"
-    }
-    SITE_VISITS {
-        date visit_date PK
-        integer count
-    }
+mehewara-v2/            # Backend monorepo (Cloudflare Workers)
+├── apps/api/           # Cloudflare Worker API (D1, B2, Durable Objects)
+├── apps/web/           # V2 web frontend (reference copy)
+├── packages/contracts/ # Shared Zod schemas and API types
+├── migrations/         # D1 SQL schema migrations
+├── scripts/            # Migration and deployment utilities
+└── docs/               # Architecture, deployment, and operations runbooks
 ```
 
-*Note: Heavy HTML content (like `studyMaterialHtml`) is stripped from the main JSON object and stored in the `study_html` table. This drastically reduces payload sizes when querying lists of questions or papers.*
+## Key Design Decisions
 
-## 6. Developer Guidelines
-
-When contributing to this codebase, developers must adhere to the following strict architectural principles:
-
-1. **Non-Blocking UI:** Never block the user interface waiting for network requests on initial load. Always load from IndexedDB first, and silently synchronize with Supabase in the background.
-2. **Parallel Batch Fetching:** Supabase `.select()` queries on large JSONB columns can timeout due to PostgREST limitations. When loading thousands of rows (e.g., loading all questions for synchronization), utilize the `Promise.all` batching pattern strictly implemented in `supabase.ts` (`dbLoadQuestions`).
-3. **Glassmorphism Aesthetic:** The frontend relies on a specific aesthetic using CSS backdrop-blurs, absolute positioning, and dynamic opacities. New components must align with the predefined Tailwind utility classes found in `index.css`.
-4. **Boot Sequence Integrity:** The cinematic bootloader (`BootLoader.tsx`) relies on strictly calibrated timeouts. Do not alter these timings without ensuring the background synchronization lifecycle is not negatively impacted.
-
-## 7. Local Development Setup
-
-### Prerequisites
-- Node.js (v18 or higher recommended)
-- Git
-
-### Installation Steps
-1. **Clone the repository:** Ensure you are in the project root.
-2. **Install dependencies:** Run `npm install` to download all necessary packages.
-3. **Environment Setup:** Copy `.env.example` to `.env` and populate it with the provided Supabase keys.
-4. **Start Development Server:** Run `npm run dev`. The application will be accessible at `http://localhost:3000`.
-5. **Production Build:** Run `npm run build` to generate the optimized, minified production assets in the `dist` directory.
+1. **Snapshot Publication Model**: Public users receive a pre-compiled JSON manifest from B2 edge cache — zero database load per page view.
+2. **JWT Admin Authentication**: Server-side credential verification replaces client-side hash checks.
+3. **Signed Upload Tickets**: Media uploads go directly to B2 via short-lived presigned URLs, bypassing Worker compute.
+4. **Budget Authority**: A Durable Object circuit breaker prevents runaway costs across D1 reads, B2 egress, and Worker execution.

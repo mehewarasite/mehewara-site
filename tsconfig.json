@@ -25,7 +25,14 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
+  "include": [
+    "src"
+  ],
   "exclude": [
-    "scratch/**/*"
+    "node_modules",
+    "dist",
+    "scratch",
+    "scripts",
+    "mehewara-v2"
   ]
 }

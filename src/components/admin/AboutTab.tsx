@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../supabase';
+
 import { idbGet, idbSet } from '../../utils/storage';
 import { DEFAULT_PRIVACY_POLICY } from '../../privacyPolicyDefault';
 import RichTextEditor from '../RichTextEditor';
@@ -28,20 +28,21 @@ export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabPr
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
-        const { data, error } = await supabase.from('about_us').select('*').eq('id', 1).maybeSingle();
-        if (data && !error) {
-          setAboutData(data);
+        const { dbLoadAboutUs } = await import('../../api');
+        const data = await dbLoadAboutUs();
+        if (data) {
+          setAboutData(data as any);
         } else {
           const local = await idbGet('m_about_us');
           if (local) setAboutData(JSON.parse(local));
         }
       } catch (err) {
-        const local = await idbGet('m_about_us');
-        if (local) setAboutData(JSON.parse(local));
-      }
-    };
-    fetchAboutData();
-  }, []);
+          const local = await idbGet('m_about_us');
+          if (local) setAboutData(JSON.parse(local));
+        }
+      };
+      fetchAboutData();
+    }, []);
 
   return (
     <>
@@ -68,22 +69,13 @@ export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabPr
               <button
                 type="button"
                 onClick={async () => {
-                  const url = aboutData.image_url;
-                  if (url && url.includes('supabase.co/storage/v1/object/public/question-images/')) {
-                    const fileName = url.split('question-images/')[1];
-                    if (fileName) {
-                      try {
-                        await supabase.storage.from('question-images').remove([fileName]);
-                      } catch (e) {
-                        console.error("Failed to delete from storage", e);
-                      }
-                    }
-                  }
+                  
                   const newAboutData = { ...aboutData, image_url: '' };
                   setAboutData(newAboutData);
 
                   try {
-                    await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
+                    const { dbSaveAboutUs } = await import('../../api');
+                    await dbSaveAboutUs(newAboutData);
                     await idbSet('m_about_us', JSON.stringify(newAboutData));
                     onAboutUpdate?.(newAboutData);
                   } catch (err) {
@@ -107,39 +99,29 @@ export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabPr
               if (!file) return;
 
               if (aboutData.image_url) {
-                const url = aboutData.image_url;
-                if (url && url.includes('supabase.co/storage/v1/object/public/question-images/')) {
-                  const oldFileName = url.split('question-images/')[1];
-                  if (oldFileName) {
-                    try {
-                      await supabase.storage.from('question-images').remove([oldFileName]);
-                    } catch (err) {
-                      console.error("Error removing old image", err);
-                    }
-                  }
-                }
+                // In v2, media is immutable, but we could delete the old URL via API if needed.
+                // For now, we simply upload the new one and overwrite the pointer.
               }
 
-              const fileExt = file.name.split('.').pop();
-              const fileName = `about-${Date.now()}.${fileExt}`;
-              const { error } = await supabase.storage.from('question-images').upload(fileName, file);
+              const { uploadToB2 } = await import('../../apiClient');
+              const { dbSaveAboutUs } = await import('../../api');
 
-              if (!error) {
-                const { data: { publicUrl } } = supabase.storage.from('question-images').getPublicUrl(fileName);
+              try {
+                // We use the generic media endpoint since it doesn't strictly need to be a gallery item,
+                // but for simplicity, we'll use the gallery endpoint to get a media URL, 
+                // OR since about isn't an entity, let's use the gallery-items endpoint to host the image.
+                const publicUrl = await uploadToB2(file, '/admin/gallery-items');
+
                 const newAboutData = { ...aboutData, image_url: publicUrl };
                 setAboutData(newAboutData);
 
-                try {
-                  await supabase.from('about_us').upsert({ id: 1, ...newAboutData }, { onConflict: 'id' });
-                  await idbSet('m_about_us', JSON.stringify(newAboutData));
-                  onAboutUpdate?.(newAboutData);
-                  showFlash ? showFlash("Image uploaded and saved successfully!") : alert("Image uploaded and saved successfully!");
-                } catch (err: any) {
-                  console.error("Failed to save to database", err);
-                  showFlash ? showFlash("Image uploaded but failed to save to database: " + err.message, true) : alert("Image uploaded but failed to save to database: " + err.message);
-                }
-              } else {
-                showFlash ? showFlash("Error uploading image: " + error.message, true) : alert("Error uploading image: " + error.message);
+                await dbSaveAboutUs(newAboutData);
+                await idbSet('m_about_us', JSON.stringify(newAboutData));
+                onAboutUpdate?.(newAboutData);
+                showFlash ? showFlash("Image uploaded and saved successfully!") : alert("Image uploaded and saved successfully!");
+              } catch (err: any) {
+                console.error("Failed to upload and save", err);
+                showFlash ? showFlash("Error uploading image: " + err.message, true) : alert("Error uploading image: " + err.message);
               }
 
               e.target.value = '';
@@ -183,8 +165,8 @@ export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabPr
           <button
             onClick={async () => {
               try {
-                const { error } = await supabase.from('about_us').upsert({ id: 1, ...aboutData }, { onConflict: 'id' });
-                if (error) throw error;
+                const { dbSaveAboutUs } = await import('../../api');
+                await dbSaveAboutUs(aboutData);
                 await idbSet('m_about_us', JSON.stringify(aboutData));
                 onAboutUpdate?.(aboutData);
                 showFlash ? showFlash("About Us page updated live!") : alert("About Us page updated live!");
@@ -192,7 +174,7 @@ export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabPr
                 console.error("About Us Save Error:", err);
                 await idbSet('m_about_us', JSON.stringify(aboutData));
                 onAboutUpdate?.(aboutData);
-                showFlash ? showFlash(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback.`, true) : alert(`Supabase error: ${err.message || "Table might be missing"}\nSaved locally as fallback. Please ensure about_us.sql is run in Supabase.`);
+                showFlash ? showFlash(`Error: ${err.message || "Failed to save"}\nSaved locally as fallback.`, true) : alert(`Error: ${err.message || "Failed to save"}\nSaved locally as fallback.`);
               }
             }}
             className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all active:scale-[0.98]"

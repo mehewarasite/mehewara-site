@@ -9,10 +9,11 @@ export async function budgetStatusRoute(request: Request, deps: AdminDeps): Prom
 }
 
 const EmergencyCommand = z.object({ reason: z.string(), durationMs: z.number() });
+type EmergencyCommand = z.infer<typeof EmergencyCommand>;
 
 export async function budgetEmergencyRoute(request: Request, deps: AdminDeps): Promise<Response> {
   requireMethod(request, "POST");
-  const body = await parseBody(request, deps.context.requestId, () => parseJson(request, EmergencyCommand));
+  const body = await parseBody<EmergencyCommand>(request, deps.context.requestId, () => parseJson(request, EmergencyCommand));
   if (!body.ok) return body.response;
   
   if (!deps.principal) return Response.json({ error: "Unauthorized" }, { status: 401 });

@@ -21,6 +21,7 @@ function setupNetworkFallback(instance: typeof api) {
   instance.interceptors.response.use(
     (response) => response,
     async (error) => {
+      // If network error (DNS unresolved, connection refused) and not already using fallback
       if (!error.response && activeBaseURL !== DEFAULT_BASE_URL && error.config && !error.config._retriedWithFallback) {
         console.warn(`Primary API ${activeBaseURL} unreachable. Retrying with fallback: ${DEFAULT_BASE_URL}`);
         activeBaseURL = DEFAULT_BASE_URL;
@@ -57,6 +58,7 @@ export function isAdmin() {
 }
 
 export async function uploadToB2(file: File, endpoint: string): Promise<string> {
+  // 1. Get upload intent
   const intentRes = await api.post(endpoint, {
     mimeType: file.type,
     byteSize: file.size
@@ -64,6 +66,7 @@ export async function uploadToB2(file: File, endpoint: string): Promise<string> 
   
   const { id, uploadUrl, uploadToken, objectKey } = intentRes.data;
 
+  // 2. Upload to B2
   await axios.put(uploadUrl, file, {
     headers: {
       'Authorization': uploadToken,
@@ -72,8 +75,9 @@ export async function uploadToB2(file: File, endpoint: string): Promise<string> 
     }
   });
 
+  // 3. Confirm upload
   await api.post(`${endpoint}/${id}/state`, { state: 'published' });
 
+  // Return the public URL
   return `${activeBaseURL}/api/v1/media/${objectKey}`;
 }
-

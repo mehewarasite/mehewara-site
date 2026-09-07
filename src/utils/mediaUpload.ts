@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+
 
 // Compress image using Canvas API
 export async function compressImage(file: File, maxWidth = 800, quality = 0.62): Promise<string> {
@@ -97,8 +97,8 @@ export async function compressImageToBlob(file: File, maxWidth = 800, quality = 
   });
 }
 
-// Upload image directly to Supabase Storage (question-images bucket)
-export async function uploadImageToSupabaseStorage(
+// Upload image directly to Cloud Storage (question-images bucket)
+export async function uploadImageToStorage(
   file: File,
   folder = 'diagrams',
   maxWidth = 800,
@@ -115,28 +115,16 @@ export async function uploadImageToSupabaseStorage(
   // Compress the image to a WebP blob with higher compression
   const blob = await compressImageToBlob(normalizedFile, maxWidth, quality);
 
-  // Generate a clean, unique file path in Supabase Storage
+  // Generate a clean, unique file path in Cloud Storage
+  const fileExt = 'webp';
   const cleanBase = file.name
-    .replace(/\.[^/.]+$/, '')
+    .replace(/\\.[^/.]+$/, '')
     .replace(/[^a-zA-Z0-9_-]/g, '_')
     .substring(0, 30);
-  const fileName = `${folder}/${Date.now()}_${cleanBase || 'img'}_${Math.random().toString(36).substring(7)}.webp`;
+  const fileName = `${folder}_${Date.now()}_${cleanBase || 'img'}.${fileExt}`;
 
-  const { error } = await supabase.storage
-    .from('question-images')
-    .upload(fileName, blob, {
-      contentType: 'image/webp',
-      upsert: true
-    });
-
-  if (error) {
-    console.error('Supabase storage upload error:', error);
-    throw new Error(`Failed to upload image to Supabase Storage: ${error.message}`);
-  }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('question-images')
-    .getPublicUrl(fileName);
+  const { uploadToB2 } = await import('../apiClient');
+  const publicUrl = await uploadToB2(new File([blob], fileName, { type: 'image/webp' }), '/admin/gallery-items');
 
   return publicUrl;
 }
@@ -147,7 +135,7 @@ export async function fileToImgHtml(file: File, className = 'mhw-q-img', folder 
   const maxWidth = isOptionImg ? 480 : 800;
   const quality = isOptionImg ? 0.58 : 0.62;
 
-  const publicUrl = await uploadImageToSupabaseStorage(file, folder, maxWidth, quality);
+  const publicUrl = await uploadImageToStorage(file, folder, maxWidth, quality);
   const alt = file.name.replace(/"/g, '&quot;');
   return `<img src="${publicUrl}" alt="${alt}" class="${className}" />`;
 }
