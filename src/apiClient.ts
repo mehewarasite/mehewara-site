@@ -8,6 +8,10 @@ if (rawBaseURL && !rawBaseURL.startsWith('http://') && !rawBaseURL.startsWith('h
 }
 let activeBaseURL = rawBaseURL.replace(/\/+$/, '');
 
+export function getActiveBaseURL(): string {
+  return activeBaseURL;
+}
+
 export const api = axios.create({
   baseURL: `${activeBaseURL}/api/v1`,
 });

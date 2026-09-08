@@ -1,5 +1,6 @@
 import { api, publicApi, isAdmin } from './apiClient';
 import type { Paper, Question, Subject, GalleryPhoto, AboutData } from './types';
+import { normalizeMediaUrl } from './utils/parseTxt';
 
 // Cache for public manifest to avoid redundant fetches
 let cachedManifest: any = null;
@@ -248,12 +249,13 @@ export async function dbLoadStudyHtml(paperId: string): Promise<string | null> {
   if (isAdmin()) {
     try {
       const res = await api.get(`/admin/study-materials?paperId=${paperId}`);
-      return res.data.items[0]?.html || null;
+      const raw = res.data.items[0]?.html;
+      return raw ? normalizeMediaUrl(raw) : null;
     } catch { return null; }
   } else {
     const manifest = await getPublicManifest();
     const sm = manifest?.studyMaterials?.find((s: any) => s.paperId === paperId);
-    return sm?.html || null;
+    return sm?.html ? normalizeMediaUrl(sm.html) : null;
   }
 }
 
@@ -290,7 +292,7 @@ export async function dbLoadAboutUs(): Promise<AboutData | null> {
       const data = res.data;
       return {
         description: data.description,
-        image_url: data.image?.url,
+        image_url: data.image?.url ? normalizeMediaUrl(data.image.url) : undefined,
         facebook_link: data.social?.facebookUrl,
         youtube_link: data.social?.youtubeUrl,
         linkedin_link: data.social?.linkedinUrl,
@@ -302,7 +304,7 @@ export async function dbLoadAboutUs(): Promise<AboutData | null> {
     if (!data) return null;
     return {
       description: data.description,
-      image_url: data.image?.url,
+      image_url: data.image?.url ? normalizeMediaUrl(data.image.url) : undefined,
       facebook_link: data.social?.facebookUrl,
       youtube_link: data.social?.youtubeUrl,
       linkedin_link: data.social?.linkedinUrl,
@@ -337,7 +339,7 @@ export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
         id: g.id,
         title: g.title?.en || '',
         description: g.description?.en || '',
-        imageHex: g.image?.url || '', // Hex acts as URL now
+        imageHex: g.image?.url ? normalizeMediaUrl(g.image.url) : '', // Hex acts as URL now
         mimeType: g.contentType || 'image/jpeg',
         sortOrder: g.sortOrder || 0,
         createdAt: g.createdAt || '',
@@ -351,7 +353,7 @@ export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
       id: g.id,
       title: g.title?.en || '',
       description: g.description?.en || '',
-      imageHex: g.image?.url || '',
+      imageHex: g.image?.url ? normalizeMediaUrl(g.image.url) : '',
       mimeType: g.contentType || 'image/jpeg',
       sortOrder: g.sortOrder || 0,
       createdAt: g.createdAt || '',
