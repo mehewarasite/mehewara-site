@@ -23,19 +23,54 @@ async function getPublicManifest() {
 
 // ─── Subjects ────────────────────────────────────────────────────────────────
 
+export function getSubjectColor(color?: string, slug?: string, name?: string, code?: string): string {
+  if (color && color.includes('from-')) return color;
+  const key = `${slug || ''} ${code || ''} ${name || ''}`.toLowerCase();
+  if (key.includes('sci')) {
+    return 'from-emerald-650 to-teal-700 bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]';
+  }
+  if (key.includes('math')) {
+    return 'from-indigo-650 to-violet-700 bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]';
+  }
+  if (key.includes('sin')) {
+    return 'from-orange-600 to-red-650 bg-red-500/10 border-red-500/30 text-orange-400 hover:bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.05)]';
+  }
+  if (key.includes('hist')) {
+    return 'from-bronze-650 to-amber-800 bg-amber-600/10 border-amber-600/30 text-amber-550 hover:bg-amber-600/20 shadow-[0_0_15px_rgba(217,119,6,0.05)]';
+  }
+  if (key.includes('civic')) {
+    return 'from-purple-650 to-fuchsia-700 bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.05)]';
+  }
+  if (key.includes('ict')) {
+    return 'from-purple-650 to-fuchsia-700 bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.05)]';
+  }
+  if (key.includes('phy')) {
+    return 'from-amber-650 to-orange-700 bg-amber-500/10 border-amber-500/30 text-amber-450 hover:bg-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.05)]';
+  }
+  if (key.includes('chem')) {
+    return 'from-cyan-650 to-blue-700 bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.05)]';
+  }
+  if (key.includes('bio')) {
+    return 'from-emerald-650 to-teal-700 bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]';
+  }
+  return 'from-blue-650 to-indigo-700 bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.05)]';
+}
+
 export async function dbLoadSubjects(): Promise<Subject[] | null> {
   if (isAdmin()) {
     try {
       const res = await api.get('/admin/subjects?limit=1000');
-      return res.data.items.map((s: any) => ({
-        id: s.id,
-        name: s.title?.en || '',
-        sinhalaName: s.title?.si || '',
-        examType: s.examType || 'al',
-        code: s.slug || '',
-        icon: s.presentation?.icon || 'BookOpen',
-        color: s.presentation?.color || 'blue'
-      }));
+      return res.data.items
+        .filter((s: any) => !s.id?.toLowerCase().startsWith('diag-probe') && !s.slug?.toLowerCase().startsWith('diag-probe'))
+        .map((s: any) => ({
+          id: s.id,
+          name: s.title?.en || '',
+          sinhalaName: s.title?.si || '',
+          examType: s.examType || 'al',
+          code: s.code || s.slug || '',
+          icon: s.presentation?.icon || 'BookOpen',
+          color: getSubjectColor(s.presentation?.color, s.slug, s.title?.en, s.code)
+        }));
     } catch (e) {
       console.error(e);
       return null;
@@ -43,15 +78,17 @@ export async function dbLoadSubjects(): Promise<Subject[] | null> {
   } else {
     const manifest = await getPublicManifest();
     if (!manifest) return [];
-    return manifest.subjects.map((s: any) => ({
-      id: s.id,
-      name: s.title?.en || '',
-      sinhalaName: s.title?.si || '',
-      examType: s.examType || 'al',
-      code: s.slug || '',
-      icon: s.presentation?.icon || 'BookOpen',
-      color: s.presentation?.color || 'blue'
-    }));
+    return manifest.subjects
+      .filter((s: any) => !s.id?.toLowerCase().startsWith('diag-probe') && !s.slug?.toLowerCase().startsWith('diag-probe'))
+      .map((s: any) => ({
+        id: s.id,
+        name: s.title?.en || '',
+        sinhalaName: s.title?.si || '',
+        examType: s.examType || 'al',
+        code: s.code || s.slug || '',
+        icon: s.presentation?.icon || 'BookOpen',
+        color: getSubjectColor(s.presentation?.color, s.slug, s.title?.en, s.code)
+      }));
   }
 }
 
