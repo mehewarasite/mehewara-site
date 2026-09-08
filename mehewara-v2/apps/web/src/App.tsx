@@ -117,6 +117,7 @@ export default function App() {
       setShowAdminPanel(false);
       alert('Session expired. Please log in again.');
     };
+    window.addEventListener('popstate', handlePopState);
     window.addEventListener('admin-logout', handleLogout);
 
     return () => {
@@ -719,7 +720,14 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 mt-[5px] mb-[5px]">
 
           <div
-            onClick={() => { setSelectedLevel(null); setSelectedSubject(null); setActivePracticePaper(null); }}
+            onClick={() => {
+              setSelectedLevel(null);
+              setSelectedSubject(null);
+              setActivePracticePaper(null);
+              setShowGallery(false);
+              setShowAboutUs(false);
+              setShowAdminPanel(false);
+            }}
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group select-none min-w-0"
           >
             <img
@@ -805,7 +813,10 @@ export default function App() {
             <div className="animate-fade-in">
               {/* Gallery back button */}
               <button
-                onClick={() => window.history.back()}
+                onClick={() => {
+                  setShowGallery(false);
+                  if (window.history.state?.layer) window.history.back();
+                }}
                 className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-emerald-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer mb-6`}
               >
                 <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -821,7 +832,10 @@ export default function App() {
               questions={questions.filter(q => q.paperId === activePracticePaper.id)}
               onSaveAttempt={handleSaveAttempt}
               savedAttempt={attempts.find(a => a.paperId === activePracticePaper.id)}
-              onClose={() => window.history.back()}
+              onClose={() => {
+                setActivePracticePaper(null);
+                if (window.history.state?.layer) window.history.back();
+              }}
               onLoadStudyMaterial={handleLoadStudyMaterial}
             />
           </React.Suspense>
@@ -966,7 +980,10 @@ export default function App() {
               <div className="space-y-4 sm:space-y-6 flex-grow animate-cinematic-reveal">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => window.history.back()}
+                    onClick={() => {
+                      setSelectedLevel(null);
+                      if (window.history.state?.layer) window.history.back();
+                    }}
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -1030,7 +1047,10 @@ export default function App() {
               <div className="space-y-4 sm:space-y-6 flex-grow animate-cinematic-reveal">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => window.history.back()}
+                    onClick={() => {
+                      setSelectedSubject(null);
+                      if (window.history.state?.layer) window.history.back();
+                    }}
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -1216,7 +1236,10 @@ export default function App() {
       {showAboutUs && (
         <AboutUsModal
           data={aboutData || { description: "Welcome to Mehewara!" }}
-          onClose={() => window.history.back()}
+          onClose={() => {
+            setShowAboutUs(false);
+            if (window.history.state?.layer) window.history.back();
+          }}
         />
       )}
 
@@ -1243,7 +1266,10 @@ export default function App() {
             onSync={syncFromApi}
             isSyncing={isSyncing}
             onAboutUpdate={setAboutData}
-            onClose={() => window.history.back()}
+            onClose={() => {
+              setShowAdminPanel(false);
+              if (window.history.state?.layer) window.history.back();
+            }}
             activeUsersCount={activeUsersCount}
           />
         </React.Suspense>
