@@ -19,7 +19,11 @@ export function cors(request: Request, env: Env): Headers {
   const origin = request.headers.get("Origin");
   const allowed = env.ALLOWED_ORIGINS.split(",").map((item) => item.trim()).filter(Boolean);
   const headers = new Headers({ "Vary": "Origin" });
-  if (origin && allowed.includes(origin)) {
+  const isAllowed = origin && (
+    allowed.includes(origin) ||
+    /^https:\/\/([a-zA-Z0-9-]+\.)?(mehewara-site|mehewara)\.pages\.dev$/.test(origin)
+  );
+  if (origin && isAllowed) {
     headers.set("Access-Control-Allow-Origin", origin);
     // Exact echoed origin (never `*`), so credentialed admin requests are
     // safe: the browser only exposes the response to the allow-listed origin.
