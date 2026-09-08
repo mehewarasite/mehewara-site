@@ -1,7 +1,17 @@
 import katex from 'katex';
+import { getActiveBaseURL } from '../apiClient';
+
+export function normalizeMediaUrl(content: string): string {
+  if (!content) return content;
+  const baseUrl = getActiveBaseURL();
+  return content
+    .replace(/https?:\/\/api\.mehewara\.edu\.lk\/api\/v1\/media\//g, `${baseUrl}/api/v1/media/`)
+    .replace(/(["'(=,\s]|^)\/api\/v1\/media\//g, `$1${baseUrl}/api/v1/media/`);
+}
 
 export function renderMathInHtml(text: string): string {
   if (!text) return text;
+  text = normalizeMediaUrl(text);
   return text.replace(/\$(.*?)\$/g, (match, latex) => {
     try {
       const rendered = katex.renderToString(latex.trim(), { throwOnError: false, displayMode: false });

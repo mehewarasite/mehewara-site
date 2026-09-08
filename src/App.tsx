@@ -42,7 +42,7 @@ import {
   dbLoadSubjects, dbSaveSubjects, dbDeleteSubject,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
   dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
-  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery
+  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery, getSubjectColor
 } from './api';
 
 import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
@@ -109,6 +109,7 @@ export default function App() {
       setShowAdminPanel(false);
       alert('Session expired. Please log in again.');
     };
+    window.addEventListener('popstate', handlePopState);
     window.addEventListener('admin-logout', handleLogout);
 
     return () => {
@@ -201,24 +202,32 @@ export default function App() {
     }
   };
 
+  const isDummyOrProbeSubject = (s: Subject) => {
+    const dummyIds = new Set([
+      'ol-science', 'ol-maths', 'ol-sinhala', 'ol-history', 'ol-civic',
+      'al-physics', 'al-chemistry', 'al-biology', 'al-ict', 'al-combined-maths'
+    ]);
+    const idLower = (s.id || '').toLowerCase();
+    const codeLower = (s.code || '').toLowerCase();
+    const slugLower = ((s as any).slug || '').toLowerCase();
+    return dummyIds.has(idLower) || idLower.startsWith('diag-probe') || codeLower.startsWith('diag-probe') || slugLower.startsWith('diag-probe');
+  };
+
   const loadFromLocal = async () => {
     try {
       const storedSubjects = await idbGet('m_subjects');
       if (storedSubjects) {
-        let parsedSubjects = JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths');
-
-        // Merge any new subjects from INITIAL_SUBJECTS that aren't in local storage
-        const existingIds = new Set(parsedSubjects.map((s: Subject) => s.id));
-        const missingSubjects = INITIAL_SUBJECTS.filter(s => !existingIds.has(s.id));
-
-        if (missingSubjects.length > 0) {
-          parsedSubjects = [...parsedSubjects, ...missingSubjects];
-          idbSet('m_subjects', JSON.stringify(parsedSubjects));
-        }
+        let parsedSubjects = JSON.parse(storedSubjects)
+          .filter((s: Subject) => !isDummyOrProbeSubject(s))
+          .map((s: Subject) => ({
+            ...s,
+            color: getSubjectColor(s.color, (s as any).slug, s.name, s.code)
+          }));
 
         setSubjects(parsedSubjects);
+        idbSet('m_subjects', JSON.stringify(parsedSubjects));
       } else {
-        setSubjects(INITIAL_SUBJECTS);
+        setSubjects([]);
       }
 
       const storedPapers = await idbGet('m_papers');
@@ -264,15 +273,15 @@ export default function App() {
       }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
-        let filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
+        let filtered = remoteSubjects
+          .filter((s: Subject) => !isDummyOrProbeSubject(s))
+          .map((s: Subject) => ({
+            ...s,
+            color: getSubjectColor(s.color, (s as any).slug, s.name, s.code)
+          }));
 
-        // Merge any new subjects from INITIAL_SUBJECTS that aren't in API
-        // In v2, we don't auto-seed from the client to prevent unauthorized admin calls.
         setSubjects(filtered);
         idbSet('m_subjects', JSON.stringify(filtered));
-      } else if (INITIAL_SUBJECTS.length > 0) {
-        // We only use remote subjects in v2.
-        // setSubjects(INITIAL_SUBJECTS);
       }
 
       if (remotePapers && remotePapers.length > 0) {
@@ -684,7 +693,14 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 mt-[5px] mb-[5px]">
 
           <div
-            onClick={() => { setSelectedLevel(null); setSelectedSubject(null); setActivePracticePaper(null); }}
+            onClick={() => {
+              setSelectedLevel(null);
+              setSelectedSubject(null);
+              setActivePracticePaper(null);
+              setShowGallery(false);
+              setShowAboutUs(false);
+              setShowAdminPanel(false);
+            }}
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group select-none min-w-0"
           >
             <img
@@ -770,7 +786,10 @@ export default function App() {
             <div className="animate-fade-in">
               {/* Gallery back button */}
               <button
-                onClick={() => window.history.back()}
+                onClick={() => {
+                  setShowGallery(false);
+                  if (window.history.state?.layer) window.history.back();
+                }}
                 className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-emerald-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer mb-6`}
               >
                 <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -786,7 +805,10 @@ export default function App() {
               questions={questions.filter(q => q.paperId === activePracticePaper.id)}
               onSaveAttempt={handleSaveAttempt}
               savedAttempt={attempts.find(a => a.paperId === activePracticePaper.id)}
-              onClose={() => window.history.back()}
+              onClose={() => {
+                setActivePracticePaper(null);
+                if (window.history.state?.layer) window.history.back();
+              }}
               onLoadStudyMaterial={handleLoadStudyMaterial}
             />
           </React.Suspense>
@@ -931,7 +953,10 @@ export default function App() {
               <div className="space-y-4 sm:space-y-6 flex-grow animate-cinematic-reveal">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => window.history.back()}
+                    onClick={() => {
+                      setSelectedLevel(null);
+                      if (window.history.state?.layer) window.history.back();
+                    }}
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -965,7 +990,7 @@ export default function App() {
                           <button
                             key={sub.id}
                             onClick={() => handleSetSubject(sub)}
-                            className={`group relative p-4 sm:p-6 text-left border rounded-2xl transition-all duration-300 cursor-pointer select-none active:scale-[0.99] bg-gradient-to-br ${sub.color}`}
+                            className={`group relative p-4 sm:p-6 text-left border rounded-2xl transition-all duration-300 cursor-pointer select-none active:scale-[0.99] bg-gradient-to-br ${getSubjectColor(sub.color, (sub as any).slug, sub.name, sub.code)}`}
                           >
                             <div className="flex justify-between items-start mb-6">
                               <div className="p-3 bg-slate-950/40 rounded-xl">
@@ -995,7 +1020,10 @@ export default function App() {
               <div className="space-y-4 sm:space-y-6 flex-grow animate-cinematic-reveal">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => window.history.back()}
+                    onClick={() => {
+                      setSelectedSubject(null);
+                      if (window.history.state?.layer) window.history.back();
+                    }}
                     className={`flex items-center gap-1.5 text-xs ${textMuted} hover:text-sky-400 transition-colors py-2 px-3 min-h-[44px] ${backBtn} rounded-lg cursor-pointer`}
                   >
                     <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
@@ -1181,7 +1209,10 @@ export default function App() {
       {showAboutUs && (
         <AboutUsModal
           data={aboutData || { description: "Welcome to Mehewara!" }}
-          onClose={() => window.history.back()}
+          onClose={() => {
+            setShowAboutUs(false);
+            if (window.history.state?.layer) window.history.back();
+          }}
         />
       )}
 
@@ -1208,7 +1239,10 @@ export default function App() {
             onSync={syncFromApi}
             isSyncing={isSyncing}
             onAboutUpdate={setAboutData}
-            onClose={() => window.history.back()}
+            onClose={() => {
+              setShowAdminPanel(false);
+              if (window.history.state?.layer) window.history.back();
+            }}
             activeUsersCount={activeUsersCount}
           />
         </React.Suspense>

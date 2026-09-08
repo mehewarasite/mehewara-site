@@ -29,9 +29,14 @@ function resolveB2(env: Env): B2Client {
 }
 
 function withRequestHeaders(response: Response, corsHeaders: Headers, requestIdValue: string): Response {
-  for (const [key, value] of corsHeaders) response.headers.set(key, value);
-  response.headers.set("X-Request-ID", requestIdValue);
-  return securityHeaders(response);
+  const headers = new Headers(response.headers);
+  for (const [key, value] of corsHeaders) headers.set(key, value);
+  headers.set("X-Request-ID", requestIdValue);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Referrer-Policy", "no-referrer");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 export default {
