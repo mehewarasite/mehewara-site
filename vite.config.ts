@@ -70,7 +70,7 @@ export default defineConfig(({ mode }) => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
         '/api/v1': {
-          target: env.VITE_API_BASE_URL || 'https://api.mehewara.edu.lk',
+          target: env.VITE_PROXY_TARGET || 'https://mehewara-v2-api-production.mehewara-site.workers.dev',
           changeOrigin: true,
           secure: true,
           headers: {
