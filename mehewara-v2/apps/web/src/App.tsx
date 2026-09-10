@@ -16,7 +16,6 @@ import {
   GraduationCap,
   Sun,
   Moon,
-  Settings,
   Banknote,
   Map,
   Landmark,
@@ -35,6 +34,7 @@ import HeroSlideshow from './components/HeroSlideshow';
 import SiteEntryGate from './components/SiteEntryGate';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
+const AdminLogin = React.lazy(() => import('./components/AdminLogin'));
 const PracticeSession = React.lazy(() => import('./components/PracticeSession'));
 const PrivacyPolicyPage = React.lazy(() => import('./components/PrivacyPolicyPage'));
 const GalleryPage = React.lazy(() => import('./components/GalleryPage'));
@@ -53,22 +53,31 @@ const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
   Banknote, Map, Landmark
 };
 
+const isAdminPath = (pathname: string = typeof window !== 'undefined' ? window.location.pathname : '') => {
+  const clean = pathname.toLowerCase().replace(/\/+$/, '');
+  return clean === '/admin';
+};
+
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const { language, toggleLanguage } = useLanguage();
   const isEn = language === 'en';
 
+  const isDirectAdminUrl = typeof window !== 'undefined' && isAdminPath(window.location.pathname);
+  const hasAdminToken = typeof window !== 'undefined' && !!localStorage.getItem('adminToken');
+
   const [isHumanVerified, setIsHumanVerified] = useState<boolean>(() => {
     try {
+      if (hasAdminToken) return true;
       return sessionStorage.getItem('mhw_human_verified') === 'true';
     } catch {
       return false;
     }
   });
 
-  const [hasBooted, setHasBooted] = useState<boolean>(false);
-  const [showBootOverlay, setShowBootOverlay] = useState<boolean>(true);
+  const [hasBooted, setHasBooted] = useState<boolean>(() => isDirectAdminUrl);
+  const [showBootOverlay, setShowBootOverlay] = useState<boolean>(() => !isDirectAdminUrl);
   const [heroOpacity, setHeroOpacity] = useState<number>(1);
   const heroRef = useRef<HTMLDivElement>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -80,7 +89,8 @@ export default function App() {
   const [selectedLevel, setSelectedLevel] = useState<'ol' | 'al' | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [activePracticePaper, setActivePracticePaper] = useState<Paper | null>(null);
-  const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
+  const [showAdminPanel, setShowAdminPanel] = useState<boolean>(() => isDirectAdminUrl && hasAdminToken);
+  const [showAdminLogin, setShowAdminLogin] = useState<boolean>(() => isDirectAdminUrl && !hasAdminToken);
   const [showAboutUs, setShowAboutUs] = useState<boolean>(false);
   const [showGallery, setShowGallery] = useState<boolean>(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
@@ -88,15 +98,44 @@ export default function App() {
   const [aboutData, setAboutData] = useState<any>(null);
   const [activeUsersCount] = useState<number>(1);
 
-  // Handle Browser/Android hardware back button
+  const fetchAdminQuestions = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const { dbLoadQuestions } = await import('./api');
+      const allQuestions = await dbLoadQuestions();
+      if (allQuestions) {
+        setQuestions(allQuestions);
+        idbSet('m_questions', JSON.stringify(allQuestions));
+      }
+    } catch (e) {
+      console.error('Failed to load admin questions:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Handle Browser/Android hardware back button and routing
   useEffect(() => {
     const handlePopState = () => {
+      const onAdmin = isAdminPath();
+      if (!onAdmin) {
+        setShowAdminPanel(false);
+        setShowAdminLogin(false);
+      } else {
+        if (localStorage.getItem('adminToken')) {
+          setShowAdminPanel(true);
+          setShowAdminLogin(false);
+          fetchAdminQuestions();
+        } else {
+          setShowAdminLogin(true);
+          setShowAdminPanel(false);
+        }
+      }
+
       if (showGallery) {
         setShowGallery(false);
       } else if (showAboutUs) {
         setShowAboutUs(false);
-      } else if (showAdminPanel) {
-        setShowAdminPanel(false);
       } else if (activePracticePaper) {
         setActivePracticePaper(null);
       } else if (selectedSubject) {
@@ -107,15 +146,19 @@ export default function App() {
     };
     const handleLogout = () => {
       setShowAdminPanel(false);
+      if (isAdminPath()) {
+        setShowAdminLogin(true);
+      }
       alert('Session expired. Please log in again.');
     };
     window.addEventListener('admin-logout', handleLogout);
+    window.addEventListener('popstate', handlePopState);
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('admin-logout', handleLogout);
     };
-  }, [showGallery, showAboutUs, showAdminPanel, activePracticePaper, selectedSubject, selectedLevel]);
+  }, [showGallery, showAboutUs, showAdminPanel, showAdminLogin, activePracticePaper, selectedSubject, selectedLevel, fetchAdminQuestions]);
 
   const handleSetLevel = (level: 'ol' | 'al') => {
     window.history.pushState({ layer: true }, '', '');
@@ -146,44 +189,32 @@ export default function App() {
 
     setActivePracticePaper(paper);
   };
-  const handleOpenAdminPanel = async () => {
-    const { isAdmin, api } = await import('./apiClient');
-    if (!isAdmin()) {
-      const username = prompt('Enter Admin Username (e.g. admin):');
-      if (!username) return;
-      const password = prompt('Enter Admin Password:');
-      if (!password) return;
 
-      try {
-        const res = await api.post('/admin/login', { username, password });
-        localStorage.setItem('adminToken', res.data.token);
-      } catch (e) {
-        alert('Invalid credentials');
-        return;
-      }
-    }
-
-    window.history.pushState({ layer: true }, '', '');
+  const handleAdminLoginSuccess = () => {
+    setShowAdminLogin(false);
     setShowAdminPanel(true);
-    // Reload subjects, papers, gallery, about us since admin sees drafts
+    setIsHumanVerified(true);
+    sessionStorage.setItem('mhw_human_verified', 'true');
     syncFromApi();
+    fetchAdminQuestions();
+  };
 
-    const fetchQuestions = async () => {
-      setIsSyncing(true);
-      try {
-        const { dbLoadQuestions } = await import('./api');
-        const allQuestions = await dbLoadQuestions();
-        if (allQuestions) {
-          setQuestions(allQuestions);
-          idbSet('m_questions', JSON.stringify(allQuestions));
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsSyncing(false);
-      }
-    };
-    fetchQuestions();
+  const handleCancelAdminLogin = () => {
+    setShowAdminLogin(false);
+    setShowAdminPanel(false);
+    if (isAdminPath()) {
+      window.history.pushState(null, '', '/');
+    }
+  };
+
+  const handleCloseAdminPanel = () => {
+    setShowAdminPanel(false);
+    setShowAdminLogin(false);
+    if (isAdminPath()) {
+      window.history.pushState(null, '', '/');
+    } else {
+      window.history.back();
+    }
   };
   const handleOpenAboutUs = () => {
     window.history.pushState({ layer: true }, '', '');
@@ -306,6 +337,9 @@ export default function App() {
 
       // Sync from API in background
       syncFromApi();
+      if (isDirectAdminUrl && hasAdminToken) {
+        fetchAdminQuestions();
+      }
     };
     init();
   }, []);
@@ -656,8 +690,6 @@ export default function App() {
   const cardBdr = isDark ? 'border-white/5' : 'border-white/40';
   const surfaceBg = isDark ? 'bg-slate-950/40 backdrop-blur-lg' : 'bg-white/50 backdrop-blur-lg shadow-sm';
   const surfaceBdr = isDark ? 'border-white/5' : 'border-white/40';
-  const btnText = isDark ? 'text-slate-300' : 'text-slate-600';
-  const btnHover = isDark ? 'hover:text-white' : 'hover:text-slate-900';
   const textPrimary = isDark ? 'text-white' : 'text-slate-900';
   const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
   const textFaint = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -736,6 +768,7 @@ export default function App() {
               </button>
             )}
 
+            {/* GALLERY BUTTON */}
             <button
               onClick={handleOpenGallery}
               id="gallery-nav-btn"
@@ -744,15 +777,6 @@ export default function App() {
             >
               <Images className="w-4 h-4 text-emerald-400" />
               <span className="hidden sm:inline">Gallery</span>
-            </button>
-
-            <button
-              onClick={handleOpenAdminPanel}
-              aria-label="Admin panel"
-              className={`flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] sm:min-w-0 px-3 sm:px-3.5 py-2 ${surfaceBg} ${cardHover} border ${surfaceBdr} hover:border-slate-700/80 dark:hover:border-slate-700/80 text-xs font-semibold ${btnText} ${btnHover} rounded-xl transition-all shadow-sm cursor-pointer select-none`}
-            >
-              <Settings className="w-4 h-4 text-sky-400 animate-spin-slow" />
-              <span className="hidden sm:inline">Admin</span>
             </button>
           </div>
 
@@ -1208,8 +1232,18 @@ export default function App() {
             onSync={syncFromApi}
             isSyncing={isSyncing}
             onAboutUpdate={setAboutData}
-            onClose={() => window.history.back()}
+            onClose={handleCloseAdminPanel}
             activeUsersCount={activeUsersCount}
+          />
+        </React.Suspense>
+      )}
+
+      {/* OVERLAY: ADMIN LOGIN GATEWAY */}
+      {showAdminLogin && (
+        <React.Suspense fallback={<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"><div className="w-8 h-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin"></div></div>}>
+          <AdminLogin
+            onLoginSuccess={handleAdminLoginSuccess}
+            onCancel={handleCancelAdminLogin}
           />
         </React.Suspense>
       )}
@@ -1218,7 +1252,7 @@ export default function App() {
       {showBootOverlay && <BootLoader onBootComplete={handleBootComplete} />}
 
       {/* SITE ENTRY GATE — requires Turnstile verification for all visitors */}
-      {!isHumanVerified && (
+      {!isHumanVerified && !showAdminPanel && !showAdminLogin && !isAdminPath() && (
         <SiteEntryGate
           isDark={isDark}
           isEn={isEn}

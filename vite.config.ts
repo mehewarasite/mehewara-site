@@ -65,8 +65,19 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      port: 3000,
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/api/v1': {
+          target: env.VITE_API_BASE_URL || 'https://api.mehewara.edu.lk',
+          changeOrigin: true,
+          secure: true,
+          headers: {
+            Origin: 'http://localhost:5173',
+          },
+        },
+      },
     },
     build: {
       chunkSizeWarningLimit: 1000

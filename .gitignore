@@ -15,3 +15,6 @@ scratch/
 
 # Local backups
 backup/
+
+# Cloudflare Wrangler cache
+.wrangler/

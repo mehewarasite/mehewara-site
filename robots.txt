@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin
 
 Sitemap: https://mehewara.edu.lk/sitemap.xml
 Host: https://mehewara.edu.lk
