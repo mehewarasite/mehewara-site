@@ -29,6 +29,7 @@ interface PapersTabProps {
   setTargetPaperId: (paperId: string) => void;
   setQNumber: (num: number) => void;
   showFlash: (message: string, isError?: boolean) => void;
+  onEnsureQuestionsLoaded?: (paperId: string, force?: boolean) => Promise<void>;
 }
 
 export default function PapersTab({
@@ -43,7 +44,8 @@ export default function PapersTab({
   setActiveTab,
   setTargetPaperId,
   setQNumber,
-  showFlash
+  showFlash,
+  onEnsureQuestionsLoaded,
 }: PapersTabProps) {
   const { isDark, cardBg, cardBdr, inputBg, inputBdr, textPrimary, textMuted, textFaint, subtleBg } = theme;
 
@@ -667,8 +669,10 @@ export default function PapersTab({
                           <button
                             onClick={() => {
                               setTargetPaperId(p.id);
-                              const nextNum = questions.filter(q => q.paperId === p.id).length + 1;
-                              setQNumber(nextNum);
+                              onEnsureQuestionsLoaded?.(p.id);
+                              const existingQs = questions.filter(q => q.paperId === p.id);
+                              const maxNum = existingQs.reduce((max, q) => Math.max(max, q.qNumber), 0);
+                              setQNumber(maxNum > 0 ? maxNum + 1 : (p.questionCount ? p.questionCount + 1 : 1));
                               setActiveTab('add-question');
                             }}
                             className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/30 text-sky-450 hover:text-sky-400 rounded-lg text-xs font-semibold cursor-pointer transition-colors"

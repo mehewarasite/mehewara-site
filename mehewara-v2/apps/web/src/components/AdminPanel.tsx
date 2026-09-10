@@ -60,6 +60,8 @@ interface AdminPanelProps {
   onImportData: (file: File) => void;
   onSync?: () => void;
   isSyncing?: boolean;
+  onEnsureQuestionsLoaded?: (paperId: string, force?: boolean) => Promise<void>;
+  loadingPaperQuestionsId?: string | null;
   onAboutUpdate?: (data: any) => void;
   onClose: () => void;
   activeUsersCount?: number;
@@ -83,6 +85,8 @@ export default function AdminPanel({
   onImportData,
   onSync,
   isSyncing,
+  onEnsureQuestionsLoaded,
+  loadingPaperQuestionsId,
   onAboutUpdate,
   onClose,
   activeUsersCount = 1
@@ -170,9 +174,14 @@ export default function AdminPanel({
 
           {onSync && (
             <button
-              onClick={onSync}
+              onClick={async () => {
+                onSync();
+                if (targetPaperId && onEnsureQuestionsLoaded) {
+                  await onEnsureQuestionsLoaded(targetPaperId, true);
+                }
+              }}
               disabled={isSyncing}
-              className={`flex items-center gap-2 px-4 py-2 ${isDark ? 'bg-slate-900 hover:bg-slate-800 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} rounded-xl font-bold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex items-center gap-2 px-4 py-2 ${isDark ? 'bg-slate-900 hover:bg-slate-800 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} rounded-xl font-bold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
             >
               <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
@@ -338,6 +347,7 @@ export default function AdminPanel({
                 setTargetPaperId={setTargetPaperId}
                 setQNumber={setQNumber}
                 showFlash={showFlash}
+                onEnsureQuestionsLoaded={onEnsureQuestionsLoaded}
               />
             )}
 
@@ -354,6 +364,8 @@ export default function AdminPanel({
                 setTargetPaperId={setTargetPaperId}
                 qNumber={qNumber}
                 setQNumber={setQNumber}
+                onEnsureQuestionsLoaded={onEnsureQuestionsLoaded}
+                loadingPaperQuestionsId={loadingPaperQuestionsId}
               />
             )}
 
@@ -365,6 +377,8 @@ export default function AdminPanel({
                 questions={questions}
                 onUpdateQuestion={onUpdateQuestion}
                 showFlash={showFlash}
+                onEnsureQuestionsLoaded={onEnsureQuestionsLoaded}
+                loadingPaperQuestionsId={loadingPaperQuestionsId}
               />
             )}
 
@@ -376,6 +390,8 @@ export default function AdminPanel({
                 questions={questions}
                 onDeleteQuestion={onDeleteQuestion}
                 showFlash={showFlash}
+                onEnsureQuestionsLoaded={onEnsureQuestionsLoaded}
+                loadingPaperQuestionsId={loadingPaperQuestionsId}
               />
             )}
 

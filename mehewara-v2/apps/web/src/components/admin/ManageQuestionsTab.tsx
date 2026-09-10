@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
 import { renderMathInHtml } from '../../utils/parseTxt';
 import type { AdminThemeClasses } from './types';
@@ -10,14 +11,25 @@ interface ManageQuestionsTabProps {
   questions: Question[];
   onDeleteQuestion: (questionId: string) => void;
   showFlash: (message: string, isError?: boolean) => void;
+  onEnsureQuestionsLoaded?: (paperId: string, force?: boolean) => Promise<void>;
+  loadingPaperQuestionsId?: string | null;
 }
 
-export default function ManageQuestionsTab({ theme, subjects, papers, questions, onDeleteQuestion, showFlash }: ManageQuestionsTabProps) {
+export default function ManageQuestionsTab({
+  theme, subjects, papers, questions, onDeleteQuestion, showFlash,
+  onEnsureQuestionsLoaded, loadingPaperQuestionsId
+}: ManageQuestionsTabProps) {
   const { isDark, cardBg, cardBdr, inputBg, inputBdr, textPrimary, textMuted, dividerBdr, subtleBg, subtleBdr } = theme;
 
   const [filterSubjectId, setFilterSubjectId] = useState<string>('');
   const [filterLanguage, setFilterLanguage] = useState<'all' | 'si' | 'en'>('all');
   const [targetPaperId, setTargetPaperId] = useState<string>(papers[0]?.id || '');
+
+  useEffect(() => {
+    if (targetPaperId && onEnsureQuestionsLoaded) {
+      onEnsureQuestionsLoaded(targetPaperId);
+    }
+  }, [targetPaperId, onEnsureQuestionsLoaded]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -90,13 +102,43 @@ export default function ManageQuestionsTab({ theme, subjects, papers, questions,
                   <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year}) {p.language === 'en' ? '[EN]' : '[SI]'}</option>
                 ))}
               </select>
+              {targetPaperId && (
+                <button
+                  type="button"
+                  onClick={() => onEnsureQuestionsLoaded?.(targetPaperId, true)}
+                  disabled={loadingPaperQuestionsId === targetPaperId}
+                  className={`p-1.5 rounded-lg border ${inputBdr} ${inputBg} hover:border-red-500 text-red-400 text-xs flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50`}
+                  title="Sync paper questions from database"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingPaperQuestionsId === targetPaperId ? 'animate-spin' : ''}`} />
+                  <span className="hidden xl:inline text-[10px]">
+                    {loadingPaperQuestionsId === targetPaperId ? 'Syncing...' : 'Sync'}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
-          {questions.filter(q => q.paperId === targetPaperId).length === 0 ? (
-            <p className={`text-sm ${textMuted} text-center py-8`}>මෙම ප්‍රශ්න පත්‍රයේ ප්‍රශ්න නොමැත. (No questions found in this paper.)</p>
+          {loadingPaperQuestionsId === targetPaperId ? (
+            <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+              <div className="w-8 h-8 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin"></div>
+              <p className={`text-xs ${textMuted}`}>ප්‍රශ්න පූරණය වෙමින් පවතී... (Loading questions from database...)</p>
+            </div>
+          ) : questions.filter(q => q.paperId === targetPaperId).length === 0 ? (
+            <div className="text-center py-8 space-y-3">
+              <p className={`text-sm ${textMuted}`}>මෙම ප්‍රශ්න පත්‍රයේ ප්‍රශ්න නොමැත. (No questions found in this paper.)</p>
+              {targetPaperId && (
+                <button
+                  type="button"
+                  onClick={() => onEnsureQuestionsLoaded?.(targetPaperId, true)}
+                  className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-xs font-semibold cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> නැවත පූරණය කරන්න (Reload Questions)
+                </button>
+              )}
+            </div>
           ) : (
             questions
               .filter(q => q.paperId === targetPaperId)

@@ -25,8 +25,16 @@ async function getPublicManifest() {
 export async function dbLoadSubjects(): Promise<Subject[] | null> {
   if (isAdmin()) {
     try {
-      const res = await api.get('/admin/subjects?limit=1000');
-      return res.data.items.map((s: any) => ({
+      let allItems: any[] = [];
+      let cursor: string | null = null;
+      do {
+        const url = `/admin/subjects?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+        const res = await api.get(url);
+        allItems = allItems.concat(res.data.items || []);
+        cursor = res.data.nextCursor || null;
+      } while (cursor);
+
+      return allItems.map((s: any) => ({
         id: s.id,
         name: s.title?.en || '',
         sinhalaName: s.title?.si || '',
@@ -36,7 +44,7 @@ export async function dbLoadSubjects(): Promise<Subject[] | null> {
         color: s.presentation?.color || 'blue'
       }));
     } catch (e) {
-      console.error(e);
+      console.error('Failed to load admin subjects:', e);
       return null;
     }
   } else {
@@ -57,7 +65,7 @@ export async function dbLoadSubjects(): Promise<Subject[] | null> {
 export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
   for (const s of subjects) {
     const payload = {
-      slug: s.code || s.name.toLowerCase().replace(/\\s+/g, '-'),
+      slug: s.code || s.name.toLowerCase().replace(/\s+/g, '-'),
       title: { en: s.name, si: s.sinhalaName },
       examType: s.examType || 'al',
       presentation: { icon: s.icon || 'BookOpen', color: s.color || 'blue', variant: 'solid' },
@@ -78,6 +86,7 @@ export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
 }
 
 export async function dbDeleteSubject(subjectId: string): Promise<void> {
+  await api.post(`/admin/subjects/${subjectId}/state`, { state: 'archived' }).catch(() => {});
   await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
 }
 
@@ -86,8 +95,16 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
 export async function dbLoadPapers(): Promise<Paper[] | null> {
   if (isAdmin()) {
     try {
-      const res = await api.get('/admin/papers?limit=1000');
-      return res.data.items.map((p: any) => ({
+      let allItems: any[] = [];
+      let cursor: string | null = null;
+      do {
+        const url = `/admin/papers?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+        const res = await api.get(url);
+        allItems = allItems.concat(res.data.items || []);
+        cursor = res.data.nextCursor || null;
+      } while (cursor);
+
+      return allItems.map((p: any) => ({
         id: p.id,
         subjectId: p.subjectId,
         examType: p.examType || 'al',
@@ -99,7 +116,7 @@ export async function dbLoadPapers(): Promise<Paper[] | null> {
         language: p.language || 'si'
       }));
     } catch (e) {
-      console.error(e);
+      console.error('Failed to load admin papers:', e);
       return null;
     }
   } else {
@@ -122,7 +139,7 @@ export async function dbLoadPapers(): Promise<Paper[] | null> {
 export async function dbSavePaper(paper: Paper): Promise<void> {
   const payload = {
     subjectId: paper.subjectId,
-    slug: paper.title.toLowerCase().replace(/\\s+/g, '-'),
+    slug: paper.title.toLowerCase().replace(/\s+/g, '-'),
     title: { en: paper.title, si: paper.sinhalaTitle },
     examType: paper.examType,
     year: paper.year,
@@ -141,21 +158,50 @@ export async function dbSavePaper(paper: Paper): Promise<void> {
 }
 
 export async function dbDeletePaper(paperId: string): Promise<void> {
+  await api.post(`/admin/papers/${paperId}/state`, { state: 'archived' }).catch(() => {});
   await api.delete(`/admin/papers/${paperId}`).catch(console.error);
 }
 
 // ─── Questions ───────────────────────────────────────────────────────────────
 
 export async function dbLoadQuestions(): Promise<Question[] | null> {
-  // Not heavily used directly except for global caching, which we don't need in v2
-  return [];
+  const manifest = await getPublicManifest();
+  if (!manifest || !manifest.questions) return [];
+  return manifest.questions.map((q: any) => {
+    let correctIdx = 0;
+    let correctArr: number[] = [];
+    const opts = (q.options || []).map((o: any, idx: number) => {
+      if (o.isCorrect) { correctIdx = idx; correctArr.push(idx); }
+      return o.html;
+    });
+    return {
+      id: q.id,
+      paperId: q.paperId,
+      qNumber: q.number,
+      questionHtml: q.questionHtml,
+      optionsHtml: opts as any,
+      correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
+      correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
+      isAllCorrect: q.isAllCorrect || false,
+      explanationHtml: q.explanationHtml || '',
+      updatedAt: q.updatedAt
+    };
+  });
 }
 
 export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question[] | null> {
   if (isAdmin()) {
     try {
-      const res = await api.get(`/admin/questions?paperId=${paperId}&limit=500`);
-      return res.data.items.map((q: any) => {
+      let allItems: any[] = [];
+      let cursor: string | null = null;
+      do {
+        const url = `/admin/questions?paperId=${paperId}&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+        const res = await api.get(url);
+        allItems = allItems.concat(res.data.items || []);
+        cursor = res.data.nextCursor || null;
+      } while (cursor);
+
+      return allItems.map((q: any) => {
         let correctIdx = 0;
         let correctArr: number[] = [];
         const opts = (q.options || []).map((o: any, idx: number) => {
@@ -167,16 +213,39 @@ export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question
           paperId: q.paperId,
           qNumber: q.number,
           questionHtml: q.questionHtml,
-          optionsHtml: opts,
-          correctOption: correctIdx,
+          optionsHtml: opts as any,
+          correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
           correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
-          isAllCorrect: q.contentSafety?.isAllCorrect || false,
-          explanationHtml: q.explanationHtml || ''
+          isAllCorrect: q.isAllCorrect ?? q.contentSafety?.isAllCorrect ?? false,
+          explanationHtml: q.explanationHtml || '',
+          updatedAt: q.updatedAt,
+          rawOptions: q.options
         };
       });
     } catch (e) {
-      console.error(e);
-      return [];
+      console.error('Failed to load questions for paper from admin API:', paperId, e);
+      const manifest = await getPublicManifest();
+      if (!manifest) return [];
+      return manifest.questions.filter((q: any) => q.paperId === paperId).map((q: any) => {
+        let correctIdx = 0;
+        let correctArr: number[] = [];
+        const opts = (q.options || []).map((o: any, idx: number) => {
+          if (o.isCorrect) { correctIdx = idx; correctArr.push(idx); }
+          return o.html;
+        });
+        return {
+          id: q.id,
+          paperId: q.paperId,
+          qNumber: q.number,
+          questionHtml: q.questionHtml,
+          optionsHtml: opts as any,
+          correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
+          correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
+          isAllCorrect: q.isAllCorrect || false,
+          explanationHtml: q.explanationHtml || '',
+          updatedAt: q.updatedAt
+        };
+      });
     }
   } else {
     const manifest = await getPublicManifest();
@@ -193,35 +262,86 @@ export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question
         paperId: q.paperId,
         qNumber: q.number,
         questionHtml: q.questionHtml,
-        optionsHtml: opts,
-        correctOption: correctIdx,
+        optionsHtml: opts as any,
+        correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
         correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
         isAllCorrect: q.isAllCorrect || false,
-        explanationHtml: q.explanationHtml || ''
+        explanationHtml: q.explanationHtml || '',
+        updatedAt: q.updatedAt
       };
     });
   }
 }
 
 export async function dbSaveQuestion(question: Question): Promise<void> {
-  const payload = {
-    paperId: question.paperId,
-    number: question.qNumber,
-    questionHtml: question.questionHtml,
-    explanationHtml: question.explanationHtml || '',
-    options: question.optionsHtml.map((html, idx) => ({
-      html,
-      isCorrect: question.correctOptions ? question.correctOptions.includes(idx) : idx === question.correctOption
-    }))
-  };
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const qId = isUuid.test(question.id) ? question.id : crypto.randomUUID();
+  question.id = qId;
+
+  let existingQ: any = null;
   try {
-    await api.patch(`/admin/questions/${question.id}`, payload);
-  } catch (e: any) {
-    if (e.response?.status === 404) {
-      await api.post('/admin/questions', { id: question.id, ...payload });
-    }
+    const checkRes = await api.get(`/admin/questions/${qId}`);
+    existingQ = checkRes.data;
+  } catch {
+    // 404 or new question
   }
-  await api.post(`/admin/questions/${question.id}/state`, { state: 'published' }).catch(console.error);
+
+  const isAllCorrect = question.isAllCorrect || false;
+  const correctOptions = question.correctOptions && question.correctOptions.length > 0
+    ? question.correctOptions
+    : [question.correctOption ?? 0];
+  const answerMode = isAllCorrect ? 'all' : (correctOptions.length > 1 ? 'multiple' : 'single');
+
+  const options = question.optionsHtml.map((html, idx) => {
+    const existingOptId = existingQ?.options?.[idx]?.id;
+    const optId = (existingOptId && isUuid.test(existingOptId)) ? existingOptId : crypto.randomUUID();
+    return {
+      id: optId,
+      questionId: qId,
+      html,
+      contentSafety: { sanitizationStatus: 'sanitized' as const, sanitizerVersion: 'v1' },
+      sortOrder: idx,
+      isCorrect: isAllCorrect || correctOptions.includes(idx)
+    };
+  });
+
+  const optionCount = options.length as 4 | 5;
+
+  if (existingQ) {
+    const patchPayload = {
+      paperId: question.paperId,
+      number: question.qNumber,
+      questionHtml: question.questionHtml,
+      explanationHtml: question.explanationHtml || null,
+      contentSafety: { sanitizationStatus: 'sanitized' as const, sanitizerVersion: 'v1' },
+      options,
+      optionCount,
+      answerMode,
+      correctOptionIndexes: correctOptions,
+      isAllCorrect,
+      marks: existingQ.marks || 1,
+      expectedUpdatedAt: existingQ.updatedAt || (question as any).updatedAt || new Date().toISOString()
+    };
+    await api.patch(`/admin/questions/${qId}`, patchPayload);
+  } else {
+    const createPayload = {
+      id: qId,
+      paperId: question.paperId,
+      number: question.qNumber,
+      questionHtml: question.questionHtml,
+      explanationHtml: question.explanationHtml || null,
+      contentSafety: { sanitizationStatus: 'sanitized' as const, sanitizerVersion: 'v1' },
+      options,
+      optionCount,
+      answerMode,
+      correctOptionIndexes: correctOptions,
+      isAllCorrect,
+      marks: 1
+    };
+    await api.post('/admin/questions', createPayload);
+  }
+
+  await api.post(`/admin/questions/${qId}/state`, { state: 'published' }).catch(console.error);
 }
 
 export async function dbSaveQuestions(questions: Question[]): Promise<void> {
@@ -231,11 +351,11 @@ export async function dbSaveQuestions(questions: Question[]): Promise<void> {
 }
 
 export async function dbDeleteQuestion(questionId: string): Promise<void> {
+  await api.post(`/admin/questions/${questionId}/state`, { state: 'archived' }).catch(() => {});
   await api.delete(`/admin/questions/${questionId}`).catch(console.error);
 }
 
 export async function dbDeleteQuestionsByPaper(paperId: string): Promise<void> {
-  // Need to fetch and delete individually in v2
   const qs = await dbLoadQuestionsForPaper(paperId);
   if (qs) {
     for (const q of qs) await dbDeleteQuestion(q.id);
@@ -332,8 +452,16 @@ export async function dbSaveAboutUs(aboutData: AboutData): Promise<{ error?: str
 export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
   if (isAdmin()) {
     try {
-      const res = await api.get('/admin/gallery-items?limit=1000');
-      return res.data.items.map((g: any) => ({
+      let allItems: any[] = [];
+      let cursor: string | null = null;
+      do {
+        const url = `/admin/gallery-items?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+        const res = await api.get(url);
+        allItems = allItems.concat(res.data.items || []);
+        cursor = res.data.nextCursor || null;
+      } while (cursor);
+
+      return allItems.map((g: any) => ({
         id: g.id,
         title: g.title?.en || '',
         description: g.description?.en || '',
@@ -368,7 +496,6 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
     contentType: photo.mimeType,
     pinned: photo.pinned || false,
     sortOrder: photo.sortOrder || 0,
-    // The actual image bytes must be uploaded separately. If imageHex is a URL, we preserve it.
     image: photo.imageHex.startsWith('http') ? { kind: 'image', url: photo.imageHex, contentType: photo.mimeType } : undefined
   };
   try {
@@ -383,6 +510,7 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
 }
 
 export async function dbDeleteGalleryPhoto(id: string): Promise<{ error?: string }> {
+  await api.post(`/admin/gallery-items/${id}/state`, { state: 'archived' }).catch(() => {});
   await api.delete(`/admin/gallery-items/${id}`).catch(console.error);
   return {};
 }

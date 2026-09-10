@@ -17,7 +17,7 @@ import {
   Sun,
   Moon,
   Banknote,
-  Map,
+  Map as MapIcon,
   Landmark,
   Images,
   Facebook,
@@ -41,7 +41,7 @@ const GalleryPage = React.lazy(() => import('./components/GalleryPage'));
 import {
   dbLoadSubjects, dbSaveSubjects, dbDeleteSubject,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
-  dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
+  dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
   dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery
 } from './api';
 
@@ -50,7 +50,7 @@ import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/sto
 const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
   Atom, FlaskConical, Dna, Cpu, Lightbulb,
   Infinity: InfinityIcon, BookOpen, Compass,
-  Banknote, Map, Landmark
+  Banknote, Map: MapIcon, Landmark
 };
 
 const isAdminPath = (pathname: string = typeof window !== 'undefined' ? window.location.pathname : '') => {
@@ -98,14 +98,22 @@ export default function App() {
   const [aboutData, setAboutData] = useState<any>(null);
   const [activeUsersCount] = useState<number>(1);
 
+  const [loadingPaperQuestionsId, setLoadingPaperQuestionsId] = useState<string | null>(null);
+
   const fetchAdminQuestions = useCallback(async () => {
     setIsSyncing(true);
     try {
       const { dbLoadQuestions } = await import('./api');
       const allQuestions = await dbLoadQuestions();
-      if (allQuestions) {
-        setQuestions(allQuestions);
-        idbSet('m_questions', JSON.stringify(allQuestions));
+      if (allQuestions && allQuestions.length > 0) {
+        setQuestions(prev => {
+          const mergedMap = new Map<string, Question>();
+          allQuestions.forEach(q => mergedMap.set(q.id, q));
+          prev.forEach(q => mergedMap.set(q.id, q));
+          const updated = Array.from(mergedMap.values());
+          idbSet('m_questions', JSON.stringify(updated));
+          return updated;
+        });
       }
     } catch (e) {
       console.error('Failed to load admin questions:', e);
@@ -113,6 +121,29 @@ export default function App() {
       setIsSyncing(false);
     }
   }, []);
+
+  const handleEnsureQuestionsLoaded = useCallback(async (paperId: string, force = false) => {
+    if (!paperId) return;
+    const existing = questions.filter(q => q.paperId === paperId);
+    if (!force && existing.length > 0) return;
+
+    setLoadingPaperQuestionsId(paperId);
+    try {
+      const { dbLoadQuestionsForPaper } = await import('./api');
+      const remoteQuestions = await dbLoadQuestionsForPaper(paperId);
+      if (remoteQuestions && remoteQuestions.length > 0) {
+        setQuestions(prev => {
+          const updated = [...prev.filter(q => q.paperId !== paperId), ...remoteQuestions];
+          idbSet('m_questions', JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load questions for paper:', paperId, e);
+    } finally {
+      setLoadingPaperQuestionsId(null);
+    }
+  }, [questions]);
 
   // Handle Browser/Android hardware back button and routing
   useEffect(() => {
@@ -282,9 +313,10 @@ export default function App() {
   const syncFromApi = async () => {
     setIsSyncing(true);
     try {
-      const [remoteSubjects, remotePapers, remoteAbout, remoteGallery] = await Promise.all([
+      const [remoteSubjects, remotePapers, remoteQuestions, remoteAbout, remoteGallery] = await Promise.all([
         dbLoadSubjects(),
         dbLoadPapers(),
+        dbLoadQuestions(),
         dbLoadAboutUs(),
         dbLoadGallery(),
       ]);
@@ -292,6 +324,17 @@ export default function App() {
       if (remoteGallery) {
         setGalleryPhotos(remoteGallery);
         idbSet('m_gallery', JSON.stringify(remoteGallery));
+      }
+
+      if (remoteQuestions && remoteQuestions.length > 0) {
+        setQuestions(prev => {
+          const mergedMap = new Map<string, Question>();
+          remoteQuestions.forEach(q => mergedMap.set(q.id, q));
+          prev.forEach(q => mergedMap.set(q.id, q));
+          const updated = Array.from(mergedMap.values());
+          idbSet('m_questions', JSON.stringify(updated));
+          return updated;
+        });
       }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
@@ -1231,6 +1274,8 @@ export default function App() {
             onImportData={handleImportData}
             onSync={syncFromApi}
             isSyncing={isSyncing}
+            onEnsureQuestionsLoaded={handleEnsureQuestionsLoaded}
+            loadingPaperQuestionsId={loadingPaperQuestionsId}
             onAboutUpdate={setAboutData}
             onClose={handleCloseAdminPanel}
             activeUsersCount={activeUsersCount}

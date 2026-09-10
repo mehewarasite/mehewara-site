@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, CircleHelp, Image } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, CircleHelp, Image, RefreshCw } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
 import { fileToImgHtml, insertOrReplaceImage, hasRealContent, optionHasContent } from '../../utils/mediaUpload';
 import { renderMathInHtml } from '../../utils/parseTxt';
@@ -19,11 +19,14 @@ interface AddQuestionTabProps {
   setTargetPaperId: (id: string) => void;
   qNumber: number;
   setQNumber: (num: number) => void;
+  onEnsureQuestionsLoaded?: (paperId: string, force?: boolean) => Promise<void>;
+  loadingPaperQuestionsId?: string | null;
 }
 
 export default function AddQuestionTab({ 
   theme, subjects, papers, questions, onAddQuestion, setActiveTab, showFlash,
-  targetPaperId, setTargetPaperId, qNumber, setQNumber
+  targetPaperId, setTargetPaperId, qNumber, setQNumber,
+  onEnsureQuestionsLoaded, loadingPaperQuestionsId
 }: AddQuestionTabProps) {
   const { isDark, cardBg, cardBdr, inputBg, inputBdr, textPrimary, textMuted, dividerBdr } = theme;
 
@@ -39,6 +42,22 @@ export default function AddQuestionTab({
   const [isAllCorrect, setIsAllCorrect] = useState(false);
   const [explanationHtml, setExplanationHtml] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  useEffect(() => {
+    if (targetPaperId && onEnsureQuestionsLoaded) {
+      onEnsureQuestionsLoaded(targetPaperId);
+    }
+  }, [targetPaperId, onEnsureQuestionsLoaded]);
+
+  useEffect(() => {
+    if (targetPaperId) {
+      const paperQuestions = questions.filter(q => q.paperId === targetPaperId);
+      const maxNum = paperQuestions.reduce((max, q) => Math.max(max, q.qNumber), 0);
+      if (maxNum > 0) {
+        setQNumber(maxNum + 1);
+      }
+    }
+  }, [targetPaperId, questions.length]);
 
   const isALPaper = (() => {
     const paper = papers.find(p => p.id === targetPaperId);
@@ -89,10 +108,11 @@ export default function AddQuestionTab({
     }
 
     const paperQuestions = questions.filter(q => q.paperId === targetPaperId);
-    const calculatedQNumber = qNumber || (paperQuestions.length + 1);
+    const maxNum = paperQuestions.reduce((max, q) => Math.max(max, q.qNumber), 0);
+    const calculatedQNumber = qNumber || (maxNum + 1);
 
     const newQuestion: Question = {
-      id: `q-custom-${Date.now()}`,
+      id: crypto.randomUUID(),
       paperId: targetPaperId,
       qNumber: calculatedQNumber,
       questionHtml: questionHtml,
@@ -196,8 +216,9 @@ export default function AddQuestionTab({
                 value={targetPaperId}
                 onChange={(e) => {
                   setTargetPaperId(e.target.value);
-                  const nextNum = questions.filter(q => q.paperId === e.target.value).length + 1;
-                  setQNumber(nextNum);
+                  const paperQuestions = questions.filter(q => q.paperId === e.target.value);
+                  const maxNum = paperQuestions.reduce((max, q) => Math.max(max, q.qNumber), 0);
+                  setQNumber(maxNum + 1);
                   setOptE('');
                   setCorrectOptions([0]);
                 }}
@@ -210,6 +231,20 @@ export default function AddQuestionTab({
                   <option key={p.id} value={p.id}>{p.sinhalaTitle} ({p.year}) {p.language === 'en' ? '[EN]' : '[SI]'}</option>
                 ))}
               </select>
+              {targetPaperId && (
+                <button
+                  type="button"
+                  onClick={() => onEnsureQuestionsLoaded?.(targetPaperId, true)}
+                  disabled={loadingPaperQuestionsId === targetPaperId}
+                  className={`p-1.5 rounded-lg border ${inputBdr} ${inputBg} hover:border-sky-500 text-sky-400 text-xs flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50`}
+                  title="Sync paper questions from database"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingPaperQuestionsId === targetPaperId ? 'animate-spin' : ''}`} />
+                  <span className="hidden xl:inline text-[10px]">
+                    {loadingPaperQuestionsId === targetPaperId ? 'Syncing...' : 'Sync'}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </div>
