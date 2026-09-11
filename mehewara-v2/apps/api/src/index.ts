@@ -74,7 +74,15 @@ export default {
       else if (url.pathname === "/api/v1/admin/import") { requireMethod(request, "POST"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
       else if (url.pathname === "/api/v1/admin/publications/build") { requireMethod(request, "POST"); response = await buildPublicationRoute(request, { b2, context, store: context.publications }); }
       else if (url.pathname === "/api/v1/admin/publications/rollback") { requireMethod(request, "POST"); response = await rollbackPublicationRoute(request, { context, store: context.publications }); }
-      else if (url.pathname.startsWith("/api/v1/admin/")) { response = await adminRouter(request, { context, store: context.admin, db: env.D1 }); }
+      else if (url.pathname.startsWith("/api/v1/admin/")) {
+        response = await adminRouter(request, {
+          context,
+          store: context.admin,
+          db: env.D1,
+          resendApiKey: env.RESEND_API_KEY,
+          resendFromEmail: env.RESEND_FROM_EMAIL,
+        });
+      }
       else if (url.pathname === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2, context }); }
       else if (url.pathname === "/api/v1/media/upload-confirm") { requireMethod(request, "POST"); response = await confirmUploadHttpRoute(request, { b2, context }); }
       else if (url.pathname.startsWith("/api/v1/media/")) { requireMethod(request, "GET"); const objectKey = decodeURIComponent(url.pathname.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2, objectKey, context }); }

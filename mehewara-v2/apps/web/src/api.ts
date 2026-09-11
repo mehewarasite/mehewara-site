@@ -536,3 +536,76 @@ export const dbReleaseLimit = async (reason: string, durationMs: number) => {
   const { data } = await api.post('/admin/budget/emergency', { reason, durationMs });
   return data;
 };
+
+// ─── Admin Users & Account Management ────────────────────────────────────────
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  role: 'admin' | 'super-admin';
+  status: 'active' | 'suspended';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AdminAuthResponse {
+  token: string;
+  role: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    role: string;
+  };
+}
+
+export async function dbAdminLogin(usernameOrEmail: string, password: string): Promise<AdminAuthResponse> {
+  const { data } = await api.post('/admin/login', { username: usernameOrEmail, password });
+  return data;
+}
+
+export async function dbAdminRegisterRequestOtp(username: string, email: string, password: string): Promise<{ ok: boolean; message: string; devOtp?: string }> {
+  const { data } = await api.post('/admin/auth/register-otp', { username, email, password });
+  return data;
+}
+
+export async function dbAdminRegisterVerify(email: string, otp: string, username: string, password: string): Promise<AdminAuthResponse> {
+  const { data } = await api.post('/admin/auth/register-verify', { email, otp, username, password });
+  return data;
+}
+
+export async function dbAdminForgotPasswordRequest(identifier: string): Promise<{ ok: boolean; message: string; email?: string; devOtp?: string }> {
+  const { data } = await api.post('/admin/auth/forgot-password', { identifier });
+  return data;
+}
+
+export async function dbAdminForgotPasswordReset(email: string, otp: string, new_password: string): Promise<{ ok: boolean; message: string }> {
+  const { data } = await api.post('/admin/auth/reset-password', { email, otp, new_password });
+  return data;
+}
+
+export async function dbAdminChangePassword(current_password: string, new_password: string): Promise<{ ok: boolean; message: string }> {
+  const { data } = await api.post('/admin/auth/change-password', { current_password, new_password });
+  return data;
+}
+
+export async function dbAdminGetMe(): Promise<{ user: AdminUser }> {
+  const { data } = await api.get('/admin/auth/me');
+  return data;
+}
+
+export async function dbAdminListUsers(): Promise<AdminUser[]> {
+  const { data } = await api.get('/admin/users');
+  return data.items || [];
+}
+
+export async function dbAdminCreateUser(userData: { username: string; email: string; password: string; role: 'admin' | 'super-admin' }): Promise<AdminUser> {
+  const { data } = await api.post('/admin/users', userData);
+  return data;
+}
+
+export async function dbAdminDeleteUser(userId: string): Promise<void> {
+  await api.delete(`/admin/users/${userId}`);
+}
+

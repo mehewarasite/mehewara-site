@@ -22,11 +22,15 @@ import {
   HelpCircle,
   X,
   Plus,
-  Trash2
+  Trash2,
+  Users,
+  KeyRound,
+  Loader2
 } from 'lucide-react';
 
 import { Subject, Paper, Question } from '../types';
 import { useTheme } from '../ThemeContext';
+import { dbAdminGetMe, dbAdminChangePassword } from '../api';
 
 // --- Import new sub-components ---
 import GalleryTab from './admin/GalleryTab';
@@ -37,6 +41,7 @@ import PapersTab from './admin/PapersTab';
 import AddQuestionTab from './admin/AddQuestionTab';
 import EditQuestionsTab from './admin/EditQuestionsTab';
 import ManageQuestionsTab from './admin/ManageQuestionsTab';
+import AccountsTab from './admin/AccountsTab';
 import type { AdminThemeClasses, AdminTab } from './admin/types';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -117,7 +122,65 @@ export default function AdminPanel({
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
     window.location.reload();
+  };
+
+  // ── Current User Profile ──
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; email: string; role: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('adminUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
+
+  React.useEffect(() => {
+    dbAdminGetMe().then(res => {
+      if (res?.user) {
+        setCurrentUser(res.user);
+        localStorage.setItem('adminUser', JSON.stringify(res.user));
+      }
+    }).catch(() => {});
+  }, []);
+
+  // ── Change Password Modal ──
+  const [showChangePwModal, setShowChangePwModal] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmNewPw, setConfirmNewPw] = useState('');
+  const [isChangingPw, setIsChangingPw] = useState(false);
+  const [changePwError, setChangePwError] = useState<string | null>(null);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPw || !newPw) {
+      setChangePwError('Please enter both current and new password.');
+      return;
+    }
+    if (newPw.length < 6) {
+      setChangePwError('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPw !== confirmNewPw) {
+      setChangePwError('New passwords do not match.');
+      return;
+    }
+
+    setIsChangingPw(true);
+    setChangePwError(null);
+    try {
+      await dbAdminChangePassword(currentPw, newPw);
+      showFlash('Password changed successfully!');
+      setShowChangePwModal(false);
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmNewPw('');
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message;
+      setChangePwError(msg || 'Failed to change password.');
+    } finally {
+      setIsChangingPw(false);
+    }
   };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('subjects');
@@ -223,9 +286,42 @@ export default function AdminPanel({
           </button>
 
           <div className={`h-6 w-px ${isDark ? 'bg-slate-800' : 'bg-slate-300'} mx-1`} />
+
+          {/* User Profile Pill */}
+          {currentUser && (
+            <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border ${cardBdr} ${isDark ? 'bg-slate-900/60' : 'bg-slate-100/80'}`}>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] uppercase ${
+                currentUser.role === 'super-admin'
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                  : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+              }`}>
+                {currentUser.username.slice(0, 2)}
+              </div>
+              <span className={`text-xs font-bold ${textPrimary}`}>{currentUser.username}</span>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded-full ${
+                currentUser.role === 'super-admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-sky-500/20 text-sky-400'
+              }`}>
+                {currentUser.role === 'super-admin' ? 'Super Admin' : 'Admin'}
+              </span>
+            </div>
+          )}
+
+          {/* Change Password Button */}
+          <button
+            onClick={() => {
+              setChangePwError(null);
+              setShowChangePwModal(true);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 ${isDark ? 'bg-slate-900 hover:bg-slate-800 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} rounded-xl font-bold text-xs transition-colors border border-transparent cursor-pointer`}
+            title="Change Password"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-sky-500" />
+            <span className="hidden md:inline">Password</span>
+          </button>
+
           <button
             onClick={handleLogout}
-            className={`px-4 py-2 ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100'} rounded-xl font-bold text-xs transition-colors`}
+            className={`px-4 py-2 ${isDark ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20' : 'bg-red-50 text-red-600 hover:bg-red-100'} rounded-xl font-bold text-xs transition-colors cursor-pointer`}
           >
             Logout
           </button>
@@ -308,6 +404,13 @@ export default function AdminPanel({
             />
 
             <div className={`text-[10px] font-bold ${textMuted} uppercase tracking-wider mb-3 px-3 mt-6`}>System</div>
+            <NavButton
+              active={activeTab === 'accounts'}
+              onClick={() => setActiveTab('accounts')}
+              icon={Users}
+              label="Admin Accounts"
+              theme={adminTheme}
+            />
             <NavButton
               active={activeTab === 'stats'}
               onClick={() => setActiveTab('stats')}
@@ -412,6 +515,14 @@ export default function AdminPanel({
               />
             )}
 
+            {activeTab === 'accounts' && (
+              <AccountsTab
+                theme={adminTheme}
+                showFlash={showFlash}
+                currentUsername={currentUser?.username}
+              />
+            )}
+
             {activeTab === 'about' && (
               <AboutTab
                 theme={adminTheme}
@@ -424,6 +535,98 @@ export default function AdminPanel({
         </div>
 
       </div>
+
+      {/* Change Password Modal */}
+      {showChangePwModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className={`relative w-full max-w-md rounded-2xl border ${cardBdr} ${cardBg} p-6 shadow-2xl animate-scale-up`}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <h3 className={`text-lg font-bold ${textPrimary}`}>Change Password</h3>
+              </div>
+              <button
+                onClick={() => setShowChangePwModal(false)}
+                className={`p-1.5 rounded-lg text-slate-400 hover:${textPrimary} transition-colors cursor-pointer`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {changePwError && (
+              <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                <X className="w-4 h-4 shrink-0" />
+                <span>{changePwError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>Current Password</label>
+                <input
+                  type="password"
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  placeholder="Enter current password"
+                  required
+                  autoFocus
+                  className={`w-full px-3.5 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>New Password</label>
+                <input
+                  type="password"
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  placeholder="Minimum 6 characters"
+                  required
+                  className={`w-full px-3.5 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmNewPw}
+                  onChange={(e) => setConfirmNewPw(e.target.value)}
+                  placeholder="Re-enter new password"
+                  required
+                  className={`w-full px-3.5 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePwModal(false)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold ${textMuted} hover:${textPrimary} cursor-pointer`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isChangingPw}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isChangingPw ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Update Password</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

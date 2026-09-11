@@ -33,6 +33,10 @@ export interface Env {
   B2_APPLICATION_KEY: string;
   /** Pre-built B2 client injected by the entrypoint. */
   B2: B2Client;
+  /** Resend API Key for outbound emails. Worker secret. */
+  RESEND_API_KEY?: string;
+  /** From email address for outbound emails (e.g. Mehewara <noreply@mehewara.edu.lk>). */
+  RESEND_FROM_EMAIL?: string;
 }
 
 /** Narrow capability a feature module may receive. Raw D1/B2 bindings are deliberately excluded. */

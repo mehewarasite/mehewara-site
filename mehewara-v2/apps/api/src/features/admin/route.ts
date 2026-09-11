@@ -27,6 +27,8 @@ export interface AdminDeps {
   /** Set by the router after authentication; handlers must use it instead
    *  of re-verifying (and must never run without it). */
   principal?: AdminPrincipal;
+  resendApiKey?: string;
+  resendFromEmail?: string;
 }
 
 // Shared route plumbing.
@@ -1106,7 +1108,16 @@ async function statsRoute(request: Request, deps: AdminDeps): Promise<Response> 
   return Response.json(AdminContentStatistics.parse({ generatedAt: new Date().toISOString(), ...counts }));
 }
 
-import { loginRoute, usersRoute } from "./auth-routes";
+import {
+  loginRoute,
+  usersRoute,
+  registerOtpRoute,
+  registerVerifyRoute,
+  forgotPasswordRoute,
+  resetPasswordRoute,
+  changePasswordRoute,
+  meRoute,
+} from "./auth-routes";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -1124,6 +1135,15 @@ export async function adminRouter(request: Request, deps: AdminDeps): Promise<Re
   if (!resource || extra !== undefined) throw new HttpError("NOT_FOUND", 404, "Route not found");
 
   if (resource === "login") { return loginRoute(request, deps); }
+  if (resource === "auth") {
+    if (id === "register-otp") return registerOtpRoute(request, deps);
+    if (id === "register-verify") return registerVerifyRoute(request, deps);
+    if (id === "forgot-password") return forgotPasswordRoute(request, deps);
+    if (id === "reset-password") return resetPasswordRoute(request, deps);
+    if (id === "change-password") return changePasswordRoute(request, deps);
+    if (id === "me") return meRoute(request, deps);
+    throw new HttpError("NOT_FOUND", 404, "Auth route not found");
+  }
   if (resource === "users") { return usersRoute(request, deps, id ?? null); }
 
   const known = ["stats", "about", "privacy", "subjects", "papers", "questions", "study-materials", "gallery-items", "content-pages", "publications", "budget"];
