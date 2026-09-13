@@ -58,6 +58,111 @@ const isAdminPath = (pathname: string = typeof window !== 'undefined' ? window.l
   return clean === '/admin';
 };
 
+const SUBJECT_COLOR_PRESETS: Record<string, string> = {
+  // Science
+  'sci': 'from-emerald-600 via-teal-700 to-teal-900 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.15)]',
+  'science': 'from-emerald-600 via-teal-700 to-teal-900 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.15)]',
+  // Mathematics
+  'math': 'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]',
+  'maths': 'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]',
+  'mathematics': 'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]',
+  // Sinhala Language
+  'sinhala': 'from-amber-600 via-orange-600 to-red-800 border-orange-500/30 shadow-[0_4px_20px_rgba(249,115,22,0.15)]',
+  // History
+  'hist': 'from-amber-700 via-amber-800 to-stone-900 border-amber-600/30 shadow-[0_4px_20px_rgba(217,119,6,0.15)]',
+  'history': 'from-amber-700 via-amber-800 to-stone-900 border-amber-600/30 shadow-[0_4px_20px_rgba(217,119,6,0.15)]',
+  // ICT
+  'ict': 'from-purple-600 via-fuchsia-700 to-indigo-900 border-purple-500/30 shadow-[0_4px_20px_rgba(168,85,247,0.15)]',
+  // Civic Education
+  'civic': 'from-pink-600 via-rose-700 to-purple-950 border-rose-500/30 shadow-[0_4px_20px_rgba(244,63,94,0.15)]',
+  // A/L Physics
+  'phy': 'from-amber-500 via-orange-600 to-red-800 border-amber-500/30 shadow-[0_4px_20px_rgba(245,158,11,0.15)]',
+  'physics': 'from-amber-500 via-orange-600 to-red-800 border-amber-500/30 shadow-[0_4px_20px_rgba(245,158,11,0.15)]',
+  // A/L Chemistry
+  'chem': 'from-cyan-600 via-blue-700 to-indigo-900 border-cyan-500/30 shadow-[0_4px_20px_rgba(6,182,212,0.15)]',
+  'chemistry': 'from-cyan-600 via-blue-700 to-indigo-900 border-cyan-500/30 shadow-[0_4px_20px_rgba(6,182,212,0.15)]',
+  // A/L Biology
+  'bio': 'from-emerald-600 via-teal-700 to-teal-900 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.15)]',
+  'biology': 'from-emerald-600 via-teal-700 to-teal-900 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.15)]',
+};
+
+const FALLBACK_PALETTES = [
+  'from-emerald-600 via-teal-700 to-teal-900 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.15)]',
+  'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]',
+  'from-amber-600 via-orange-600 to-red-800 border-orange-500/30 shadow-[0_4px_20px_rgba(249,115,22,0.15)]',
+  'from-purple-600 via-fuchsia-700 to-indigo-900 border-purple-500/30 shadow-[0_4px_20px_rgba(168,85,247,0.15)]',
+  'from-cyan-600 via-blue-700 to-indigo-900 border-cyan-500/30 shadow-[0_4px_20px_rgba(6,182,212,0.15)]',
+  'from-pink-600 via-rose-700 to-purple-950 border-rose-500/30 shadow-[0_4px_20px_rgba(244,63,94,0.15)]',
+];
+
+function resolveSubjectColor(sub: Subject, index: number = 0): string {
+  if (sub.color && sub.color.includes('from-') && !sub.color.includes('650') && !sub.color.includes('from-slate-') && !sub.color.includes('from-black')) {
+    return sub.color;
+  }
+
+  const rawKeys = [sub.code, sub.id, sub.name].filter(Boolean).map(k => (k as string).toLowerCase().replace(/^(ol|al)[-_]?/, '').replace(/[^a-z0-9]/g, ''));
+  for (const k of rawKeys) {
+    for (const [presetKey, presetVal] of Object.entries(SUBJECT_COLOR_PRESETS)) {
+      if (k === presetKey || k.includes(presetKey) || presetKey.includes(k)) {
+        return presetVal;
+      }
+    }
+  }
+
+  return FALLBACK_PALETTES[index % FALLBACK_PALETTES.length];
+}
+
+function deduplicateAndEnrichSubjects(loaded: Subject[], defaults: Subject[], currentPapers: Paper[]): Subject[] {
+  const merged: Subject[] = [];
+  const seenKeys = new Map<string, number>();
+
+  const allCandidates = [...loaded];
+
+  for (const def of defaults) {
+    const normName = (def.name || '').toLowerCase().trim();
+    const normCode = (def.code || '').toLowerCase().replace(/^(ol|al)[-_]?/, '').trim();
+
+    const alreadyPresent = loaded.some(s => {
+      const sName = (s.name || '').toLowerCase().trim();
+      const sCode = (s.code || '').toLowerCase().replace(/^(ol|al)[-_]?/, '').trim();
+      return (s.examType || 'ol') === (def.examType || 'ol') && (sName === normName || sCode === normCode || s.id === def.id);
+    });
+
+    if (!alreadyPresent) {
+      allCandidates.push(def);
+    }
+  }
+
+  allCandidates.forEach((s) => {
+    if (!s || s.id === 'al-combined-maths') return;
+    const normName = (s.name || '').toLowerCase().trim();
+    const normCode = (s.code || '').toLowerCase().replace(/^(ol|al)[-_]?/, '').trim();
+    const key = `${s.examType || 'ol'}-${normName || normCode}`;
+
+    const enriched: Subject = {
+      ...s,
+      color: resolveSubjectColor(s, merged.length),
+    };
+
+    if (!seenKeys.has(key)) {
+      seenKeys.set(key, merged.length);
+      merged.push(enriched);
+    } else {
+      const existingIdx = seenKeys.get(key)!;
+      const existingSub = merged[existingIdx];
+      const existingPaperCount = currentPapers.filter(p => p.subjectId === existingSub.id).length;
+      const newPaperCount = currentPapers.filter(p => p.subjectId === s.id).length;
+
+      // Keep the one with more papers
+      if (newPaperCount > existingPaperCount) {
+        merged[existingIdx] = enriched;
+      }
+    }
+  });
+
+  return merged;
+}
+
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
@@ -268,30 +373,25 @@ export default function App() {
 
   const loadFromLocal = async () => {
     try {
-      const storedSubjects = await idbGet('m_subjects');
-      if (storedSubjects) {
-        let parsedSubjects = JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths');
-
-        // Merge any new subjects from INITIAL_SUBJECTS that aren't in local storage
-        const existingIds = new Set(parsedSubjects.map((s: Subject) => s.id));
-        const missingSubjects = INITIAL_SUBJECTS.filter(s => !existingIds.has(s.id));
-
-        if (missingSubjects.length > 0) {
-          parsedSubjects = [...parsedSubjects, ...missingSubjects];
-          idbSet('m_subjects', JSON.stringify(parsedSubjects));
-        }
-
-        setSubjects(parsedSubjects);
-      } else {
-        setSubjects(INITIAL_SUBJECTS);
-      }
-
       const storedPapers = await idbGet('m_papers');
+      const parsedPapers: Paper[] = storedPapers ? JSON.parse(storedPapers) : INITIAL_PAPERS;
       if (storedPapers) {
-        setPapers(JSON.parse(storedPapers));
+        setPapers(parsedPapers);
       } else {
         setPapers(INITIAL_PAPERS);
       }
+
+      const storedSubjects = await idbGet('m_subjects');
+      let rawSubjects: Subject[] = [];
+      if (storedSubjects) {
+        rawSubjects = JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths');
+      } else {
+        rawSubjects = [...INITIAL_SUBJECTS];
+      }
+
+      const deduplicated = deduplicateAndEnrichSubjects(rawSubjects, INITIAL_SUBJECTS, parsedPapers);
+      setSubjects(deduplicated);
+      idbSet('m_subjects', JSON.stringify(deduplicated));
 
       const storedQuestions = await idbGet('m_questions');
       if (storedQuestions) {
@@ -342,14 +442,9 @@ export default function App() {
 
       if (remoteSubjects && remoteSubjects.length > 0) {
         let filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
-
-        // Merge any new subjects from INITIAL_SUBJECTS that aren't in API
-        // In v2, we don't auto-seed from the client to prevent unauthorized admin calls.
-        setSubjects(filtered);
-        idbSet('m_subjects', JSON.stringify(filtered));
-      } else if (INITIAL_SUBJECTS.length > 0) {
-        // We only use remote subjects in v2.
-        // setSubjects(INITIAL_SUBJECTS);
+        const deduplicated = deduplicateAndEnrichSubjects(filtered, INITIAL_SUBJECTS, remotePapers || papers);
+        setSubjects(deduplicated);
+        idbSet('m_subjects', JSON.stringify(deduplicated));
       }
 
       if (remotePapers && remotePapers.length > 0) {
@@ -1018,7 +1113,7 @@ export default function App() {
                 </div>
 
                 {(() => {
-                  const filteredSubjects = subjects.filter(s => s.examType === selectedLevel);
+                  const filteredSubjects = deduplicateAndEnrichSubjects(subjects, [], papers).filter(s => s.examType === selectedLevel);
                   if (filteredSubjects.length === 0) {
                     return (
                       <div className={`text-center py-12 ${textFaint} text-xs`}>
@@ -1028,14 +1123,15 @@ export default function App() {
                   }
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-                      {filteredSubjects.map((sub) => {
+                      {filteredSubjects.map((sub, idx) => {
                         const IconComponent = ICON_MAP[sub.icon] || BookOpen;
                         const paperCount = papers.filter(p => p.subjectId === sub.id && (p.language || 'si') === language).length;
+                        const colorClass = resolveSubjectColor(sub, idx);
                         return (
                           <button
                             key={sub.id}
                             onClick={() => handleSetSubject(sub)}
-                            className={`group relative p-4 sm:p-6 text-left border rounded-2xl transition-all duration-300 cursor-pointer select-none active:scale-[0.99] bg-gradient-to-br ${sub.color}`}
+                            className={`group relative p-4 sm:p-6 text-left border rounded-2xl transition-all duration-300 cursor-pointer select-none active:scale-[0.99] bg-gradient-to-br ${colorClass}`}
                           >
                             <div className="flex justify-between items-start mb-6">
                               <div className="p-3 bg-slate-950/40 rounded-xl">

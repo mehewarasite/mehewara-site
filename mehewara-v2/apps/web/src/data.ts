@@ -48,7 +48,7 @@ export const INITIAL_SUBJECTS: Subject[] = [
     examType: 'ol',
     code: 'Sci',
     icon: 'Lightbulb',
-    color: 'from-emerald-650 to-teal-700 bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+    color: 'from-emerald-600 via-teal-700 to-teal-900 border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.15)]'
   },
   {
     id: 'ol-maths',
@@ -57,7 +57,7 @@ export const INITIAL_SUBJECTS: Subject[] = [
     examType: 'ol',
     code: 'Maths',
     icon: 'Infinity',
-    color: 'from-indigo-650 to-violet-700 bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]'
+    color: 'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]'
   },
   {
     id: 'ol-sinhala',
@@ -66,7 +66,7 @@ export const INITIAL_SUBJECTS: Subject[] = [
     examType: 'ol',
     code: 'Sinhala',
     icon: 'BookOpen',
-    color: 'from-orange-600 to-red-650 bg-red-500/10 border-red-500/30 text-orange-400 hover:bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.05)]'
+    color: 'from-amber-600 via-orange-600 to-red-800 border-orange-500/30 shadow-[0_4px_20px_rgba(249,115,22,0.15)]'
   },
   {
     id: 'ol-history',
@@ -75,16 +75,25 @@ export const INITIAL_SUBJECTS: Subject[] = [
     examType: 'ol',
     code: 'Hist',
     icon: 'Compass',
-    color: 'from-bronze-650 to-amber-800 bg-amber-600/10 border-amber-600/30 text-amber-550 hover:bg-amber-600/20 shadow-[0_0_15px_rgba(217,119,6,0.05)]'
+    color: 'from-amber-700 via-amber-800 to-stone-900 border-amber-600/30 shadow-[0_4px_20px_rgba(217,119,6,0.15)]'
+  },
+  {
+    id: 'ol-ict',
+    name: 'ICT',
+    sinhalaName: 'තොරතුරු තාක්ෂණය',
+    examType: 'ol',
+    code: 'ICT',
+    icon: 'Cpu',
+    color: 'from-purple-600 via-fuchsia-700 to-indigo-900 border-purple-500/30 shadow-[0_4px_20px_rgba(168,85,247,0.15)]'
   },
   {
     id: 'ol-civic',
     name: 'Civic Education',
     sinhalaName: 'පුරවැසි අධ්‍යාපනය',
     examType: 'ol',
-    code: 'civic',
+    code: 'Civic',
     icon: 'Landmark',
-    color: 'from-purple-650 to-fuchsia-700 bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.05)]'
+    color: 'from-pink-600 via-rose-700 to-purple-950 border-rose-500/30 shadow-[0_4px_20px_rgba(244,63,94,0.15)]'
   }
 ];
 
