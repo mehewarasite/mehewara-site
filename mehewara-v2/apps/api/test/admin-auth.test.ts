@@ -242,6 +242,16 @@ describe("Admin Authentication & Account Management Routes", () => {
       3600000
     );
 
+    // Pre-insert valid OTP for editor
+    mockDb.otps.push({
+      id: "otp-change-pw",
+      email: "editor@example.com",
+      otp_code: "654321",
+      purpose: "password_reset",
+      attempts: 0,
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    });
+
     const changeReq = new Request("https://api/v1/admin/auth/change-password", {
       method: "POST",
       headers: {
@@ -249,7 +259,8 @@ describe("Admin Authentication & Account Management Routes", () => {
         "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify({
-        current_password: "CurrentPw123!",
+        old_password: "CurrentPw123!",
+        otp: "654321",
         new_password: "UpdatedPw999!",
       }),
     });

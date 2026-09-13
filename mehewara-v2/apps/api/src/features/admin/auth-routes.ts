@@ -215,32 +215,68 @@ export async function changePasswordRoute(request: Request, deps: AdminDeps): Pr
   requireMethod(request, "POST");
   const principal = await requireAdmin(request, deps.context.access, deps.verifier);
   const schema = z.object({
-    current_password: z.string(),
+    old_password: z.string().optional(),
+    current_password: z.string().optional(),
+    otp: z.string().length(6, "Verification code must be 6 digits"),
     new_password: z.string().min(6, "New password must be at least 6 characters"),
   });
 
   const body = await parseJson(request, schema);
+  const oldPassword = body.old_password || body.current_password;
+  if (!oldPassword) {
+    throw new HttpError("BAD_REQUEST", 400, "Old password is required");
+  }
+
   const db = deps.db;
 
   const user = await db.prepare(
-    "SELECT id, password_hash FROM admin_users WHERE id = ? OR username = ?"
-  ).bind(principal.subject, principal.subject).first() as { id: string; password_hash: string } | null;
+    "SELECT id, email, password_hash FROM admin_users WHERE id = ? OR username = ?"
+  ).bind(principal.subject, principal.subject).first() as { id: string; email: string; password_hash: string } | null;
 
   if (!user) {
     throw new HttpError("NOT_FOUND", 404, "User account not found");
   }
 
-  const isValid = await verifyPassword(body.current_password, user.password_hash);
+  // 1. Verify Old Password
+  const isValid = await verifyPassword(oldPassword, user.password_hash);
   if (!isValid) {
-    throw new HttpError("BAD_REQUEST", 400, "Current password is incorrect");
+    throw new HttpError("BAD_REQUEST", 400, "Old password is incorrect");
   }
 
+  // 2. Verify OTP
+  const email = user.email.toLowerCase().trim();
+  const otp = body.otp.trim();
+
+  const tokenRecord = await db.prepare(
+    "SELECT id, attempts, expires_at FROM admin_otp_tokens WHERE email = ? AND otp_code = ? AND purpose = 'password_reset'"
+  ).bind(email, otp).first() as { id: string; attempts: number; expires_at: string } | null;
+
+  if (!tokenRecord) {
+    await db.prepare(
+      "UPDATE admin_otp_tokens SET attempts = attempts + 1 WHERE email = ? AND purpose = 'password_reset'"
+    ).bind(email).run();
+    throw new HttpError("BAD_REQUEST", 400, "Invalid verification code. Please check your email and try again.");
+  }
+
+  if (new Date(tokenRecord.expires_at).getTime() < Date.now()) {
+    await db.prepare("DELETE FROM admin_otp_tokens WHERE id = ?").bind(tokenRecord.id).run();
+    throw new HttpError("BAD_REQUEST", 400, "Verification code has expired. Please request a new one.");
+  }
+
+  if (tokenRecord.attempts >= 5) {
+    await db.prepare("DELETE FROM admin_otp_tokens WHERE id = ?").bind(tokenRecord.id).run();
+    throw new HttpError("BAD_REQUEST", 429, "Too many failed attempts. Please request a new verification code.");
+  }
+
+  // 3. Update Password
   const newHash = await hashPassword(body.new_password);
   const now = new Date().toISOString();
 
   await db.prepare(
     "UPDATE admin_users SET password_hash = ?, updated_at = ? WHERE id = ?"
   ).bind(newHash, now, user.id).run();
+
+  await db.prepare("DELETE FROM admin_otp_tokens WHERE email = ? AND purpose = 'password_reset'").bind(email).run();
 
   return Response.json({
     ok: true,

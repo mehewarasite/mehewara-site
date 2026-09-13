@@ -577,8 +577,8 @@ export async function dbAdminForgotPasswordReset(email: string, otp: string, new
   return data;
 }
 
-export async function dbAdminChangePassword(current_password: string, new_password: string): Promise<{ ok: boolean; message: string }> {
-  const { data } = await api.post('/admin/auth/change-password', { current_password, new_password });
+export async function dbAdminChangePassword(old_password: string, otp: string, new_password: string): Promise<{ ok: boolean; message: string }> {
+  const { data } = await api.post('/admin/auth/change-password', { old_password, otp, new_password });
   return data;
 }
 

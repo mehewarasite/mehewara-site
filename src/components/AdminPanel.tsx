@@ -27,12 +27,15 @@ import {
   KeyRound,
   Loader2,
   Mail,
-  CheckCircle2
+  CheckCircle2,
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 import { Subject, Paper, Question } from '../types';
 import { useTheme } from '../ThemeContext';
-import { dbAdminGetMe, dbAdminChangePassword, dbAdminForgotPasswordRequest, dbAdminForgotPasswordReset } from '../api';
+import { dbAdminGetMe, dbAdminChangePassword, dbAdminForgotPasswordRequest } from '../api';
 
 // --- Import new sub-components ---
 import GalleryTab from './admin/GalleryTab';
@@ -147,17 +150,34 @@ export default function AdminPanel({
 
   // ── Change Password Modal ──
   const [showChangePwModal, setShowChangePwModal] = useState(false);
-  const [changePwMode, setChangePwMode] = useState<'otp' | 'current'>('otp');
+  const [oldPw, setOldPw] = useState('');
+  const [showOldPw, setShowOldPw] = useState(false);
   const [changePwOtp, setChangePwOtp] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpNotice, setOtpNotice] = useState<string | null>(null);
-  const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
   const [confirmNewPw, setConfirmNewPw] = useState('');
+  const [showConfirmNewPw, setShowConfirmNewPw] = useState(false);
   const [isChangingPw, setIsChangingPw] = useState(false);
   const [changePwError, setChangePwError] = useState<string | null>(null);
   const [changePwSuccess, setChangePwSuccess] = useState<string | null>(null);
+
+  const handleClosePwModal = () => {
+    setShowChangePwModal(false);
+    setOldPw('');
+    setChangePwOtp('');
+    setNewPw('');
+    setConfirmNewPw('');
+    setShowOldPw(false);
+    setShowNewPw(false);
+    setShowConfirmNewPw(false);
+    setOtpSent(false);
+    setOtpNotice(null);
+    setChangePwError(null);
+    setChangePwSuccess(null);
+  };
 
   const handleSendChangePwOtp = async () => {
     const targetEmail = currentUser?.email || 'induwaradahamjith2004@gmail.com';
@@ -184,6 +204,14 @@ export default function AdminPanel({
     setChangePwError(null);
     setChangePwSuccess(null);
 
+    if (!oldPw) {
+      setChangePwError('Please enter your old password.');
+      return;
+    }
+    if (!changePwOtp.trim() || changePwOtp.trim().length !== 6) {
+      setChangePwError('Please enter the 6-digit verification code.');
+      return;
+    }
     if (newPw.length < 6) {
       setChangePwError('New password must be at least 6 characters.');
       return;
@@ -196,34 +224,12 @@ export default function AdminPanel({
     setIsChangingPw(true);
 
     try {
-      if (changePwMode === 'otp') {
-        if (!changePwOtp.trim() || changePwOtp.trim().length !== 6) {
-          setChangePwError('Please enter the 6-digit verification code.');
-          setIsChangingPw(false);
-          return;
-        }
-        const targetEmail = currentUser?.email || 'induwaradahamjith2004@gmail.com';
-        await dbAdminForgotPasswordReset(targetEmail, changePwOtp.trim(), newPw);
-      } else {
-        if (!currentPw) {
-          setChangePwError('Please enter your current password.');
-          setIsChangingPw(false);
-          return;
-        }
-        await dbAdminChangePassword(currentPw, newPw);
-      }
+      await dbAdminChangePassword(oldPw, changePwOtp.trim(), newPw);
 
       showFlash('Password changed successfully!');
       setChangePwSuccess('Password changed successfully!');
       setTimeout(() => {
-        setShowChangePwModal(false);
-        setCurrentPw('');
-        setNewPw('');
-        setConfirmNewPw('');
-        setChangePwOtp('');
-        setOtpSent(false);
-        setOtpNotice(null);
-        setChangePwSuccess(null);
+        handleClosePwModal();
       }, 1500);
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message;
@@ -589,55 +595,22 @@ export default function AdminPanel({
       {/* Change Password Modal */}
       {showChangePwModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className={`relative w-full max-w-md rounded-2xl border ${cardBdr} ${cardBg} p-6 shadow-2xl animate-scale-up`}>
+          <div className={`relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border ${cardBdr} ${cardBg} p-6 shadow-2xl animate-scale-up`}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center">
                   <KeyRound className="w-4 h-4" />
                 </div>
-                <h3 className={`text-lg font-bold ${textPrimary}`}>Change Password</h3>
+                <div>
+                  <h3 className={`text-base font-bold ${textPrimary}`}>Change Password</h3>
+                  <p className={`text-[11px] ${textMuted}`}>Verify old password and email OTP to update</p>
+                </div>
               </div>
               <button
-                onClick={() => {
-                  setShowChangePwModal(false);
-                  setChangePwError(null);
-                  setChangePwSuccess(null);
-                }}
+                onClick={handleClosePwModal}
                 className={`p-1.5 rounded-lg text-slate-400 hover:${textPrimary} transition-colors cursor-pointer`}
               >
                 <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Mode Switch Tabs */}
-            <div className="flex rounded-xl p-1 bg-slate-900/60 border border-slate-800 mb-4 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => {
-                  setChangePwMode('otp');
-                  setChangePwError(null);
-                }}
-                className={`flex-1 py-1.5 px-2 rounded-lg transition-all text-center cursor-pointer ${
-                  changePwMode === 'otp'
-                    ? 'bg-sky-500 text-white shadow-sm'
-                    : `${textMuted} hover:${textPrimary}`
-                }`}
-              >
-                Verify via Email OTP
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setChangePwMode('current');
-                  setChangePwError(null);
-                }}
-                className={`flex-1 py-1.5 px-2 rounded-lg transition-all text-center cursor-pointer ${
-                  changePwMode === 'current'
-                    ? 'bg-sky-500 text-white shadow-sm'
-                    : `${textMuted} hover:${textPrimary}`
-                }`}
-              >
-                Use Current Password
               </button>
             </div>
 
@@ -661,99 +634,140 @@ export default function AdminPanel({
               </div>
             )}
 
-            <form onSubmit={handleChangePassword} className="space-y-3.5">
-              {changePwMode === 'otp' ? (
-                <>
-                  <div className={`p-3 rounded-xl border ${adminTheme.surfaceBdr} ${adminTheme.subtleBg}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-sky-400 shrink-0" />
-                        <div>
-                          <p className={`text-xs font-semibold ${textPrimary}`}>Registered Email</p>
-                          <p className={`text-[11px] font-mono ${textMuted}`}>{currentUser?.email || 'induwaradahamjith2004@gmail.com'}</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleSendChangePwOtp}
-                        disabled={isSendingOtp}
-                        className="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                      >
-                        {isSendingOtp ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Sending...</span>
-                          </>
-                        ) : (
-                          <span>{otpSent ? 'Resend OTP' : 'Send OTP'}</span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block text-xs font-bold mb-1 ${textPrimary}`}>6-Digit Verification Code</label>
-                    <input
-                      type="text"
-                      value={changePwOtp}
-                      onChange={(e) => setChangePwOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="123456"
-                      maxLength={6}
-                      required
-                      className={`w-full py-2.5 text-center font-mono tracking-[10px] text-lg font-bold rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>Current Password</label>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              {/* 1. Old Password */}
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>
+                  1. Old Password
+                </label>
+                <div className="relative">
+                  <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${adminTheme.isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                   <input
-                    type="password"
-                    value={currentPw}
-                    onChange={(e) => setCurrentPw(e.target.value)}
-                    placeholder="Enter current password"
+                    type={showOldPw ? 'text' : 'password'}
+                    value={oldPw}
+                    onChange={(e) => setOldPw(e.target.value)}
+                    placeholder="Enter current / old password"
                     required
                     autoFocus
-                    className={`w-full px-3.5 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                    className={`w-full pl-10 pr-10 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowOldPw(!showOldPw)}
+                    tabIndex={-1}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-400 hover:${textPrimary}`}
+                  >
+                    {showOldPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
-              )}
+              </div>
 
+              {/* 2. OTP Verification */}
               <div>
-                <label className={`block text-xs font-bold mb-1 ${textPrimary}`}>New Password</label>
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>
+                  2. Email Verification Code (OTP)
+                </label>
+                <div className={`p-2.5 rounded-xl border ${adminTheme.surfaceBdr} ${adminTheme.subtleBg} mb-2`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Mail className="w-4 h-4 text-sky-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className={`text-[11px] font-semibold truncate ${textPrimary}`}>Registered Email</p>
+                        <p className={`text-[10px] font-mono truncate ${textMuted}`}>{currentUser?.email || 'induwaradahamjith2004@gmail.com'}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSendChangePwOtp}
+                      disabled={isSendingOtp}
+                      className="shrink-0 px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isSendingOtp ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <span>{otpSent ? 'Resend OTP' : 'Send OTP'}</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
                 <input
-                  type="password"
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  placeholder="Minimum 6 characters"
+                  type="text"
+                  value={changePwOtp}
+                  onChange={(e) => setChangePwOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit OTP"
+                  maxLength={6}
                   required
-                  className={`w-full px-3.5 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                  className={`w-full py-2.5 text-center font-mono tracking-[8px] text-base font-bold rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
                 />
               </div>
 
+              {/* 3. New Password */}
               <div>
-                <label className={`block text-xs font-bold mb-1 ${textPrimary}`}>Confirm New Password</label>
-                <input
-                  type="password"
-                  value={confirmNewPw}
-                  onChange={(e) => setConfirmNewPw(e.target.value)}
-                  placeholder="Re-enter new password"
-                  required
-                  className={`w-full px-3.5 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
-                />
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>
+                  3. New Password
+                </label>
+                <div className="relative">
+                  <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${adminTheme.isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                  <input
+                    type={showNewPw ? 'text' : 'password'}
+                    value={newPw}
+                    onChange={(e) => setNewPw(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    required
+                    className={`w-full pl-10 pr-10 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPw(!showNewPw)}
+                    tabIndex={-1}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-400 hover:${textPrimary}`}
+                  >
+                    {showNewPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              {/* 4. Confirm New Password */}
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>
+                  4. Confirm New Password
+                </label>
+                <div className="relative">
+                  <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${adminTheme.isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                  <input
+                    type={showConfirmNewPw ? 'text' : 'password'}
+                    value={confirmNewPw}
+                    onChange={(e) => setConfirmNewPw(e.target.value)}
+                    placeholder="Re-enter new password"
+                    required
+                    className={`w-full pl-10 pr-10 py-2 rounded-xl border ${adminTheme.inputBdr} ${adminTheme.inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmNewPw(!showConfirmNewPw)}
+                    tabIndex={-1}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-400 hover:${textPrimary}`}
+                  >
+                    {showConfirmNewPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setShowChangePwModal(false)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold ${textMuted} hover:${textPrimary} cursor-pointer`}
+                  onClick={handleClosePwModal}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold ${textMuted} hover:${textPrimary} cursor-pointer`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isChangingPw || (changePwMode === 'otp' && changePwOtp.length !== 6)}
+                  disabled={isChangingPw || !oldPw || changePwOtp.length !== 6 || newPw.length < 6 || !confirmNewPw}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isChangingPw ? (
@@ -762,7 +776,7 @@ export default function AdminPanel({
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>Update Password</span>
+                    <span>Change Password</span>
                   )}
                 </button>
               </div>
