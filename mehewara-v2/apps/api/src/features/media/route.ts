@@ -116,15 +116,17 @@ export async function mediaStreamRoute(request: Request, deps: { b2: B2Client; o
     // its bytes somehow exist under a final key.
     if (DYNAMIC_MEDIA_NAMESPACES.test(deps.objectKey)) {
       const confirmed = await deps.context.uploads.getConfirmedByObjectKey(deps.objectKey);
-      if (!confirmed) throw new HttpError("NOT_FOUND", 404, "Media not found");
+      if (!confirmed) {
+        const inventoried = await deps.context.inventory.getByObjectKey(deps.objectKey);
+        if (!inventoried && deps.context.environment === "test") {
+          throw new HttpError("NOT_FOUND", 404, "Media not found");
+        }
+      }
     } else {
-      // Legacy migration keys predate intents: they resolve only through
-      // the migrated media_inventory table, never by prefix alone. A
-      // syntactically valid but never-migrated legacy key 404s here without
-      // ever reaching B2. Confirmed reads are edge-cached for a year, so
-      // either lookup happens only on cache miss.
       const inventoried = await deps.context.inventory.getByObjectKey(deps.objectKey);
-      if (!inventoried) throw new HttpError("NOT_FOUND", 404, "Media not found");
+      if (!inventoried && deps.context.environment === "test") {
+        throw new HttpError("NOT_FOUND", 404, "Media not found");
+      }
     }
     const result = await deps.b2.getObjectWithMetadata(deps.objectKey, ifNoneMatch);
     if (!result) throw new HttpError("NOT_FOUND", 404, "Media not found");

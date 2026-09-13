@@ -7,7 +7,7 @@ const TARGET_API_URL = (typeof import.meta !== 'undefined' && (import.meta as an
 export function normalizeHtmlMediaUrls(html: string): string {
   if (!html) return html;
   return html
-    .replace(/https?:\/\/api\.mehewara\.edu\.lk\/api\/v1\/media\//g, `${TARGET_API_URL}/api/v1/media/`)
+    .replace(/https?:\/\/[^/]+\/api\/v1\/media\//g, `${TARGET_API_URL}/api/v1/media/`)
     .replace(/src=["']\/api\/v1\/media\//g, `src="${TARGET_API_URL}/api/v1/media/`);
 }
 

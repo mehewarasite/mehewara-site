@@ -24,11 +24,9 @@ export function getActiveMediaBaseUrl(): string {
 export function normalizeMediaUrl(url: string | null | undefined): string {
   if (!url) return '';
   const base = getActiveMediaBaseUrl();
-  if (url.includes('api.mehewara.edu.lk/api/v1/media/')) {
-    return url.replace('https://api.mehewara.edu.lk/api/v1/media/', `${base}/api/v1/media/`);
-  }
-  if (url.startsWith('/api/v1/media/')) {
-    return `${base}${url}`;
+  if (url.includes('/api/v1/media/')) {
+    const key = url.split('/api/v1/media/')[1];
+    return `${base}/api/v1/media/${key}`;
   }
   return url;
 }
