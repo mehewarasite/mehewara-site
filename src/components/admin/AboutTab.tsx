@@ -107,10 +107,8 @@ export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabPr
               const { dbSaveAboutUs } = await import('../../api');
 
               try {
-                // We use the generic media endpoint since it doesn't strictly need to be a gallery item,
-                // but for simplicity, we'll use the gallery endpoint to get a media URL, 
-                // OR since about isn't an entity, let's use the gallery-items endpoint to host the image.
-                const publicUrl = await uploadToB2(file, '/admin/gallery-items');
+                // Upload image directly to Backblaze B2 under about namespace
+                const publicUrl = await uploadToB2(file, 'about/profile');
 
                 const newAboutData = { ...aboutData, image_url: publicUrl };
                 setAboutData(newAboutData);

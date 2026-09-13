@@ -69,7 +69,7 @@ export default function App() {
 
   const [isHumanVerified, setIsHumanVerified] = useState<boolean>(() => {
     try {
-      if (hasAdminToken) return true;
+      if (hasAdminToken || import.meta.env.DEV) return true;
       return sessionStorage.getItem('mhw_human_verified') === 'true';
     } catch {
       return false;
@@ -176,11 +176,14 @@ export default function App() {
       }
     };
     const handleLogout = () => {
+      const wasAdmin = isAdminPath() || showAdminPanel;
       setShowAdminPanel(false);
       if (isAdminPath()) {
         setShowAdminLogin(true);
       }
-      alert('Session expired. Please log in again.');
+      if (wasAdmin) {
+        alert('Session expired. Please log in again.');
+      }
     };
     window.addEventListener('admin-logout', handleLogout);
     window.addEventListener('popstate', handlePopState);

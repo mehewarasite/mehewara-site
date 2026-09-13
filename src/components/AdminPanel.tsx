@@ -127,7 +127,7 @@ export default function AdminPanel({
   };
 
   // ── Current User Profile ──
-  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; email: string; role: string } | null>(() => {
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; name?: string; email: string; role: string } | null>(() => {
     try {
       const stored = localStorage.getItem('adminUser');
       return stored ? JSON.parse(stored) : null;
@@ -295,9 +295,9 @@ export default function AdminPanel({
                   ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                   : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
               }`}>
-                {currentUser.username.slice(0, 2)}
+                {(currentUser.name || currentUser.username).slice(0, 2)}
               </div>
-              <span className={`text-xs font-bold ${textPrimary}`}>{currentUser.username}</span>
+              <span className={`text-xs font-bold ${textPrimary}`}>{currentUser.name || currentUser.username}</span>
               <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded-full ${
                 currentUser.role === 'super-admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-sky-500/20 text-sky-400'
               }`}>

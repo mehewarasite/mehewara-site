@@ -231,7 +231,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
       const fileExt = 'webp'; // Since compressImageToBlob returns webp
       const fileName = `editor-${Date.now()}.${fileExt}`;
       const { uploadToB2 } = await import('../apiClient');
-      const publicUrl = await uploadToB2(new File([blob], fileName, { type: 'image/webp' }), '/admin/gallery-items');
+      const publicUrl = await uploadToB2(new File([blob], fileName, { type: 'image/webp' }), 'study/diagrams');
       return publicUrl;
     } catch (e) {
       console.error('Image compression or upload failed:', e);

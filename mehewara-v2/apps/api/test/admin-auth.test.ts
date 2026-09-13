@@ -69,8 +69,8 @@ function createMockDb() {
             return { success: true };
           }
           if (sql.includes("INSERT INTO admin_users")) {
-            const [id, username, email, password_hash, role, status] = args;
-            users.push({ id, username, email, password_hash, role, status, created_at: new Date().toISOString() });
+            const [id, username, name, email, password_hash, role, status] = args;
+            users.push({ id, username, name, email, password_hash, role, status, created_at: new Date().toISOString() });
             return { success: true };
           }
           if (sql.includes("UPDATE admin_users SET password_hash = ?")) {
@@ -129,6 +129,7 @@ describe("Admin Authentication & Account Management Routes", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        name: "Induwara Dahamjith",
         username: "induwara",
         email: "admin@example.com",
         password: "SecretPassword123!",
@@ -137,7 +138,7 @@ describe("Admin Authentication & Account Management Routes", () => {
 
     const otpRes = await registerOtpRoute(otpReq, deps);
     expect(otpRes.status).toBe(200);
-    const otpBody = await otpRes.json();
+    const otpBody: any = await otpRes.json();
     expect(otpBody.ok).toBe(true);
     expect(otpBody.devOtp).toBeDefined();
 
@@ -148,6 +149,7 @@ describe("Admin Authentication & Account Management Routes", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        name: "Induwara Dahamjith",
         username: "induwara",
         email: "admin@example.com",
         password: "SecretPassword123!",
@@ -157,9 +159,10 @@ describe("Admin Authentication & Account Management Routes", () => {
 
     const verifyRes = await registerVerifyRoute(verifyReq, deps);
     expect(verifyRes.status).toBe(201);
-    const verifyBody = await verifyRes.json();
+    const verifyBody: any = await verifyRes.json();
     expect(verifyBody.ok).toBe(true);
     expect(verifyBody.token).toBeDefined();
+    expect(verifyBody.user.name).toBe("Induwara Dahamjith");
     expect(verifyBody.user.username).toBe("induwara");
     expect(verifyBody.user.email).toBe("admin@example.com");
 
@@ -178,8 +181,9 @@ describe("Admin Authentication & Account Management Routes", () => {
 
     const loginRes = await loginRoute(loginReq, deps);
     expect(loginRes.status).toBe(200);
-    const loginBody = await loginRes.json();
+    const loginBody: any = await loginRes.json();
     expect(loginBody.token).toBeDefined();
+    expect(loginBody.user.name).toBe("Induwara Dahamjith");
     expect(loginBody.user.username).toBe("induwara");
   });
 
@@ -208,7 +212,7 @@ describe("Admin Authentication & Account Management Routes", () => {
 
     const forgotRes = await forgotPasswordRoute(forgotReq, deps);
     expect(forgotRes.status).toBe(200);
-    const forgotBody = await forgotRes.json();
+    const forgotBody: any = await forgotRes.json();
     expect(forgotBody.ok).toBe(true);
     expect(forgotBody.devOtp).toBeDefined();
 

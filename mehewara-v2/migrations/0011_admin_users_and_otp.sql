@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS admin_users (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL UNIQUE CHECK (length(username) >= 3 AND length(username) <= 50),
+  name TEXT NOT NULL DEFAULT '' CHECK (length(name) <= 100),
   email TEXT NOT NULL UNIQUE CHECK (length(email) >= 5 AND length(email) <= 100),
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'super-admin')),

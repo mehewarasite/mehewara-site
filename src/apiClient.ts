@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const DEFAULT_BASE_URL = 'https://api.mehewara.edu.lk';
-const FALLBACK_BASE_URL = 'https://mehewara-v2-api-production.mehewara-site.workers.dev';
+const FALLBACK_BASE_URL = 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
 
 // In development, route through Vite proxy (/api/v1) to avoid Cloudflare Worker CORS restrictions.
 // In production (or if VITE_DIRECT_API is set), use the configured or default base URL.
@@ -44,6 +44,7 @@ function setupNetworkFallback(instance: typeof api) {
 
       if (error.response?.status === 401) {
         localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
         window.dispatchEvent(new Event('admin-logout'));
       }
       return Promise.reject(error);
@@ -66,28 +67,73 @@ export function isAdmin() {
   return !!localStorage.getItem('adminToken');
 }
 
-export async function uploadToB2(file: File, endpoint: string): Promise<string> {
-  // 1. Get upload intent
-  const intentRes = await api.post(endpoint, {
-    mimeType: file.type,
-    byteSize: file.size
-  });
-  
-  const { id, uploadUrl, uploadToken, objectKey } = intentRes.data;
+export async function computeSha256Hex(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
-  // 2. Upload to B2
-  await axios.put(uploadUrl, file, {
+export function normalizeObjectKeyPrefix(target?: string): string {
+  if (!target || typeof target !== 'string') return 'study/diagrams';
+  const clean = target.trim();
+  if (/^(gallery|study|about|publication)\/[a-z0-9-]{1,80}$/.test(clean)) {
+    return clean;
+  }
+  if (clean.includes('about')) return 'about/profile';
+  if (clean.includes('gallery')) return 'gallery/items';
+  if (clean.includes('study')) return 'study/diagrams';
+  return 'study/diagrams';
+}
+
+export async function uploadToB2(file: File | Blob, endpointOrPrefix: string = 'study/diagrams'): Promise<string> {
+  const prefix = normalizeObjectKeyPrefix(endpointOrPrefix);
+  const contentType = file.type || 'image/webp';
+  const byteSize = file.size;
+  const sha256 = await computeSha256Hex(file);
+
+  // 1. Request signed upload ticket from Cloudflare Worker API
+  const ticketRes = await api.post('/media/upload-ticket', {
+    objectKeyPrefix: prefix,
+    contentType,
+    byteSize,
+    sha256,
+    expiresInSeconds: 300,
+  }, {
     headers: {
-      'Authorization': uploadToken,
-      'Content-Type': file.type,
-      'Content-Length': file.size.toString()
-    }
+      'Idempotency-Key': crypto.randomUUID(),
+    },
   });
 
-  // 3. Confirm upload
-  await api.post(`${endpoint}/${id}/state`, { state: 'published' });
+  const { intentId, url: uploadUrl } = ticketRes.data;
 
-  // Return canonical media URL
-  const publicBase = activeBaseURL || DEFAULT_BASE_URL;
+  // 2. Direct binary upload to Backblaze B2 presigned S3 PUT URL
+  // Note: Do not send the admin Bearer token to B2 since SigV4 is in query parameters.
+  const putRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType,
+    },
+    body: file,
+  });
+
+  if (!putRes.ok) {
+    throw new Error(`Failed to upload media to storage (HTTP ${putRes.status})`);
+  }
+
+  // 3. Confirm upload with API to verify sha256 and promote from staging to final key in D1
+  const confirmRes = await api.post('/media/upload-confirm', {
+    intentId,
+  }, {
+    headers: {
+      'Idempotency-Key': crypto.randomUUID(),
+    },
+  });
+
+  const { objectKey } = confirmRes.data;
+
+  // 4. Return canonical public media URL served by Cloudflare Worker
+  const publicBase = (activeBaseURL || (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)).trim().replace(/\/+$/, '');
   return `${publicBase}/api/v1/media/${objectKey}`;
 }
+

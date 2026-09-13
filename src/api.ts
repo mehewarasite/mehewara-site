@@ -542,6 +542,7 @@ export const dbReleaseLimit = async (reason: string, durationMs: number) => {
 export interface AdminUser {
   id: string;
   username: string;
+  name?: string;
   email: string;
   role: 'admin' | 'super-admin';
   status: 'active' | 'suspended';
@@ -555,6 +556,7 @@ export interface AdminAuthResponse {
   user: {
     id: string;
     username: string;
+    name?: string;
     email: string;
     role: string;
   };
@@ -565,13 +567,13 @@ export async function dbAdminLogin(usernameOrEmail: string, password: string): P
   return data;
 }
 
-export async function dbAdminRegisterRequestOtp(username: string, email: string, password: string): Promise<{ ok: boolean; message: string; devOtp?: string }> {
-  const { data } = await api.post('/admin/auth/register-otp', { username, email, password });
+export async function dbAdminRegisterRequestOtp(name: string, username: string, email: string, password: string): Promise<{ ok: boolean; message: string; devOtp?: string }> {
+  const { data } = await api.post('/admin/auth/register-otp', { name, username, email, password });
   return data;
 }
 
-export async function dbAdminRegisterVerify(email: string, otp: string, username: string, password: string): Promise<AdminAuthResponse> {
-  const { data } = await api.post('/admin/auth/register-verify', { email, otp, username, password });
+export async function dbAdminRegisterVerify(name: string, email: string, otp: string, username: string, password: string): Promise<AdminAuthResponse> {
+  const { data } = await api.post('/admin/auth/register-verify', { name, email, otp, username, password });
   return data;
 }
 
@@ -600,7 +602,7 @@ export async function dbAdminListUsers(): Promise<AdminUser[]> {
   return data.items || [];
 }
 
-export async function dbAdminCreateUser(userData: { username: string; email: string; password: string; role: 'admin' | 'super-admin' }): Promise<AdminUser> {
+export async function dbAdminCreateUser(userData: { name?: string; username: string; email: string; password: string; role: 'admin' | 'super-admin' }): Promise<AdminUser> {
   const { data } = await api.post('/admin/users', userData);
   return data;
 }

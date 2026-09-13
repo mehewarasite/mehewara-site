@@ -9,7 +9,7 @@ import { z } from "zod";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
-  if (!domain) return email;
+  if (!local || !domain) return email;
   const maskedLocal = local.length <= 2
     ? local[0] + "*"
     : local[0] + "*".repeat(local.length - 2) + local[local.length - 1];
@@ -29,10 +29,11 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
 
   // Look up user by username or email
   const user = await db.prepare(
-    "SELECT id, username, email, password_hash, role, status FROM admin_users WHERE username = ? OR email = ?"
+    "SELECT id, username, name, email, password_hash, role, status FROM admin_users WHERE username = ? OR email = ?"
   ).bind(trimmed, trimmed).first() as {
     id: string;
     username: string;
+    name?: string;
     email: string;
     password_hash: string;
     role: string;
@@ -49,8 +50,9 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
       throw new HttpError("UNAUTHORIZED", 401, "Invalid username or password");
     }
 
+    const userName = user.name || user.username;
     const token = await signJwt(
-      { sub: user.id, username: user.username, email: user.email, role: user.role },
+      { sub: user.id, username: user.username, name: userName, email: user.email, role: user.role },
       deps.context.access.adminSecret,
       24 * 60 * 60 * 1000 // 24 hours
     );
@@ -61,6 +63,7 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
       user: {
         id: user.id,
         username: user.username,
+        name: userName,
         email: user.email,
         role: user.role,
       },
@@ -82,14 +85,14 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
 
       try {
         await db.prepare(
-          "INSERT INTO admin_users (id, username, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, 'active')"
-        ).bind(id, trimmed, email, hash, role).run();
+          "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
+        ).bind(id, trimmed, trimmed, email, hash, role).run();
       } catch (err) {
         console.error("Failed to bootstrap first admin user:", err);
       }
 
       const token = await signJwt(
-        { sub: id, username: trimmed, email, role },
+        { sub: id, username: trimmed, name: trimmed, email, role },
         deps.context.access.adminSecret,
         24 * 60 * 60 * 1000
       );
@@ -97,7 +100,7 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
       return Response.json({
         token,
         role,
-        user: { id, username: trimmed, email, role },
+        user: { id, username: trimmed, name: trimmed, email, role },
       });
     }
   }
@@ -108,6 +111,7 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
 export async function registerOtpRoute(request: Request, deps: AdminDeps): Promise<Response> {
   requireMethod(request, "POST");
   const schema = z.object({
+    name: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
     username: z.string().min(3, "Username must be at least 3 characters").max(50),
     email: z.string().email("Please provide a valid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
@@ -160,6 +164,7 @@ export async function registerOtpRoute(request: Request, deps: AdminDeps): Promi
 export async function registerVerifyRoute(request: Request, deps: AdminDeps): Promise<Response> {
   requireMethod(request, "POST");
   const schema = z.object({
+    name: z.string().min(2).max(100).optional(),
     username: z.string().min(3).max(50),
     email: z.string().email(),
     password: z.string().min(6),
@@ -169,6 +174,7 @@ export async function registerVerifyRoute(request: Request, deps: AdminDeps): Pr
   const body = await parseJson(request, schema);
   const db = deps.db;
   const username = body.username.trim();
+  const name = (body.name?.trim() || username);
   const email = body.email.trim().toLowerCase();
   const otp = body.otp.trim();
 
@@ -192,7 +198,7 @@ export async function registerVerifyRoute(request: Request, deps: AdminDeps): Pr
 
   if (tokenRecord.attempts >= 5) {
     await db.prepare("DELETE FROM admin_otp_tokens WHERE id = ?").bind(tokenRecord.id).run();
-    throw new HttpError("TOO_MANY_REQUESTS", 429, "Too many failed attempts. Please request a new code.");
+    throw new HttpError("BAD_REQUEST", 429, "Too many failed attempts. Please request a new code.");
   }
 
   // Hash password
@@ -205,8 +211,8 @@ export async function registerVerifyRoute(request: Request, deps: AdminDeps): Pr
 
   try {
     await db.prepare(
-      "INSERT INTO admin_users (id, username, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, 'active')"
-    ).bind(newUserId, username, email, hash, role).run();
+      "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
+    ).bind(newUserId, username, name, email, hash, role).run();
   } catch (err: any) {
     if (err.message && err.message.includes("UNIQUE constraint")) {
       throw new HttpError("CONFLICT", 409, "Username or email is already in use.");
@@ -219,7 +225,7 @@ export async function registerVerifyRoute(request: Request, deps: AdminDeps): Pr
 
   // Sign JWT and return
   const token = await signJwt(
-    { sub: newUserId, username, email, role },
+    { sub: newUserId, username, name, email, role },
     deps.context.access.adminSecret,
     24 * 60 * 60 * 1000
   );
@@ -228,7 +234,7 @@ export async function registerVerifyRoute(request: Request, deps: AdminDeps): Pr
     ok: true,
     token,
     role,
-    user: { id: newUserId, username, email, role },
+    user: { id: newUserId, username, name, email, role },
   }, { status: 201 });
 }
 
@@ -313,7 +319,7 @@ export async function resetPasswordRoute(request: Request, deps: AdminDeps): Pro
 
   if (tokenRecord.attempts >= 5) {
     await db.prepare("DELETE FROM admin_otp_tokens WHERE id = ?").bind(tokenRecord.id).run();
-    throw new HttpError("TOO_MANY_REQUESTS", 429, "Too many failed attempts. Please request a new reset code.");
+    throw new HttpError("BAD_REQUEST", 429, "Too many failed attempts. Please request a new reset code.");
   }
 
   const hash = await hashPassword(body.new_password);
@@ -374,7 +380,7 @@ export async function meRoute(request: Request, deps: AdminDeps): Promise<Respon
   const db = deps.db;
 
   const user = await db.prepare(
-    "SELECT id, username, email, role, status, created_at FROM admin_users WHERE id = ? OR username = ?"
+    "SELECT id, username, name, email, role, status, created_at FROM admin_users WHERE id = ? OR username = ?"
   ).bind(principal.subject, principal.subject).first();
 
   if (!user) {
@@ -382,6 +388,7 @@ export async function meRoute(request: Request, deps: AdminDeps): Promise<Respon
       user: {
         id: principal.subject,
         username: principal.subject,
+        name: principal.subject,
         email: "admin@mehewara.edu.lk",
         role: principal.roles.includes("super-admin") ? "super-admin" : "admin",
       },
@@ -398,7 +405,7 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
   if (request.method === "GET") {
     if (entityId) throw new HttpError("NOT_FOUND", 404, "Route not found");
     const users = await db.prepare(
-      "SELECT id, username, email, role, status, created_at, updated_at FROM admin_users ORDER BY created_at DESC"
+      "SELECT id, username, name, email, role, status, created_at, updated_at FROM admin_users ORDER BY created_at DESC"
     ).all();
     return Response.json({ items: users.results || [] });
   }
@@ -410,21 +417,23 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
     }
 
     const userSchema = z.object({
+      name: z.string().min(2).max(100).optional(),
       username: z.string().min(3).max(50),
       email: z.string().email(),
       password: z.string().min(6),
       role: z.enum(["admin", "super-admin"]),
     });
     const body = await parseJson(request, userSchema);
+    const name = (body.name?.trim() || body.username.trim());
 
     const hash = await hashPassword(body.password);
     const id = crypto.randomUUID();
 
     try {
       await db.prepare(
-        "INSERT INTO admin_users (id, username, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, 'active')"
-      ).bind(id, body.username.trim(), body.email.trim().toLowerCase(), hash, body.role).run();
-      return Response.json({ id, username: body.username, email: body.email, role: body.role }, { status: 201 });
+        "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
+      ).bind(id, body.username.trim(), name, body.email.trim().toLowerCase(), hash, body.role).run();
+      return Response.json({ id, username: body.username, name, email: body.email, role: body.role }, { status: 201 });
     } catch (e: any) {
       if (e.message && e.message.includes("UNIQUE constraint failed")) {
         throw new HttpError("CONFLICT", 409, "Username or email already exists");

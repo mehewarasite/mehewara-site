@@ -13,7 +13,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "D1"
 database_name = "mehewara-v2-production"
-database_id = "0765f10f-0c5e-4c01-a437-5b4c5126d812"
+database_id = "793c5620-41d8-48d0-8597-f5f4338d586e"
 migrations_dir = "../../migrations"
 
 [[durable_objects.bindings]]
@@ -43,7 +43,7 @@ name = "mehewara-v2-api-production"
 [[env.production.d1_databases]]
 binding = "D1"
 database_name = "mehewara-v2-production"
-database_id = "0765f10f-0c5e-4c01-a437-5b4c5126d812"
+database_id = "793c5620-41d8-48d0-8597-f5f4338d586e"
 migrations_dir = "../../migrations"
 [[env.production.durable_objects.bindings]]
 name = "BUDGET_AUTHORITY"

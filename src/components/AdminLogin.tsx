@@ -44,6 +44,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
   const [showPassword, setShowPassword] = useState(false);
 
   // Register Form State
+  const [regName, setRegName] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
@@ -108,7 +109,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
   // ── Register: Step 1 (Request OTP) ──
   const handleRegisterRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regUsername.trim() || !regEmail.trim() || !regPassword) {
+    if (!regName.trim() || !regUsername.trim() || !regEmail.trim() || !regPassword) {
       setError(isEn ? 'Please fill in all fields.' : 'කරුණාකර සියලු විස්තර පුරවන්න.');
       return;
     }
@@ -127,7 +128,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
     resetAllErrors();
 
     try {
-      const res = await dbAdminRegisterRequestOtp(regUsername.trim(), regEmail.trim(), regPassword);
+      const res = await dbAdminRegisterRequestOtp(regName.trim(), regUsername.trim(), regEmail.trim(), regPassword);
       setSuccessMsg(res.message || (isEn ? 'Verification code sent to your email.' : 'තහවුරු කිරීමේ කේතය ඔබගේ විද්‍යුත් තැපෑලට යවන ලදි.'));
       if (res.devOtp) {
         setDevOtpNotice(`[Dev Mock OTP: ${res.devOtp}]`);
@@ -154,6 +155,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
 
     try {
       const res = await dbAdminRegisterVerify(
+        regName.trim(),
         regEmail.trim(),
         regOtp.trim(),
         regUsername.trim(),
@@ -438,6 +440,24 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
               <form onSubmit={handleRegisterRequestOtp} className="space-y-3.5">
                 <div>
                   <label className={`block text-xs font-bold mb-1 ${labelText}`}>
+                    {isEn ? 'Full Name' : 'සම්පූර්ණ නම'}
+                  </label>
+                  <div className="relative">
+                    <User className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                    <input
+                      type="text"
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      placeholder={isEn ? 'e.g. Induwara Dahamjith' : 'උදා: ඉඳුවර දහම්ජිත්'}
+                      required
+                      autoFocus
+                      className={`w-full pl-10 pr-4 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all ${inputBg}`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-xs font-bold mb-1 ${labelText}`}>
                     {isEn ? 'Username' : 'පරිශීලක නාමය'}
                   </label>
                   <div className="relative">
@@ -448,7 +468,6 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
                       onChange={(e) => setRegUsername(e.target.value)}
                       placeholder="e.g. jsmith"
                       required
-                      autoFocus
                       className={`w-full pl-10 pr-4 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all ${inputBg}`}
                     />
                   </div>

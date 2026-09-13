@@ -176,11 +176,14 @@ export default function App() {
       }
     };
     const handleLogout = () => {
+      const wasAdmin = isAdminPath() || showAdminPanel;
       setShowAdminPanel(false);
       if (isAdminPath()) {
         setShowAdminLogin(true);
       }
-      alert('Session expired. Please log in again.');
+      if (wasAdmin) {
+        alert('Session expired. Please log in again.');
+      }
     };
     window.addEventListener('admin-logout', handleLogout);
     window.addEventListener('popstate', handlePopState);

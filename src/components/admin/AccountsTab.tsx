@@ -31,6 +31,7 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [newName, setNewName] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -77,6 +78,7 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
 
     try {
       await dbAdminCreateUser({
+        name: newName.trim() || newUsername.trim(),
         username: newUsername.trim(),
         email: newEmail.trim().toLowerCase(),
         password: newPassword,
@@ -85,6 +87,7 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
 
       showFlash(`Admin user "${newUsername}" created successfully!`);
       setShowAddModal(false);
+      setNewName('');
       setNewUsername('');
       setNewEmail('');
       setNewPassword('');
@@ -199,18 +202,21 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
                               ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
                               : 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
                           }`}>
-                            {user.username.slice(0, 2)}
+                            {(user.name || user.username).slice(0, 2)}
                           </div>
                           <div>
                             <div className={`font-bold ${textPrimary} flex items-center gap-2`}>
-                              <span>{user.username}</span>
+                              <span>{user.name || user.username}</span>
                               {isCurrent && (
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">
                                   You
                                 </span>
                               )}
                             </div>
-                            <span className={`text-[10px] ${textFaint}`}>ID: {user.id.slice(0, 8)}...</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-mono ${textMuted}`}>@{user.username}</span>
+                              <span className={`text-[10px] ${textFaint}`}>&bull; ID: {user.id.slice(0, 8)}...</span>
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -291,6 +297,21 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
             )}
 
             <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>Full Name</label>
+                <div className="relative">
+                  <User className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${textMuted}`} />
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g. Jane Doe"
+                    required
+                    className={`w-full pl-9 pr-3 py-2 rounded-xl border ${inputBdr} ${inputBg} ${textPrimary} text-xs focus:ring-2 focus:ring-sky-500/40 focus:outline-none`}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className={`block text-xs font-bold mb-1.5 ${textPrimary}`}>Username</label>
                 <div className="relative">
