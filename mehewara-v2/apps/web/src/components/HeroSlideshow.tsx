@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GalleryPhoto } from '../types';
 import { hexToDataUrl } from '../utils/imageHex';
+import { normalizeMediaUrl } from '../apiClient';
 
 interface HeroSlideshowProps {
   photos: GalleryPhoto[];
@@ -10,7 +11,10 @@ interface HeroSlideshowProps {
 const dataUrlCache = new Map<string, string>();
 function getCachedDataUrl(photo: GalleryPhoto): string {
   if (!photo?.imageHex) return '';
-  if (photo.imageHex.startsWith('http://') || photo.imageHex.startsWith('https://') || photo.imageHex.startsWith('data:')) {
+  if (photo.imageHex.startsWith('http://') || photo.imageHex.startsWith('https://') || photo.imageHex.startsWith('/api/')) {
+    return normalizeMediaUrl(photo.imageHex);
+  }
+  if (photo.imageHex.startsWith('data:')) {
     return photo.imageHex;
   }
   if (!dataUrlCache.has(photo.id)) {

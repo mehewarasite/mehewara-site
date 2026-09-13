@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef as useReactRef, useCallback } from '
 import { Trash2, Images, RefreshCw, ChevronUp, ChevronDown, Pin } from 'lucide-react';
 import { GalleryPhoto } from '../../types';
 import { dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos } from '../../api';
-import { imageFileToHex, hexToDataUrl, createPreviewUrl, GALLERY_ACCEPT } from '../../utils/imageHex';
+import { hexToDataUrl, createPreviewUrl, GALLERY_ACCEPT } from '../../utils/imageHex';
+import { uploadImageToStorage } from '../../utils/mediaUpload';
+import { normalizeMediaUrl } from '../../apiClient';
 import type { AdminThemeClasses } from './types';
 
 interface GalleryTabProps {
@@ -59,13 +61,13 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
     setGalleryUploading(true);
     setGalleryUploadProgress(0);
     try {
-      const { hex, mimeType, fileSizeKB } = await imageFileToHex(galleryUploadFile, setGalleryUploadProgress);
+      const publicUrl = await uploadImageToStorage(galleryUploadFile, 'gallery');
       const newPhoto: GalleryPhoto = {
         id: crypto.randomUUID(),
         title: galleryUploadTitle.trim() || undefined,
         description: galleryUploadDesc.trim(),
-        imageHex: hex,
-        mimeType,
+        imageHex: publicUrl,
+        mimeType: 'image/webp',
         sortOrder: galleryPhotos.length,
         createdAt: new Date().toISOString(),
         pinned: galleryUploadPinned,
@@ -74,7 +76,7 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
       if (error) {
         showFlash(`Upload failed: ${error}`, true);
       } else {
-        showFlash(`Photo saved! (~${fileSizeKB} KB compressed)`);
+        showFlash('Photo uploaded to storage and saved!');
         setGalleryPhotos(prev => [...prev, newPhoto]);
         setGalleryUploadFile(null);
         setGalleryUploadPreview('');
@@ -286,8 +288,8 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
           <div className="space-y-3">
             {galleryPhotos.map((photo, index) => {
               const dataUrl = photo.imageHex
-                ? (photo.imageHex.startsWith('http') || photo.imageHex.startsWith('data:')
-                    ? photo.imageHex
+                ? (photo.imageHex.startsWith('http') || photo.imageHex.startsWith('data:') || photo.imageHex.startsWith('/api/')
+                    ? normalizeMediaUrl(photo.imageHex)
                     : hexToDataUrl(photo.imageHex, photo.mimeType))
                 : '';
               return (
@@ -312,7 +314,7 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
                       <p className={`text-xs ${textMuted} mt-0.5 line-clamp-2`}>{photo.description}</p>
                     )}
                     <p className={`text-[10px] font-mono ${textFaint} mt-1`}>
-                      #{index + 1} · {photo.mimeType} · {Math.round(photo.imageHex.length / 2048)} KB
+                      #{index + 1} · {photo.mimeType || 'image/webp'} {photo.imageHex.startsWith('http') || photo.imageHex.startsWith('/api/') ? '· Cloud Storage' : `· ${Math.round(photo.imageHex.length / 2048)} KB`}
                     </p>
                   </div>
 

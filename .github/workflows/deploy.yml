@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.mehewara.edu.lk' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev' }}
 
       - name: Deploy to Cloudflare Pages
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}

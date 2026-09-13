@@ -28,10 +28,20 @@ function resolveB2(env: Env): B2Client {
   });
 }
 
-function withRequestHeaders(response: Response, corsHeaders: Headers, requestIdValue: string): Response {
-  for (const [key, value] of corsHeaders) response.headers.set(key, value);
-  response.headers.set("X-Request-ID", requestIdValue);
-  return securityHeaders(response);
+function withRequestHeaders(response: Response, corsHeaders: Headers, requestIdValue: string, isHead = false): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of corsHeaders) headers.set(key, value);
+  headers.set("X-Request-ID", requestIdValue);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Referrer-Policy", "no-referrer");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  const isNullBody = isHead || response.status === 204 || response.status === 205 || response.status === 304;
+  return new Response(isNullBody ? null : response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 export default {
@@ -85,16 +95,16 @@ export default {
       }
       else if (url.pathname === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2, context }); }
       else if (url.pathname === "/api/v1/media/upload-confirm") { requireMethod(request, "POST"); response = await confirmUploadHttpRoute(request, { b2, context }); }
-      else if (url.pathname.startsWith("/api/v1/media/")) { requireMethod(request, "GET"); const objectKey = decodeURIComponent(url.pathname.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2, objectKey, context }); }
+      else if (url.pathname.startsWith("/api/v1/media/")) { requireMethod(request, "GET", "HEAD"); const objectKey = decodeURIComponent(url.pathname.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2, objectKey, context }); }
       else throw new HttpError("NOT_FOUND", 404, "Route not found");
-      return withRequestHeaders(response, corsHeaders, id);
+      return withRequestHeaders(response, corsHeaders, id, request.method === "HEAD");
     } catch (error) {
       console.error("Unhandled API error:", error);
       // Error responses carry the same CORS + request-id + security headers
       // as success responses: cross-origin admin clients must be able to
       // read the 401/403/429 status instead of seeing an opaque network
       // error, and every response must be traceable by request id.
-      return withRequestHeaders(errorResponse(error, id), corsHeaders, id);
+      return withRequestHeaders(errorResponse(error, id), corsHeaders, id, request.method === "HEAD");
     }
   }
 } satisfies ExportedHandler<Env>;

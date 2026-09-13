@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const DEFAULT_BASE_URL = 'https://api.mehewara.edu.lk';
+const DEFAULT_BASE_URL = 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
 const FALLBACK_BASE_URL = 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
 
 // In development, route through Vite proxy (/api/v1) to avoid Cloudflare Worker CORS restrictions.
@@ -16,6 +16,22 @@ if (!isDev || forceDirect) {
   }
 }
 let activeBaseURL = rawBaseURL.replace(/\/+$/, '');
+
+export function getActiveMediaBaseUrl(): string {
+  return (activeBaseURL || (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)).trim().replace(/\/+$/, '');
+}
+
+export function normalizeMediaUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  const base = getActiveMediaBaseUrl();
+  if (url.includes('api.mehewara.edu.lk/api/v1/media/')) {
+    return url.replace('https://api.mehewara.edu.lk/api/v1/media/', `${base}/api/v1/media/`);
+  }
+  if (url.startsWith('/api/v1/media/')) {
+    return `${base}${url}`;
+  }
+  return url;
+}
 
 export const api = axios.create({
   baseURL: `${activeBaseURL}/api/v1`,
@@ -137,7 +153,7 @@ export async function uploadToB2(file: File | Blob, endpointOrPrefix: string = '
   const { objectKey } = confirmRes.data;
 
   // 4. Return canonical public media URL served by Cloudflare Worker
-  const publicBase = (activeBaseURL || (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)).trim().replace(/\/+$/, '');
+  const publicBase = getActiveMediaBaseUrl();
   return `${publicBase}/api/v1/media/${objectKey}`;
 }
 

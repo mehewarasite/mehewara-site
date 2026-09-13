@@ -1,4 +1,4 @@
-import { api, publicApi, isAdmin } from './apiClient';
+import { api, publicApi, isAdmin, getActiveMediaBaseUrl, normalizeMediaUrl } from './apiClient';
 import type { Paper, Question, Subject, GalleryPhoto, AboutData } from './types';
 
 // Cache for public manifest to avoid redundant fetches
@@ -408,37 +408,44 @@ export async function dbLoadAboutUs(): Promise<AboutData | null> {
     try {
       const res = await api.get('/admin/about');
       const data = res.data;
+      const rawUrl = data?.image?.objectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${data.image.objectKey}` : data?.image?.url;
       return {
-        description: data.description,
-        image_url: data.image?.url,
-        facebook_link: data.social?.facebookUrl,
-        youtube_link: data.social?.youtubeUrl,
-        linkedin_link: data.social?.linkedinUrl,
+        description: data?.description || '',
+        image_url: normalizeMediaUrl(rawUrl),
+        facebook_link: data?.social?.facebookUrl || '',
+        youtube_link: data?.social?.youtubeUrl || '',
+        linkedin_link: data?.social?.linkedinUrl || '',
       };
     } catch { return null; }
   } else {
     const manifest = await getPublicManifest();
     const data = manifest?.about;
     if (!data) return null;
+    const rawUrl = data?.image?.url || (data?.image?.objectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${data.image.objectKey}` : null);
     return {
-      description: data.description,
-      image_url: data.image?.url,
-      facebook_link: data.social?.facebookUrl,
-      youtube_link: data.social?.youtubeUrl,
-      linkedin_link: data.social?.linkedinUrl,
+      description: data?.description || '',
+      image_url: normalizeMediaUrl(rawUrl),
+      facebook_link: data?.social?.facebookUrl || '',
+      youtube_link: data?.social?.youtubeUrl || '',
+      linkedin_link: data?.social?.linkedinUrl || '',
     };
   }
 }
 
 export async function dbSaveAboutUs(aboutData: AboutData): Promise<{ error?: string }> {
   try {
+    const rawImg = aboutData.image_url || '';
+    const objectKey = rawImg.includes('/api/v1/media/')
+      ? rawImg.split('/api/v1/media/')[1]
+      : (rawImg.startsWith('about/') ? rawImg : null);
+
     await api.put('/admin/about', {
       description: aboutData.description || '',
-      image: aboutData.image_url ? { kind: 'image', url: aboutData.image_url, contentType: 'image/jpeg' } : undefined,
+      image: objectKey ? { objectKey, contentType: 'image/webp', width: 800, height: 600 } : null,
       social: {
-        facebookUrl: aboutData.facebook_link || '',
-        youtubeUrl: aboutData.youtube_link || '',
-        linkedinUrl: aboutData.linkedin_link || ''
+        facebookUrl: aboutData.facebook_link || null,
+        youtubeUrl: aboutData.youtube_link || null,
+        linkedinUrl: aboutData.linkedin_link || null
       }
     });
     return {};
@@ -461,51 +468,71 @@ export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
         cursor = res.data.nextCursor || null;
       } while (cursor);
 
-      return allItems.map((g: any) => ({
-        id: g.id,
-        title: g.title?.en || '',
-        description: g.description?.en || '',
-        imageHex: g.image?.url || '', // Hex acts as URL now
-        mimeType: g.contentType || 'image/jpeg',
-        sortOrder: g.sortOrder || 0,
-        createdAt: g.createdAt || '',
-        pinned: g.pinned || false
-      }));
+      return allItems.map((g: any) => {
+        const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
+        return {
+          id: g.id,
+          title: g.title?.en || '',
+          description: g.description?.en || '',
+          imageHex: normalizeMediaUrl(rawUrl),
+          mimeType: g.contentType || 'image/webp',
+          sortOrder: g.sortOrder || 0,
+          createdAt: g.createdAt || '',
+          pinned: g.pinned || false
+        };
+      });
     } catch { return null; }
   } else {
     const manifest = await getPublicManifest();
     if (!manifest) return [];
-    return manifest.gallery.map((g: any) => ({
-      id: g.id,
-      title: g.title?.en || '',
-      description: g.description?.en || '',
-      imageHex: g.image?.url || '',
-      mimeType: g.contentType || 'image/jpeg',
-      sortOrder: g.sortOrder || 0,
-      createdAt: g.createdAt || '',
-      pinned: g.pinned || false
-    }));
+    return (manifest.gallery || []).map((g: any) => {
+      const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
+      return {
+        id: g.id,
+        title: g.title?.en || '',
+        description: g.description?.en || '',
+        imageHex: normalizeMediaUrl(rawUrl),
+        mimeType: g.contentType || 'image/webp',
+        sortOrder: g.sortOrder || 0,
+        createdAt: g.createdAt || '',
+        pinned: g.pinned || false
+      };
+    });
   }
 }
 
 export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?: string }> {
-  const payload = {
-    slug: photo.id, // Using id as slug
-    title: { en: photo.title || 'Photo', si: photo.title || 'Photo' },
-    description: { en: photo.description || '', si: photo.description || '' },
-    contentType: photo.mimeType,
-    pinned: photo.pinned || false,
-    sortOrder: photo.sortOrder || 0,
-    image: photo.imageHex.startsWith('http') ? { kind: 'image', url: photo.imageHex, contentType: photo.mimeType } : undefined
-  };
-  try {
-    await api.patch(`/admin/gallery-items/${photo.id}`, payload);
-  } catch (e: any) {
-    if (e.response?.status === 404) {
-      await api.post('/admin/gallery-items', { id: photo.id, ...payload });
+  const objectKey = photo.imageHex.includes('/api/v1/media/')
+    ? photo.imageHex.split('/api/v1/media/')[1]
+    : (photo.imageHex.startsWith('gallery/') || photo.imageHex.startsWith('study/') ? photo.imageHex : null);
+
+  const titleObj = { en: photo.title || 'Photo', si: photo.title || 'Photo' };
+  const descObj = photo.description ? { en: photo.description, si: photo.description } : null;
+
+  if (objectKey) {
+    const payload = {
+      slug: photo.id.slice(0, 36),
+      title: titleObj,
+      description: descObj,
+      altText: titleObj,
+      imageObjectKey: objectKey,
+      thumbnailObjectKey: objectKey,
+      contentType: photo.mimeType || 'image/webp',
+      width: 800,
+      height: 600,
+      byteSize: 1000,
+      pinned: photo.pinned || false,
+      sortOrder: photo.sortOrder || 0,
+    };
+    try {
+      await api.patch(`/admin/gallery-items/${photo.id}`, payload);
+    } catch (e: any) {
+      if (e.response?.status === 404) {
+        await api.post('/admin/gallery-items', { id: photo.id, ...payload });
+      }
     }
+    await api.post(`/admin/gallery-items/${photo.id}/state`, { state: 'published' }).catch(console.error);
   }
-  await api.post(`/admin/gallery-items/${photo.id}/state`, { state: 'published' }).catch(console.error);
   return {};
 }
 

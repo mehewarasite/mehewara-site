@@ -56,6 +56,46 @@ async function authed(request: Request, deps: AdminDeps): Promise<AdminPrincipal
   return requireAdmin(request, deps.context.access, deps.verifier);
 }
 
+async function resolveMediaRecord(context: FeatureContext, objectKey: string): Promise<{ sha256: string; byteSize: number; contentType: string } | null> {
+  if (typeof context.uploads?.getConfirmedByObjectKey === "function") {
+    const confirmed = await context.uploads.getConfirmedByObjectKey(objectKey);
+    if (confirmed) {
+      return {
+        sha256: confirmed.sha256,
+        byteSize: confirmed.actualByteSize ?? confirmed.declaredByteSize,
+        contentType: confirmed.contentType,
+      };
+    }
+  }
+  return context.inventory.getByObjectKey(objectKey);
+}
+
+async function resolveManyMediaRecords(context: FeatureContext, objectKeys: string[]): Promise<Map<string, { sha256: string; byteSize: number; contentType: string }>> {
+  const unique = [...new Set(objectKeys)];
+  const uploadsPromise = typeof context.uploads?.getConfirmedByObjectKeys === "function"
+    ? context.uploads.getConfirmedByObjectKeys(unique)
+    : Promise.resolve(new Map());
+  const [confirmed, inventoried] = await Promise.all([
+    uploadsPromise,
+    context.inventory.getManyByObjectKeys(unique),
+  ]);
+  const resolved = new Map<string, { sha256: string; byteSize: number; contentType: string }>();
+  for (const key of unique) {
+    const upload = confirmed.get(key);
+    if (upload) {
+      resolved.set(key, {
+        sha256: upload.sha256,
+        byteSize: upload.actualByteSize ?? upload.declaredByteSize,
+        contentType: upload.contentType,
+      });
+      continue;
+    }
+    const inv = inventoried.get(key);
+    if (inv) resolved.set(key, inv);
+  }
+  return resolved;
+}
+
 /**
  * Exactly-once admin mutation wrapper. A retried Idempotency-Key replays by
  * re-reading the recorded descriptor (entity type + id) through the GET
@@ -668,10 +708,9 @@ async function studyRoute(request: Request, deps: AdminDeps, id: string | null, 
             throw new HttpError("BAD_REQUEST", 400, "paperId must belong to the study subject");
           }
         }
-        // Object keys resolve only through the media inventory: the key must
-        // come from a confirmed upload or the migration. Size and type are
-        // authoritative from inventory, never from the request.
-        const inventory = await context.inventory.getByObjectKey(value.objectKey);
+        // Object keys resolve only through the media inventory or confirmed uploads.
+        // Size and type are authoritative from storage, never from the request.
+        const inventory = await resolveMediaRecord(context, value.objectKey);
         if (!inventory) throw new HttpError("CONFLICT", 409, "objectKey is not a confirmed upload or migrated object");
         if (inventory.contentType !== value.contentType) throw new HttpError("BAD_REQUEST", 400, "contentType does not match the stored object");
         try {
@@ -735,7 +774,7 @@ async function studyRoute(request: Request, deps: AdminDeps, id: string | null, 
           patch.description_si = fields.description?.si ?? null;
         }
         if (fields.objectKey !== undefined) {
-          const inventory = await context.inventory.getByObjectKey(fields.objectKey);
+          const inventory = await resolveMediaRecord(context, fields.objectKey);
           if (!inventory) throw new HttpError("CONFLICT", 409, "objectKey is not a confirmed upload or migrated object");
           patch.object_key = fields.objectKey;
           patch.content_type = inventory.contentType;
@@ -822,7 +861,7 @@ async function galleryRoute(request: Request, deps: AdminDeps, id: string | null
       request, deps, principal, scope: `admin:gallery:create:${body.value.id}`, action: "gallery_item.create", entityType: "gallery_item",
       run: async () => {
         const value = body.value;
-        const resolved = await context.inventory.getManyByObjectKeys([value.imageObjectKey, value.thumbnailObjectKey]);
+        const resolved = await resolveManyMediaRecords(context, [value.imageObjectKey, value.thumbnailObjectKey]);
         const image = resolved.get(value.imageObjectKey);
         const thumbnail = resolved.get(value.thumbnailObjectKey);
         if (!image || !thumbnail) throw new HttpError("CONFLICT", 409, "Image keys must be confirmed uploads or migrated objects");
@@ -872,7 +911,7 @@ async function galleryRoute(request: Request, deps: AdminDeps, id: string | null
         // unchanged, and rejected when they contradict a new key.
         const effectiveImage = fields.imageObjectKey ?? existing.image_object_key;
         const effectiveThumb = fields.thumbnailObjectKey ?? existing.thumbnail_object_key;
-        const resolved = await context.inventory.getManyByObjectKeys([effectiveImage, effectiveThumb]);
+        const resolved = await resolveManyMediaRecords(context, [effectiveImage, effectiveThumb]);
         const image = resolved.get(effectiveImage);
         const thumbnail = resolved.get(effectiveThumb);
         if (!image || !thumbnail) throw new HttpError("CONFLICT", 409, "Image keys must be confirmed uploads or migrated objects");
@@ -1020,7 +1059,7 @@ async function aboutRoute(request: Request, deps: AdminDeps): Promise<Response> 
     const body = await read(context.gate, "adminContentRead", async () => {
       const row = await store.getAbout();
       if (!row) return null;
-      return AdminAboutProfile.parse(mapAbout(row, await aboutImageView((key) => deps.context.inventory.getByObjectKey(key), row.image_object_key)));
+      return AdminAboutProfile.parse(mapAbout(row, await aboutImageView((key) => resolveMediaRecord(context, key), row.image_object_key)));
     });
     if (!body) return apiError("NOT_FOUND", "About profile not found", context.requestId, 404);
     return Response.json(body);
@@ -1036,7 +1075,7 @@ async function aboutRoute(request: Request, deps: AdminDeps): Promise<Response> 
         // Width/height/contentType are validated against the stored object;
         // the key is what persists (the build resolves live metadata).
         if (value.image) {
-          const record = await context.inventory.getByObjectKey(value.image.objectKey);
+          const record = await resolveMediaRecord(context, value.image.objectKey);
           if (!record) throw new HttpError("CONFLICT", 409, "image objectKey is not a confirmed upload or migrated object");
           if (record.contentType !== value.image.contentType) throw new HttpError("BAD_REQUEST", 400, "contentType does not match the stored object");
         }
@@ -1049,7 +1088,7 @@ async function aboutRoute(request: Request, deps: AdminDeps): Promise<Response> 
         return {
           status: 200,
           // Canonical image view (see aboutImage): replay-identical.
-          body: AdminAboutProfile.parse(mapAbout(updated, await aboutImageView((key) => deps.context.inventory.getByObjectKey(key), updated.image_object_key))),
+          body: AdminAboutProfile.parse(mapAbout(updated, await aboutImageView((key) => resolveMediaRecord(context, key), updated.image_object_key))),
           // Singletons have no UUID: the audit row records a null entity id
           // plus a singleton marker, matching the AuditRecord contract.
           entityId: null, meta: { singleton: "about" },
