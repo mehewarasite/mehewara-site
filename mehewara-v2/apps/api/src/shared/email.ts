@@ -71,16 +71,17 @@ If you did not request this, please ignore this email.
   `.trim();
 
   // If Resend API key is configured and not a placeholder, dispatch via Resend
-  const isRealKey = resendApiKey && !resendApiKey.includes('re_secret_key') && resendApiKey.startsWith('re_');
+  const cleanKey = resendApiKey?.trim();
+  const isRealKey = cleanKey && !cleanKey.includes('re_secret_key') && cleanKey.startsWith('re_');
 
   if (isRealKey) {
     try {
       // Use the verified mehewara.edu.lk domain, or fall back to onboarding@resend.dev for sandbox
-      const from = resendFromEmail || 'Mehewara Admin <noreply@mehewara.edu.lk>';
+      const from = (resendFromEmail || 'Mehewara Admin <noreply@mehewara.edu.lk>').trim();
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
+          'Authorization': `Bearer ${cleanKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -224,15 +225,16 @@ Account Details:
 Login at: https://mehewara.edu.lk/admin
   `.trim();
 
-  const isRealKey = resendApiKey && !resendApiKey.includes('re_secret_key') && resendApiKey.startsWith('re_');
+  const cleanKey = resendApiKey?.trim();
+  const isRealKey = cleanKey && !cleanKey.includes('re_secret_key') && cleanKey.startsWith('re_');
 
   if (isRealKey) {
     try {
-      const from = resendFromEmail || 'Mehewara Admin <noreply@mehewara.edu.lk>';
+      const from = (resendFromEmail || 'Mehewara Admin <noreply@mehewara.edu.lk>').trim();
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
+          'Authorization': `Bearer ${cleanKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ from, to: [toEmail], subject, html, text }),

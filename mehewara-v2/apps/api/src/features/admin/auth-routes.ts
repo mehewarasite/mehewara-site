@@ -27,9 +27,9 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
   const db = deps.db;
   const trimmed = body.username.trim();
 
-  // Look up user by username or email (or 'admin' alias for super-admin)
+  // Look up user by username or email (case-insensitive, or 'admin' alias for super-admin)
   const user = await db.prepare(
-    "SELECT id, username, name, email, password_hash, role, status FROM admin_users WHERE username = ? OR email = ? OR (? = 'admin' AND role = 'super-admin')"
+    "SELECT id, username, name, email, password_hash, role, status FROM admin_users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR (? = 'admin' AND role = 'super-admin')"
   ).bind(trimmed, trimmed, trimmed).first() as {
     id: string;
     username: string;
@@ -119,7 +119,7 @@ export async function forgotPasswordRoute(request: Request, deps: AdminDeps): Pr
   const trimmed = body.identifier.trim();
 
   const user = await db.prepare(
-    "SELECT id, username, email, status FROM admin_users WHERE username = ? OR email = ? OR (? = 'admin' AND role = 'super-admin')"
+    "SELECT id, username, email, status FROM admin_users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR (? = 'admin' AND role = 'super-admin')"
   ).bind(trimmed, trimmed, trimmed).first() as { id: string; username: string; email: string; status: string } | null;
 
   if (!user || user.status === "suspended") {
@@ -322,19 +322,40 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
 
   if (request.method === "POST") {
     // Only super-admins can directly create new admin users
-    if (!principal.roles.includes("super-admin")) {
+    let isSuperAdmin = principal.roles.includes("super-admin");
+    if (!isSuperAdmin && db) {
+      const dbUser = await db.prepare(
+        "SELECT role FROM admin_users WHERE id = ? OR LOWER(username) = LOWER(?)"
+      ).bind(principal.subject, principal.subject).first() as { role?: string } | null;
+      if (dbUser?.role === "super-admin") {
+        isSuperAdmin = true;
+      }
+    }
+
+    if (!isSuperAdmin) {
       throw new HttpError("FORBIDDEN", 403, "Super-admin role required to create accounts directly");
     }
 
     const userSchema = z.object({
-      name: z.string().min(2).max(100).optional(),
-      username: z.string().min(3).max(50),
-      email: z.string().email(),
+      name: z.string().max(100).optional().nullable(),
+      username: z.string().trim().min(3).max(50),
+      email: z.string().trim().email(),
       password: z.string().min(6),
       role: z.enum(["admin", "super-admin"]),
     });
     const body = await parseJson(request, userSchema);
     const name = (body.name?.trim() || body.username.trim());
+    const cleanUsername = body.username.trim();
+    const cleanEmail = body.email.trim().toLowerCase();
+
+    // Check for existing account with same username or email (case-insensitive)
+    const existing = await db.prepare(
+      "SELECT id, username, email FROM admin_users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)"
+    ).bind(cleanUsername, cleanEmail).first() as { id: string; username: string; email: string } | null;
+    if (existing) {
+      const field = existing.username.toLowerCase() === cleanUsername.toLowerCase() ? "Username" : "Email address";
+      throw new HttpError("CONFLICT", 409, `${field} is already in use by another account.`);
+    }
 
     const hash = await hashPassword(body.password);
     const id = crypto.randomUUID();
@@ -342,10 +363,10 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
     try {
       await db.prepare(
         "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
-      ).bind(id, body.username.trim(), name, body.email.trim().toLowerCase(), hash, body.role).run();
+      ).bind(id, cleanUsername, name, cleanEmail, hash, body.role).run();
     } catch (e: any) {
       if (e.message && e.message.includes("UNIQUE constraint failed")) {
-        throw new HttpError("CONFLICT", 409, "Username or email already exists");
+        throw new HttpError("CONFLICT", 409, "Username or email is already registered.");
       }
       throw e;
     }

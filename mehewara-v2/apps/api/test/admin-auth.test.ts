@@ -20,9 +20,9 @@ function createMockDb() {
     prepare(sql: string) {
       const stmt = (args: any[] = []) => ({
         async first() {
-          if (sql.includes("FROM admin_users WHERE username = ? OR email = ?")) {
+          if (sql.includes("FROM admin_users WHERE username = ? OR email = ?") || sql.includes("LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)")) {
             const [val1, val2] = args;
-            return users.find(u => u.username === val1 || u.email === val2) || null;
+            return users.find(u => u.username.toLowerCase() === val1.toLowerCase() || u.email.toLowerCase() === val2.toLowerCase()) || null;
           }
           if (sql.includes("SELECT COUNT(*) as count FROM admin_users")) {
             return { count: users.length };
@@ -35,9 +35,9 @@ function createMockDb() {
             const [email, otp] = args;
             return otps.find(o => o.email === email && o.otp_code === otp && o.purpose === "password_reset") || null;
           }
-          if (sql.includes("FROM admin_users WHERE id = ? OR username = ?")) {
+          if (sql.includes("FROM admin_users WHERE id = ? OR username = ?") || sql.includes("id = ? OR LOWER(username) = LOWER(?)")) {
             const [val1, val2] = args;
-            return users.find(u => u.id === val1 || u.username === val2) || null;
+            return users.find(u => u.id === val1 || u.username.toLowerCase() === val2.toLowerCase()) || null;
           }
           return null;
         },

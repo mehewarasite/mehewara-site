@@ -99,8 +99,13 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
       setNewRole('admin');
       loadUsers(true);
     } catch (err: any) {
-      const msg = err.response?.data?.error || err.response?.data?.message || err.message;
-      setModalError(msg || 'Failed to create user.');
+      const errData = err.response?.data;
+      const rawErr = errData?.error;
+      const msg = (typeof rawErr === 'string' ? rawErr : rawErr?.message)
+        || errData?.message
+        || (typeof err.message === 'string' ? err.message : '')
+        || 'Failed to create user.';
+      setModalError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -297,7 +302,7 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
             {modalError && (
               <div className="flex items-center gap-2 p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{modalError}</span>
+                <span>{typeof modalError === 'string' ? modalError : JSON.stringify(modalError)}</span>
               </div>
             )}
 
