@@ -30,6 +30,15 @@ interface AdminLoginProps {
 
 type AuthMode = 'login' | 'register' | 'forgot';
 
+function extractErrorMessage(err: any, fallback: string): string {
+  const data = err?.response?.data;
+  if (!data) return err?.message || fallback;
+  if (typeof data.error === 'string') return data.error;
+  if (typeof data.error?.message === 'string') return data.error.message;
+  if (typeof data.message === 'string') return data.message;
+  return fallback;
+}
+
 export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps) {
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -96,11 +105,11 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
       }
     } catch (err: any) {
       console.error('Admin login error:', err);
-      const serverMsg = err.response?.data?.error || err.response?.data?.message;
-      setError(
-        serverMsg ||
-        (isEn ? 'Invalid credentials. Please check your username and password.' : 'වලංගු නොවන තොරතුරු. පරිශීලක නාමය සහ මුරපදය පරීක්ෂා කරන්න.')
+      const serverMsg = extractErrorMessage(
+        err,
+        isEn ? 'Invalid credentials. Please check your username and password.' : 'වලංගු නොවන තොරතුරු. පරිශීලක නාමය සහ මුරපදය පරීක්ෂා කරන්න.'
       );
+      setError(serverMsg);
     } finally {
       setIsLoading(false);
     }
@@ -135,8 +144,8 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
       }
       setRegStep(2);
     } catch (err: any) {
-      const serverMsg = err.response?.data?.error || err.response?.data?.message;
-      setError(serverMsg || (isEn ? 'Failed to send verification code.' : 'තහවුරු කිරීමේ කේතය යැවීමට නොහැකි විය.'));
+      const serverMsg = extractErrorMessage(err, isEn ? 'Failed to send verification code.' : 'තහවුරු කිරීමේ කේතය යැවීමට නොහැකි විය.');
+      setError(serverMsg);
     } finally {
       setIsLoading(false);
     }
@@ -170,8 +179,8 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
         onLoginSuccess(res.token, res.user);
       }
     } catch (err: any) {
-      const serverMsg = err.response?.data?.error || err.response?.data?.message;
-      setError(serverMsg || (isEn ? 'Verification failed. Code may be invalid or expired.' : 'සත්‍යාපනය අසාර්ථක විය.'));
+      const serverMsg = extractErrorMessage(err, isEn ? 'Verification failed. Code may be invalid or expired.' : 'සත්‍යාපනය අසාර්ථක විය.');
+      setError(serverMsg);
     } finally {
       setIsLoading(false);
     }
@@ -197,8 +206,8 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
       }
       setForgotStep(2);
     } catch (err: any) {
-      const serverMsg = err.response?.data?.error || err.response?.data?.message;
-      setError(serverMsg || (isEn ? 'Failed to process password reset request.' : 'ඉල්ලීම සැකසීමට නොහැකි විය.'));
+      const serverMsg = extractErrorMessage(err, isEn ? 'Failed to process password reset request.' : 'ඉල්ලීම සැකසීමට නොහැකි විය.');
+      setError(serverMsg);
     } finally {
       setIsLoading(false);
     }
@@ -244,8 +253,8 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
         setForgotConfirmPassword('');
       }, 1800);
     } catch (err: any) {
-      const serverMsg = err.response?.data?.error || err.response?.data?.message;
-      setError(serverMsg || (isEn ? 'Failed to reset password.' : 'මුරපදය වෙනස් කිරීම අසාර්ථක විය.'));
+      const serverMsg = extractErrorMessage(err, isEn ? 'Failed to reset password.' : 'මුරපදය වෙනස් කිරීම අසාර්ථක විය.');
+      setError(serverMsg);
     } finally {
       setIsLoading(false);
     }

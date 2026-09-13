@@ -43,9 +43,13 @@ function setupNetworkFallback(instance: typeof api) {
       }
 
       if (error.response?.status === 401) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUser');
-        window.dispatchEvent(new Event('admin-logout'));
+        const reqUrl = error.config?.url || '';
+        const isAuthEndpoint = reqUrl.includes('/admin/login') || reqUrl.includes('/admin/auth/');
+        if (!isAuthEndpoint) {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminUser');
+          window.dispatchEvent(new Event('admin-logout'));
+        }
       }
       return Promise.reject(error);
     }
