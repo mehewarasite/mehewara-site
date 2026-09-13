@@ -27,10 +27,10 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
   const db = deps.db;
   const trimmed = body.username.trim();
 
-  // Look up user by username or email
+  // Look up user by username or email (or 'admin' alias for super-admin)
   const user = await db.prepare(
-    "SELECT id, username, name, email, password_hash, role, status FROM admin_users WHERE username = ? OR email = ?"
-  ).bind(trimmed, trimmed).first() as {
+    "SELECT id, username, name, email, password_hash, role, status FROM admin_users WHERE username = ? OR email = ? OR (? = 'admin' AND role = 'super-admin')"
+  ).bind(trimmed, trimmed, trimmed).first() as {
     id: string;
     username: string;
     name?: string;
@@ -108,136 +108,6 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
   throw new HttpError("UNAUTHORIZED", 401, "Invalid username or password");
 }
 
-export async function registerOtpRoute(request: Request, deps: AdminDeps): Promise<Response> {
-  requireMethod(request, "POST");
-  const schema = z.object({
-    name: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
-    username: z.string().min(3, "Username must be at least 3 characters").max(50),
-    email: z.string().email("Please provide a valid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-  });
-
-  const body = await parseJson(request, schema);
-  const db = deps.db;
-  const username = body.username.trim();
-  const email = body.email.trim().toLowerCase();
-
-  // Check if username or email is already registered
-  const existing = await db.prepare(
-    "SELECT id, username, email FROM admin_users WHERE username = ? OR email = ?"
-  ).bind(username, email).first();
-
-  if (existing) {
-    throw new HttpError("CONFLICT", 409, "Username or email is already registered");
-  }
-
-  // Generate 6-digit OTP
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-  const id = crypto.randomUUID();
-
-  // Invalidate any previous signup OTPs for this email
-  await db.prepare("DELETE FROM admin_otp_tokens WHERE email = ? AND purpose = 'signup'").bind(email).run();
-
-  // Store new OTP
-  await db.prepare(
-    "INSERT INTO admin_otp_tokens (id, email, otp_code, purpose, attempts, expires_at) VALUES (?, ?, ?, 'signup', 0, ?)"
-  ).bind(id, email, otpCode, expiresAt).run();
-
-  // Send email
-  const sendResult = await sendOtpEmail({
-    toEmail: email,
-    otpCode,
-    purpose: "signup",
-    environment: deps.context.environment,
-    resendApiKey: deps.resendApiKey,
-    resendFromEmail: deps.resendFromEmail,
-  });
-
-  return Response.json({
-    ok: true,
-    message: `Verification code sent to ${maskEmail(email)}`,
-    devOtp: sendResult.devOtp,
-  });
-}
-
-export async function registerVerifyRoute(request: Request, deps: AdminDeps): Promise<Response> {
-  requireMethod(request, "POST");
-  const schema = z.object({
-    name: z.string().min(2).max(100).optional(),
-    username: z.string().min(3).max(50),
-    email: z.string().email(),
-    password: z.string().min(6),
-    otp: z.string().length(6, "Verification code must be 6 digits"),
-  });
-
-  const body = await parseJson(request, schema);
-  const db = deps.db;
-  const username = body.username.trim();
-  const name = (body.name?.trim() || username);
-  const email = body.email.trim().toLowerCase();
-  const otp = body.otp.trim();
-
-  // Find OTP token
-  const tokenRecord = await db.prepare(
-    "SELECT id, attempts, expires_at FROM admin_otp_tokens WHERE email = ? AND otp_code = ? AND purpose = 'signup'"
-  ).bind(email, otp).first() as { id: string; attempts: number; expires_at: string } | null;
-
-  if (!tokenRecord) {
-    // Increment attempts on any existing token for this email
-    await db.prepare(
-      "UPDATE admin_otp_tokens SET attempts = attempts + 1 WHERE email = ? AND purpose = 'signup'"
-    ).bind(email).run();
-    throw new HttpError("BAD_REQUEST", 400, "Invalid verification code. Please check and try again.");
-  }
-
-  if (new Date(tokenRecord.expires_at).getTime() < Date.now()) {
-    await db.prepare("DELETE FROM admin_otp_tokens WHERE id = ?").bind(tokenRecord.id).run();
-    throw new HttpError("BAD_REQUEST", 400, "Verification code has expired. Please request a new one.");
-  }
-
-  if (tokenRecord.attempts >= 5) {
-    await db.prepare("DELETE FROM admin_otp_tokens WHERE id = ?").bind(tokenRecord.id).run();
-    throw new HttpError("BAD_REQUEST", 429, "Too many failed attempts. Please request a new code.");
-  }
-
-  // Hash password
-  const hash = await hashPassword(body.password);
-  const newUserId = crypto.randomUUID();
-
-  // Determine role: if this is the very first user, promote to super-admin; otherwise admin
-  const countRow = await db.prepare("SELECT COUNT(*) as count FROM admin_users").first() as { count: number } | null;
-  const role = (countRow?.count ?? 0) === 0 ? "super-admin" : "admin";
-
-  try {
-    await db.prepare(
-      "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
-    ).bind(newUserId, username, name, email, hash, role).run();
-  } catch (err: any) {
-    if (err.message && err.message.includes("UNIQUE constraint")) {
-      throw new HttpError("CONFLICT", 409, "Username or email is already in use.");
-    }
-    throw err;
-  }
-
-  // Clean up used OTP
-  await db.prepare("DELETE FROM admin_otp_tokens WHERE email = ? AND purpose = 'signup'").bind(email).run();
-
-  // Sign JWT and return
-  const token = await signJwt(
-    { sub: newUserId, username, name, email, role },
-    deps.context.access.adminSecret,
-    24 * 60 * 60 * 1000
-  );
-
-  return Response.json({
-    ok: true,
-    token,
-    role,
-    user: { id: newUserId, username, name, email, role },
-  }, { status: 201 });
-}
-
 export async function forgotPasswordRoute(request: Request, deps: AdminDeps): Promise<Response> {
   requireMethod(request, "POST");
   const schema = z.object({
@@ -249,8 +119,8 @@ export async function forgotPasswordRoute(request: Request, deps: AdminDeps): Pr
   const trimmed = body.identifier.trim();
 
   const user = await db.prepare(
-    "SELECT id, username, email, status FROM admin_users WHERE username = ? OR email = ?"
-  ).bind(trimmed, trimmed).first() as { id: string; username: string; email: string; status: string } | null;
+    "SELECT id, username, email, status FROM admin_users WHERE username = ? OR email = ? OR (? = 'admin' AND role = 'super-admin')"
+  ).bind(trimmed, trimmed, trimmed).first() as { id: string; username: string; email: string; status: string } | null;
 
   if (!user || user.status === "suspended") {
     // Avoid revealing account existence
@@ -282,7 +152,11 @@ export async function forgotPasswordRoute(request: Request, deps: AdminDeps): Pr
 
   return Response.json({
     ok: true,
-    message: `Password reset verification code sent to ${maskEmail(user.email)}`,
+    message: sendResult.error
+      ? `Email delivery notice (${sendResult.error}). Use verification code below:`
+      : sendResult.devOtp
+        ? `Verification code generated. Use code below:`
+        : `Password reset verification code sent to ${maskEmail(user.email)}`,
     email: user.email,
     devOtp: sendResult.devOtp,
   });

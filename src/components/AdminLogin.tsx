@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import {
   Lock,
   User,
-  Mail,
   Eye,
   EyeOff,
   ArrowLeft,
   ShieldCheck,
   KeyRound,
-  UserPlus,
   Loader2,
   AlertCircle,
   CheckCircle2
@@ -17,8 +15,6 @@ import { useTheme } from '../ThemeContext';
 import { useLanguage } from '../LanguageContext';
 import {
   dbAdminLogin,
-  dbAdminRegisterRequestOtp,
-  dbAdminRegisterVerify,
   dbAdminForgotPasswordRequest,
   dbAdminForgotPasswordReset
 } from '../api';
@@ -28,7 +24,7 @@ interface AdminLoginProps {
   onCancel: () => void;
 }
 
-type AuthMode = 'login' | 'register' | 'forgot';
+type AuthMode = 'login' | 'forgot';
 
 function extractErrorMessage(err: any, fallback: string): string {
   const data = err?.response?.data;
@@ -51,15 +47,6 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  // Register Form State
-  const [regName, setRegName] = useState('');
-  const [regUsername, setRegUsername] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [regOtp, setRegOtp] = useState('');
-  const [regStep, setRegStep] = useState<1 | 2>(1); // 1: Info, 2: OTP
 
   // Forgot Password State
   const [forgotIdentifier, setForgotIdentifier] = useState('');
@@ -109,77 +96,6 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
         err,
         isEn ? 'Invalid credentials. Please check your username and password.' : 'වලංගු නොවන තොරතුරු. පරිශීලක නාමය සහ මුරපදය පරීක්ෂා කරන්න.'
       );
-      setError(serverMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ── Register: Step 1 (Request OTP) ──
-  const handleRegisterRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regName.trim() || !regUsername.trim() || !regEmail.trim() || !regPassword) {
-      setError(isEn ? 'Please fill in all fields.' : 'කරුණාකර සියලු විස්තර පුරවන්න.');
-      return;
-    }
-
-    if (regPassword.length < 6) {
-      setError(isEn ? 'Password must be at least 6 characters.' : 'මුරපදය අවම වශයෙන් අකුරු 6ක් විය යුතුය.');
-      return;
-    }
-
-    if (regPassword !== regConfirmPassword) {
-      setError(isEn ? 'Passwords do not match.' : 'මුරපද එකිනෙකට නොගැලපේ.');
-      return;
-    }
-
-    setIsLoading(true);
-    resetAllErrors();
-
-    try {
-      const res = await dbAdminRegisterRequestOtp(regName.trim(), regUsername.trim(), regEmail.trim(), regPassword);
-      setSuccessMsg(res.message || (isEn ? 'Verification code sent to your email.' : 'තහවුරු කිරීමේ කේතය ඔබගේ විද්‍යුත් තැපෑලට යවන ලදි.'));
-      if (res.devOtp) {
-        setDevOtpNotice(`[Dev Mock OTP: ${res.devOtp}]`);
-      }
-      setRegStep(2);
-    } catch (err: any) {
-      const serverMsg = extractErrorMessage(err, isEn ? 'Failed to send verification code.' : 'තහවුරු කිරීමේ කේතය යැවීමට නොහැකි විය.');
-      setError(serverMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ── Register: Step 2 (Verify OTP & Create Account) ──
-  const handleRegisterVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regOtp.trim() || regOtp.trim().length !== 6) {
-      setError(isEn ? 'Please enter the 6-digit verification code.' : 'කරුණාකර ඉලක්කම් 6 කේතය ඇතුළත් කරන්න.');
-      return;
-    }
-
-    setIsLoading(true);
-    resetAllErrors();
-
-    try {
-      const res = await dbAdminRegisterVerify(
-        regName.trim(),
-        regEmail.trim(),
-        regOtp.trim(),
-        regUsername.trim(),
-        regPassword
-      );
-
-      if (res.token) {
-        localStorage.setItem('adminToken', res.token);
-        if (res.user) {
-          localStorage.setItem('adminUser', JSON.stringify(res.user));
-        }
-        onLoginSuccess(res.token, res.user);
-      }
-    } catch (err: any) {
-      const serverMsg = extractErrorMessage(err, isEn ? 'Verification failed. Code may be invalid or expired.' : 'සත්‍යාපනය අසාර්ථක විය.');
       setError(serverMsg);
     } finally {
       setIsLoading(false);
@@ -294,19 +210,14 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 mb-3 shadow-inner">
             {mode === 'login' && <ShieldCheck className="w-7 h-7" />}
-            {mode === 'register' && <UserPlus className="w-7 h-7" />}
             {mode === 'forgot' && <KeyRound className="w-7 h-7" />}
           </div>
           <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${titleText}`}>
             {mode === 'login' && (isEn ? 'Admin Portal' : 'පාලක පිවිසුම')}
-            {mode === 'register' && (isEn ? 'Create Admin Account' : 'නව පාලක ගිණුමක් තැනීම')}
             {mode === 'forgot' && (isEn ? 'Reset Password' : 'මුරපදය යළි පිහිටුවීම')}
           </h1>
           <p className={`text-xs mt-1.5 ${subText}`}>
             {mode === 'login' && (isEn ? 'Enter your credentials to access system management' : 'පද්ධති පාලනය සඳහා ඔබගේ පිවිසුම් තොරතුරු ඇතුළත් කරන්න')}
-            {mode === 'register' && (regStep === 1
-              ? (isEn ? 'Fill in your details to receive an email verification code' : 'තහවුරු කිරීමේ කේතයක් ලබා ගැනීමට ඔබගේ තොරතුරු ඇතුළත් කරන්න')
-              : (isEn ? 'Enter the 6-digit code sent to your email' : 'ඔබගේ විද්‍යුත් තැපෑලට යවන ලද ඉලක්කම් 6 කේතය ඇතුළත් කරන්න'))}
             {mode === 'forgot' && (forgotStep === 1
               ? (isEn ? 'Enter your username or email to receive a password reset code' : 'මුරපදය යළි පිහිටුවීමේ කේතයක් ලබා ගැනීමට විස්තර ඇතුළත් කරන්න')
               : (isEn ? 'Enter the verification code and set your new password' : 'කේතය ඇතුළත් කර නව මුරපදයක් සකසන්න'))}
@@ -421,204 +332,11 @@ export default function AdminLogin({ onLoginSuccess, onCancel }: AdminLoginProps
                 <span>{isEn ? 'Sign In' : 'පිවිසෙන්න'}</span>
               )}
             </button>
-
-            {/* Switch to Register */}
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  resetAllErrors();
-                  setMode('register');
-                  setRegStep(1);
-                }}
-                className={`text-xs ${subText} hover:text-sky-400 transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer`}
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>{isEn ? 'Register new admin account' : 'නව පාලක ගිණුමක් ලියාපදිංචි කරන්න'}</span>
-              </button>
-            </div>
           </form>
         )}
 
         {/* ─────────────────────────────────────────────────────────────
-            MODE 2: REGISTER ADMIN (WITH EMAIL OTP)
-        ────────────────────────────────────────────────────────────── */}
-        {mode === 'register' && (
-          <div>
-            {regStep === 1 ? (
-              <form onSubmit={handleRegisterRequestOtp} className="space-y-3.5">
-                <div>
-                  <label className={`block text-xs font-bold mb-1 ${labelText}`}>
-                    {isEn ? 'Full Name' : 'සම්පූර්ණ නම'}
-                  </label>
-                  <div className="relative">
-                    <User className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
-                    <input
-                      type="text"
-                      value={regName}
-                      onChange={(e) => setRegName(e.target.value)}
-                      placeholder={isEn ? 'e.g. Induwara Dahamjith' : 'උදා: ඉඳුවර දහම්ජිත්'}
-                      required
-                      autoFocus
-                      className={`w-full pl-10 pr-4 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all ${inputBg}`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={`block text-xs font-bold mb-1 ${labelText}`}>
-                    {isEn ? 'Username' : 'පරිශීලක නාමය'}
-                  </label>
-                  <div className="relative">
-                    <User className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
-                    <input
-                      type="text"
-                      value={regUsername}
-                      onChange={(e) => setRegUsername(e.target.value)}
-                      placeholder="e.g. jsmith"
-                      required
-                      className={`w-full pl-10 pr-4 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all ${inputBg}`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={`block text-xs font-bold mb-1 ${labelText}`}>
-                    {isEn ? 'Email Address' : 'විද්‍යුත් තැපෑල'}
-                  </label>
-                  <div className="relative">
-                    <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
-                    <input
-                      type="email"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="admin@mehewara.edu.lk"
-                      required
-                      className={`w-full pl-10 pr-4 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all ${inputBg}`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={`block text-xs font-bold mb-1 ${labelText}`}>
-                    {isEn ? 'Password' : 'මුරපදය'}
-                  </label>
-                  <div className="relative">
-                    <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
-                    <input
-                      type="password"
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      placeholder={isEn ? 'Minimum 6 characters' : 'අවම වශයෙන් අකුරු 6ක්'}
-                      required
-                      className={`w-full pl-10 pr-4 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all ${inputBg}`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={`block text-xs font-bold mb-1 ${labelText}`}>
-                    {isEn ? 'Confirm Password' : 'මුරපදය තහවුරු කරන්න'}
-                  </label>
-                  <div className="relative">
-                    <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
-                    <input
-                      type="password"
-                      value={regConfirmPassword}
-                      onChange={(e) => setRegConfirmPassword(e.target.value)}
-                      placeholder={isEn ? 'Re-enter password' : 'නැවත මුරපදය ඇතුළත් කරන්න'}
-                      required
-                      className={`w-full pl-10 pr-4 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all ${inputBg}`}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full mt-3 py-2.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-sm shadow-md transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{isEn ? 'Sending verification code...' : 'කේතය යවමින්...'}</span>
-                    </>
-                  ) : (
-                    <span>{isEn ? 'Send Verification Code' : 'තහවුරු කිරීමේ කේතය එවන්න'}</span>
-                  )}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleRegisterVerify} className="space-y-4">
-                <div>
-                  <label className={`block text-xs font-bold mb-2 text-center ${labelText}`}>
-                    {isEn ? 'Enter 6-Digit Email Code' : 'විද්‍යුත් තැපෑලට ලැබුණු ඉලක්කම් 6 කේතය'}
-                  </label>
-                  <input
-                    type="text"
-                    value={regOtp}
-                    onChange={(e) => setRegOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="123456"
-                    autoFocus
-                    maxLength={6}
-                    required
-                    className={`w-full py-3 text-center tracking-[12px] font-mono text-2xl font-bold rounded-xl border focus:outline-none focus:ring-2 focus:ring-sky-500/40 ${inputBg}`}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading || regOtp.length !== 6}
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/25 transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{isEn ? 'Verifying & Creating Account...' : 'සත්‍යාපනය කරමින්...'}</span>
-                    </>
-                  ) : (
-                    <span>{isEn ? 'Verify & Create Account' : 'තහවුරු කර ගිණුම තනන්න'}</span>
-                  )}
-                </button>
-
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setRegStep(1)}
-                    className={`${subText} hover:text-white transition-colors cursor-pointer`}
-                  >
-                    {isEn ? '← Change email' : '← විද්‍යුත් තැපෑල වෙනස් කරන්න'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRegisterRequestOtp}
-                    disabled={isLoading}
-                    className="text-sky-400 hover:text-sky-300 font-semibold cursor-pointer"
-                  >
-                    {isEn ? 'Resend code' : 'නැවත එවන්න'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Back to sign in */}
-            <div className="mt-5 pt-3 border-t border-white/5 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  resetAllErrors();
-                  setMode('login');
-                }}
-                className={`text-xs ${subText} hover:text-sky-400 transition-colors font-medium cursor-pointer`}
-              >
-                {isEn ? 'Already have an account? Sign In' : 'දැනටමත් ගිණුමක් තිබේද? පිවිසෙන්න'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ─────────────────────────────────────────────────────────────
-            MODE 3: FORGOT PASSWORD (WITH EMAIL OTP RESET)
+            MODE 2: FORGOT PASSWORD (WITH EMAIL OTP RESET)
         ────────────────────────────────────────────────────────────── */}
         {mode === 'forgot' && (
           <div>

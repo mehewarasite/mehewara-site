@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   loginRoute,
-  registerOtpRoute,
-  registerVerifyRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
   changePasswordRoute,
@@ -120,56 +118,33 @@ describe("Admin Authentication & Account Management Routes", () => {
     resendApiKey: undefined,
   });
 
-  it("handles full registration flow with email OTP", async () => {
+  it("allows super-admin to create accounts and authenticate", async () => {
     const mockDb = createMockDb();
     const deps = createDeps(mockDb);
 
-    // 1. Request signup OTP
-    const otpReq = new Request("https://api/v1/admin/auth/register-otp", {
+    // 1. Super-admin creates an admin user
+    const createReq = new Request("https://api/v1/admin/users", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${superAdminSecret}`,
+      },
       body: JSON.stringify({
         name: "Induwara Dahamjith",
         username: "induwara",
         email: "admin@example.com",
         password: "SecretPassword123!",
+        role: "admin",
       }),
     });
 
-    const otpRes = await registerOtpRoute(otpReq, deps);
-    expect(otpRes.status).toBe(200);
-    const otpBody: any = await otpRes.json();
-    expect(otpBody.ok).toBe(true);
-    expect(otpBody.devOtp).toBeDefined();
+    const createRes = await usersRoute(createReq, deps, null);
+    expect(createRes.status).toBe(201);
+    const createBody: any = await createRes.json();
+    expect(createBody.username).toBe("induwara");
+    expect(createBody.role).toBe("admin");
 
-    const sentOtp = otpBody.devOtp;
-
-    // 2. Verify OTP & complete registration
-    const verifyReq = new Request("https://api/v1/admin/auth/register-verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Induwara Dahamjith",
-        username: "induwara",
-        email: "admin@example.com",
-        password: "SecretPassword123!",
-        otp: sentOtp,
-      }),
-    });
-
-    const verifyRes = await registerVerifyRoute(verifyReq, deps);
-    expect(verifyRes.status).toBe(201);
-    const verifyBody: any = await verifyRes.json();
-    expect(verifyBody.ok).toBe(true);
-    expect(verifyBody.token).toBeDefined();
-    expect(verifyBody.user.name).toBe("Induwara Dahamjith");
-    expect(verifyBody.user.username).toBe("induwara");
-    expect(verifyBody.user.email).toBe("admin@example.com");
-
-    // First user is super-admin
-    expect(verifyBody.role).toBe("super-admin");
-
-    // 3. Login with newly created credentials
+    // 2. Login with newly created credentials
     const loginReq = new Request("https://api/v1/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

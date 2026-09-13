@@ -1111,8 +1111,6 @@ async function statsRoute(request: Request, deps: AdminDeps): Promise<Response> 
 import {
   loginRoute,
   usersRoute,
-  registerOtpRoute,
-  registerVerifyRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
   changePasswordRoute,
@@ -1136,8 +1134,6 @@ export async function adminRouter(request: Request, deps: AdminDeps): Promise<Re
 
   if (resource === "login") { return loginRoute(request, deps); }
   if (resource === "auth") {
-    if (id === "register-otp") return registerOtpRoute(request, deps);
-    if (id === "register-verify") return registerVerifyRoute(request, deps);
     if (id === "forgot-password") return forgotPasswordRoute(request, deps);
     if (id === "reset-password") return resetPasswordRoute(request, deps);
     if (id === "change-password") return changePasswordRoute(request, deps);

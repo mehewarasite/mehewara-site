@@ -567,16 +567,6 @@ export async function dbAdminLogin(usernameOrEmail: string, password: string): P
   return data;
 }
 
-export async function dbAdminRegisterRequestOtp(name: string, username: string, email: string, password: string): Promise<{ ok: boolean; message: string; devOtp?: string }> {
-  const { data } = await api.post('/admin/auth/register-otp', { name, username, email, password });
-  return data;
-}
-
-export async function dbAdminRegisterVerify(name: string, email: string, otp: string, username: string, password: string): Promise<AdminAuthResponse> {
-  const { data } = await api.post('/admin/auth/register-verify', { name, email, otp, username, password });
-  return data;
-}
-
 export async function dbAdminForgotPasswordRequest(identifier: string): Promise<{ ok: boolean; message: string; email?: string; devOtp?: string }> {
   const { data } = await api.post('/admin/auth/forgot-password', { identifier });
   return data;

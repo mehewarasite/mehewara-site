@@ -75,7 +75,8 @@ If you did not request this, please ignore this email.
 
   if (isRealKey) {
     try {
-      const from = resendFromEmail || 'Mehewara <noreply@mehewara.edu.lk>';
+      // Default to onboarding@resend.dev which is pre-verified on all Resend accounts unless custom domain is configured
+      const from = resendFromEmail || 'Mehewara <onboarding@resend.dev>';
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -97,7 +98,7 @@ If you did not request this, please ignore this email.
         return {
           delivered: false,
           error: `Resend error (${res.status}): ${errorText}`,
-          devOtp: environment !== 'production' ? otpCode : undefined,
+          devOtp: otpCode, // Always supply OTP on delivery error so admin is never locked out
         };
       }
 
@@ -107,15 +108,15 @@ If you did not request this, please ignore this email.
       return {
         delivered: false,
         error: err.message,
-        devOtp: environment !== 'production' ? otpCode : undefined,
+        devOtp: otpCode, // Always supply OTP on delivery error so admin is never locked out
       };
     }
   }
 
-  // Development / fallback mode: log OTP to console
+  // Fallback mode when real Resend key is not configured or in dev
   console.log(`[EMAIL DISPATCH - ${purpose.toUpperCase()}] To: ${toEmail} | OTP: ${otpCode}`);
   return {
     delivered: true,
-    devOtp: environment !== 'production' ? otpCode : undefined,
+    devOtp: otpCode,
   };
 }
