@@ -4,7 +4,7 @@ import { requireMethod, parseJson } from "../../shared/validation";
 import { signJwt } from "../../shared/jwt";
 import { verifyPassword, hashPassword } from "../../shared/password";
 import { requireAdmin, requireSuperAdmin } from "../../shared/auth";
-import { sendOtpEmail } from "../../shared/email";
+import { sendOtpEmail, sendWelcomeEmail } from "../../shared/email";
 import { z } from "zod";
 
 function maskEmail(email: string): string {
@@ -343,13 +343,53 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
       await db.prepare(
         "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
       ).bind(id, body.username.trim(), name, body.email.trim().toLowerCase(), hash, body.role).run();
-      return Response.json({ id, username: body.username, name, email: body.email, role: body.role }, { status: 201 });
     } catch (e: any) {
       if (e.message && e.message.includes("UNIQUE constraint failed")) {
         throw new HttpError("CONFLICT", 409, "Username or email already exists");
       }
       throw e;
     }
+
+    // Determine who created this account
+    let createdBy = "Super Administrator";
+    try {
+      const creatorRow = await db.prepare(
+        "SELECT username, name FROM admin_users WHERE id = ? OR username = ?"
+      ).bind(principal.subject, principal.subject).first() as { username?: string; name?: string } | null;
+      if (creatorRow?.name || creatorRow?.username) {
+        createdBy = creatorRow.name || creatorRow.username || "Super Administrator";
+      }
+    } catch {
+      // fallback
+    }
+
+    // Send welcome email with login details & initial password
+    let emailResult: { delivered: boolean; error?: string } = { delivered: false };
+    try {
+      emailResult = await sendWelcomeEmail({
+        toEmail: body.email.trim().toLowerCase(),
+        name,
+        username: body.username.trim(),
+        password: body.password,
+        role: body.role,
+        createdBy,
+        resendApiKey: deps.resendApiKey,
+        resendFromEmail: deps.resendFromEmail,
+      });
+    } catch (emailErr: any) {
+      console.error("Failed to dispatch welcome email:", emailErr);
+      emailResult = { delivered: false, error: emailErr.message };
+    }
+
+    return Response.json({
+      id,
+      username: body.username,
+      name,
+      email: body.email,
+      role: body.role,
+      emailSent: emailResult.delivered,
+      emailError: emailResult.error,
+    }, { status: 201 });
   }
 
   if (request.method === "DELETE") {

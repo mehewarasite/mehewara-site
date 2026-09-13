@@ -143,6 +143,7 @@ describe("Admin Authentication & Account Management Routes", () => {
     const createBody: any = await createRes.json();
     expect(createBody.username).toBe("induwara");
     expect(createBody.role).toBe("admin");
+    expect(createBody.emailSent).toBe(true);
 
     // 2. Login with newly created credentials
     const loginReq = new Request("https://api/v1/admin/login", {

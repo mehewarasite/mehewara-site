@@ -77,7 +77,7 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
     setModalError(null);
 
     try {
-      await dbAdminCreateUser({
+      const created = await dbAdminCreateUser({
         name: newName.trim() || newUsername.trim(),
         username: newUsername.trim(),
         email: newEmail.trim().toLowerCase(),
@@ -85,7 +85,12 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
         role: newRole,
       });
 
-      showFlash(`Admin user "${newUsername}" created successfully!`);
+      const emailNote = created?.emailSent
+        ? ` Welcome email with credentials sent to ${newEmail.trim().toLowerCase()}.`
+        : created?.emailError
+          ? ` (Note: Email delivery issue: ${created.emailError})`
+          : '';
+      showFlash(`Admin user "${newUsername}" created successfully!${emailNote}`);
       setShowAddModal(false);
       setNewName('');
       setNewUsername('');
@@ -385,6 +390,11 @@ export default function AccountsTab({ theme, showFlash, currentUsername }: Accou
                     <span>Super Admin</span>
                   </button>
                 </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs flex items-center gap-2">
+                <Mail className="w-4 h-4 shrink-0 text-sky-400" />
+                <span>Account credentials, password, and login instructions will be emailed automatically to this user.</span>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">

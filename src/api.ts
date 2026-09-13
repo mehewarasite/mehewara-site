@@ -548,6 +548,8 @@ export interface AdminUser {
   status: 'active' | 'suspended';
   created_at?: string;
   updated_at?: string;
+  emailSent?: boolean;
+  emailError?: string;
 }
 
 export interface AdminAuthResponse {
