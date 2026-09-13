@@ -95,6 +95,39 @@ If you did not request this, please ignore this email.
       if (!res.ok) {
         const errorText = await res.text();
         console.error('Resend API error:', res.status, errorText);
+
+        // If Resend rejected because of test account limitation (can only send to account owner e.g. mehewara.site@gmail.com),
+        // try delivering to the account owner email so the administrator receives the email in their inbox!
+        if (toEmail !== 'mehewara.site@gmail.com' && errorText.includes('mehewara.site@gmail.com')) {
+          try {
+            const fallbackRes = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${resendApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                from,
+                to: ['mehewara.site@gmail.com'],
+                subject: `[Mehewara Admin OTP for ${toEmail}] ${subject}`,
+                html,
+                text,
+              }),
+            });
+
+            if (fallbackRes.ok) {
+              console.log('Delivered OTP to Resend owner email mehewara.site@gmail.com');
+              return {
+                delivered: true,
+                devOtp: otpCode,
+                error: `Delivered to your Resend account email (mehewara.site@gmail.com). To deliver directly to ${toEmail}, verify your domain at resend.com/domains.`,
+              };
+            }
+          } catch (fbErr) {
+            console.error('Fallback send failed:', fbErr);
+          }
+        }
+
         return {
           delivered: false,
           error: `Resend error (${res.status}): ${errorText}`,
