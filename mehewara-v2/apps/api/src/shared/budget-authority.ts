@@ -21,8 +21,8 @@ export type WindowKind = z.infer<typeof BudgetWindow>;
 export type Operation = z.infer<typeof BudgetOperation>;
 
 export const RESOURCE_POLICIES: Readonly<Record<Resource, { limit: number; window: WindowKind }>> = {
-  d1Reads: { limit: 1_000_000, window: "daily" },
-  d1Writes: { limit: 10_000, window: "daily" },
+  d1Reads: { limit: 4_500_000, window: "daily" },
+  d1Writes: { limit: 90_000, window: "daily" },
   b2ClassA: { limit: 2_500, window: "daily" },
   b2ClassB: { limit: 10_000_000, window: "monthly" },
   b2Bytes: { limit: 10_000_000_000, window: "persistent" },
@@ -39,11 +39,11 @@ export const POOL_RESOURCE_ALLOCATIONS: Readonly<Record<Pool, number>> = {
 };
 
 export const POOL_POLICIES: Readonly<Record<Pool, { limit: number; window: WindowKind }>> = {
-  public: { limit: 7_000, window: "daily" },
-  admin: { limit: 1_000, window: "daily" },
-  publication: { limit: 1_000, window: "daily" },
-  emergency: { limit: 500, window: "daily" },
-  margin: { limit: 500, window: "daily" },
+  public: { limit: 50_000, window: "daily" },
+  admin: { limit: 30_000, window: "daily" },
+  publication: { limit: 10_000, window: "daily" },
+  emergency: { limit: 5_000, window: "daily" },
+  margin: { limit: 5_000, window: "daily" },
 };
 
 type ResourceAmounts = Partial<Record<Resource, number>>;
@@ -283,6 +283,9 @@ export class BudgetAuthorityCore {
 
   private checkCapacity(state: AuthorityState, pool: Pool, resource: Resource, amount: number): void {
     if (amount <= 0) return;
+    // Emergency mode: completely bypass the Cloudflare quota limits
+    if (state.emergencyUntil !== null) return;
+    
     const policy = RESOURCE_POLICIES[resource];
     const allowance = Math.floor(policy.limit * POOL_RESOURCE_ALLOCATIONS[pool]);
     if (state.resources[resource].reserved + state.resources[resource].committed + amount > policy.limit
@@ -309,7 +312,13 @@ export class BudgetAuthorityCore {
       : (policy.storageDelta ?? 0);
     for (const [resource, amount] of Object.entries(policy.resources) as [Resource, number][]) this.checkCapacity(state, policy.pool, resource, amount);
     if (storage > 0) this.checkCapacity(state, policy.pool, "b2Bytes", storage);
-    if (state.pools[policy.pool].reserved + state.pools[policy.pool].committed + policy.costUnits > POOL_POLICIES[policy.pool].limit) throw new BudgetFailure("EXCEEDED");
+    
+    // Emergency mode: completely bypass pool-specific rate limits
+    if (state.pools[policy.pool].reserved + state.pools[policy.pool].committed + policy.costUnits > POOL_POLICIES[policy.pool].limit) {
+      if (state.emergencyUntil === null) {
+        throw new BudgetFailure("EXCEEDED");
+      }
+    }
     const ttlSeconds = parsed.data.ttlSeconds ?? 30;
     const expiresAt = this.now() + ttlSeconds * 1000;
     for (const [resource, amount] of Object.entries(policy.resources) as [Resource, number][]) {

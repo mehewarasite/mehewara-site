@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BudgetAuthorityCore, BudgetFailure, type BudgetPersistence } from "../src/shared/budget-authority";
+import { BudgetAuthorityCore, BudgetFailure, POOL_POLICIES, OPERATION_CATALOG, type BudgetPersistence } from "../src/shared/budget-authority";
 
 function authority() {
   let time = Date.parse("2026-01-02T12:00:00.000Z");
@@ -68,11 +68,17 @@ describe("BudgetAuthorityCore", () => {
 
   it("rejects reserves that would exceed a pool's resource allocation even when the global limit is not yet hit", async () => {
     let time = Date.parse("2026-01-02T12:00:00.000Z");
-    const persistence: BudgetPersistence = { async load() { return null; }, async save() {} };
+    // Pre-seed authority state with the admin pool at its policy limit
+    const { budget: seed } = authority();
+    const prefilled = await seed.status();
+    prefilled.pools.admin.committed = POOL_POLICIES.admin.limit;
+
+    const persistence: BudgetPersistence = {
+      async load() { return prefilled; },
+      async save() {}
+    };
     const budget = new BudgetAuthorityCore(persistence, () => time);
-    for (let i = 0; i < 500; i += 1) {
-      await budget.reserve({ permitId: `permit-admin-cap-${i}`, operation: "adminContentRead" });
-    }
+
     await expect(budget.reserve({ permitId: "permit-admin-cap-overflow", operation: "adminContentRead" })).rejects.toMatchObject({ reason: "EXCEEDED" });
     await expect(budget.reserve({ permitId: "permit-public-still-ok", operation: "publicSnapshotRead" })).resolves.toBeTruthy();
   });

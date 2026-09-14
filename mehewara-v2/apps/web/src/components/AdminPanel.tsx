@@ -263,6 +263,14 @@ export default function AdminPanel({
     setTimeout(() => setFlashMessage(''), 3000);
   };
 
+  React.useEffect(() => {
+    const handleBudgetExceeded = () => {
+      showFlash('API limit exceeded. Please try again later or release limits in the Stats tab.', true);
+    };
+    window.addEventListener('admin-budget-exceeded', handleBudgetExceeded);
+    return () => window.removeEventListener('admin-budget-exceeded', handleBudgetExceeded);
+  }, []);
+
   // Calculate some stats for the top bar
   const olSubjects = subjects.filter(s => s.examType === 'ol').length;
   const alSubjects = subjects.filter(s => s.examType === 'al').length;

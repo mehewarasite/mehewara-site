@@ -69,6 +69,11 @@ function setupNetworkFallback(instance: typeof api) {
           window.dispatchEvent(new Event('admin-logout'));
         }
       }
+
+      if (error.response?.status === 429) {
+        window.dispatchEvent(new Event('admin-budget-exceeded'));
+      }
+
       return Promise.reject(error);
     }
   );
