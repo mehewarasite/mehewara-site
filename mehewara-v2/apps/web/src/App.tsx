@@ -43,7 +43,8 @@ import {
   dbLoadPapers, dbSavePaper, dbDeletePaper,
   dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
   dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery,
-  adminLoadSubjects, adminLoadPapers, adminLoadQuestionsForPaper, adminLoadAboutUs, adminLoadGallery, adminLoadStudyHtml
+  adminLoadSubjects, adminLoadPapers, adminLoadQuestionsForPaper, adminLoadAboutUs, adminLoadGallery, adminLoadStudyHtml,
+  clearPublicManifestCache, dbBuildPublication
 } from './api';
 
 import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
@@ -418,6 +419,7 @@ export default function App() {
   // Reusable sync function — pulls latest data from API
   const syncFromApi = async () => {
     setIsSyncing(true);
+    clearPublicManifestCache();
     try {
       const isAdminView = showAdminPanel || Boolean(localStorage.getItem('adminToken') && isAdminPath());
       const [remoteSubjects, remotePapers, remoteQuestions, remoteAbout, remoteGallery] = await Promise.all([
@@ -517,6 +519,7 @@ export default function App() {
     setSubjects(updatedSubjects);
     idbSet('m_subjects', JSON.stringify(updatedSubjects));
     await dbSaveSubjects([newSubject]);
+    dbBuildPublication().catch(() => {});
   };
 
   const handleUpdateSubject = async (updatedSubject: Subject) => {
@@ -524,6 +527,7 @@ export default function App() {
     setSubjects(newSubjects);
     idbSet('m_subjects', JSON.stringify(newSubjects));
     await dbSaveSubjects([updatedSubject]);
+    dbBuildPublication().catch(() => {});
   };
 
   const handleDeleteSubject = async (subjectId: string) => {
@@ -539,6 +543,7 @@ export default function App() {
       setSelectedSubject(null);
     }
     await dbDeleteSubject(subjectId);
+    dbBuildPublication().catch(() => {});
   };
 
   const handleUpdatePaper = async (updatedPaper: Paper) => {
@@ -549,6 +554,7 @@ export default function App() {
 
     // Persist paper to API
     await dbSavePaper(updatedPaper);
+    dbBuildPublication().catch(() => {});
   };
 
   const handleAddPaper = async (newPaper: Paper, importQuestions?: Question[]) => {
@@ -577,6 +583,9 @@ export default function App() {
       idbSet('m_questions', JSON.stringify(updatedQuestions));
       await dbSaveQuestions(importQuestions);
     }
+
+    // Automatically build Backblaze B2 publication snapshot so all devices see the new paper immediately
+    dbBuildPublication().catch(() => {});
   };
 
   const handleLoadStudyMaterial = async (paperId: string) => {
@@ -618,6 +627,7 @@ export default function App() {
       dbDeleteStudyHtml(paperId),
       dbDeleteQuestionsByPaper(paperId),
     ]);
+    dbBuildPublication().catch(() => {});
   };
 
   const handleAddQuestion = async (newQuestion: Question) => {
@@ -662,6 +672,7 @@ export default function App() {
     if (shiftedQuestions.length > 0) {
       await dbSaveQuestions(shiftedQuestions);
     }
+    dbBuildPublication().catch(() => {});
   };
 
   const handleUpdateQuestion = async (updatedQuestion: Question) => {
@@ -669,6 +680,7 @@ export default function App() {
     setQuestions(newQuestions);
     idbSet('m_questions', JSON.stringify(newQuestions));
     await dbSaveQuestion(updatedQuestion);
+    dbBuildPublication().catch(() => {});
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
@@ -688,6 +700,7 @@ export default function App() {
     }
 
     await dbDeleteQuestion(questionId);
+    dbBuildPublication().catch(() => {});
   };
 
   const handleUpdateStudyHtml = async (paperId: string, html: string) => {
@@ -699,6 +712,7 @@ export default function App() {
     ));
     // Cache locally too
     try { idbSet(`m_study_${paperId}`, html); } catch { }
+    dbBuildPublication().catch(() => {});
   };
 
   const handleResetToDefaults = async () => {
@@ -760,119 +774,171 @@ export default function App() {
   };
 
   const handleImportData = (file: File) => {
-    if (!confirm('Importing will merge/replace papers, questions and study materials. Continue?')) return;
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const backup = JSON.parse(e.target?.result as string);
-        if (Array.isArray(backup) || (backup.questions && !backup.papers)) {
-          alert("This JSON file contains questions. To import questions into a paper, open the Papers tab in the Admin Panel and use the Question JSON Import feature.");
-          return;
+        const rawContent = e.target?.result as string;
+        const backup = JSON.parse(rawContent);
+
+        // Extract papers, questions, subjects, and study materials from any JSON format
+        let importedPapers: Paper[] = [];
+        let importedQuestions: Question[] = [];
+        let importedSubjects: Subject[] = [];
+        let studyHtmlMap: Record<string, string> = {};
+
+        const isUuid = (id?: string | null) =>
+          !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+        if (backup.papers && Array.isArray(backup.papers)) {
+          importedPapers = backup.papers;
+        } else if (backup.paper && typeof backup.paper === 'object') {
+          importedPapers = [backup.paper];
         }
-        if (!backup.version || !backup.papers || !backup.questions) {
-          alert('Invalid backup file. Make sure it contains papers and questions.');
+
+        if (backup.questions && Array.isArray(backup.questions)) {
+          importedQuestions = backup.questions;
+        } else if (Array.isArray(backup)) {
+          importedQuestions = backup;
+        }
+
+        if (backup.subjects && Array.isArray(backup.subjects)) {
+          importedSubjects = backup.subjects.filter((s: Subject) => s.id !== 'al-combined-maths');
+        }
+
+        if (backup.studyHtmlMap && typeof backup.studyHtmlMap === 'object') {
+          studyHtmlMap = { ...backup.studyHtmlMap };
+        } else if (Array.isArray(backup.studyHtml)) {
+          backup.studyHtml.forEach((item: any) => {
+            if (item.paperId && item.html) {
+              studyHtmlMap[item.paperId] = item.html;
+            }
+          });
+        }
+
+        if (importedPapers.length === 0 && importedQuestions.length === 0) {
+          alert('Invalid JSON file. No papers or questions found.');
           return;
         }
 
-        // Remap any non-UUID paper IDs and update question references
+        // Remap legacy IDs to RFC 4122 UUIDs so Cloudflare D1 accepts them
         const paperIdMap = new Map<string, string>();
-        const isUuid = (id?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
-
-        (backup.papers as Paper[]).forEach((p: Paper) => {
+        importedPapers.forEach((p: Paper) => {
           if (!isUuid(p.id)) {
             const newId = crypto.randomUUID();
             paperIdMap.set(p.id, newId);
             p.id = newId;
           }
+          if (p.examType) {
+            p.examType = (p.examType.toLowerCase().includes('ol') ? 'ol' : 'al') as 'ol' | 'al';
+          }
         });
 
-        if (paperIdMap.size > 0) {
-          (backup.questions as Question[]).forEach((q: Question) => {
-            if (paperIdMap.has(q.paperId)) {
-              q.paperId = paperIdMap.get(q.paperId)!;
-            }
-          });
-          if (backup.studyHtmlMap) {
-            const remappedStudy: Record<string, string> = {};
-            for (const [k, v] of Object.entries(backup.studyHtmlMap)) {
-              remappedStudy[paperIdMap.get(k) || k] = v as string;
-            }
-            backup.studyHtmlMap = remappedStudy;
+        // Remap questions and normalize options
+        importedQuestions.forEach((q: any, idx: number) => {
+          if (!isUuid(q.id)) {
+            q.id = crypto.randomUUID();
           }
+          if (paperIdMap.has(q.paperId)) {
+            q.paperId = paperIdMap.get(q.paperId)!;
+          } else if (importedPapers.length === 1 && (!q.paperId || !isUuid(q.paperId))) {
+            q.paperId = importedPapers[0].id;
+          }
+          if (!q.qNumber && q.number) q.qNumber = q.number;
+          if (!q.qNumber) q.qNumber = idx + 1;
+          if (!q.questionHtml && q.question) q.questionHtml = `<p>${q.question}</p>`;
+          if (!q.optionsHtml && q.options) {
+            q.optionsHtml = q.options.map((o: any) => typeof o === 'string' ? o : (o.text || o.html || ''));
+          }
+          if (Array.isArray(q.optionsHtml)) {
+            while (q.optionsHtml.length < 4) {
+              q.optionsHtml.push(`Option ${q.optionsHtml.length + 1}`);
+            }
+          }
+          if (q.correctOption === undefined && q.correct_option_index !== undefined) {
+            q.correctOption = q.correct_option_index;
+          }
+          if (!q.correctOptions || q.correctOptions.length === 0) {
+            q.correctOptions = [q.correctOption ?? 0];
+          }
+        });
+
+        // Remap study materials
+        if (paperIdMap.size > 0) {
+          const remappedStudy: Record<string, string> = {};
+          for (const [k, v] of Object.entries(studyHtmlMap)) {
+            remappedStudy[paperIdMap.get(k) || k] = v;
+          }
+          studyHtmlMap = remappedStudy;
         }
 
-        // Restore subjects
-        let importedSubjects = backup.subjects ?? subjects;
-        importedSubjects = importedSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
-        setSubjects(importedSubjects);
-        idbSet('m_subjects', JSON.stringify(importedSubjects));
-
-        // Restore study HTML per paper
-        const studyHtmlMap: Record<string, string> = backup.studyHtmlMap ?? {};
-        const rehydratedPapers = (backup.papers as Paper[]).map((p: Paper) => ({
+        // Rehydrate papers with study HTML
+        const rehydratedPapers = importedPapers.map((p: Paper) => ({
           ...p,
-          studyMaterialHtml: studyHtmlMap[p.id] ?? undefined,
+          studyMaterialHtml: studyHtmlMap[p.id] ?? p.studyMaterialHtml ?? undefined,
         }));
 
-        // Save study HTML to separate localStorage / IDB keys
-        rehydratedPapers.forEach(p => {
-          if (p.studyMaterialHtml) {
-            try { idbSet(`m_study_${p.id}`, p.studyMaterialHtml); } catch { }
-          } else {
-            idbRemove(`m_study_${p.id}`);
-          }
-        });
+        // 1. Update local cache
+        if (importedSubjects.length > 0) {
+          setSubjects(importedSubjects);
+          idbSet('m_subjects', JSON.stringify(importedSubjects));
+        }
 
-        setPapers(rehydratedPapers);
-        idbSet('m_papers', JSON.stringify(
-          rehydratedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))
-        ));
+        if (rehydratedPapers.length > 0) {
+          rehydratedPapers.forEach(p => {
+            if (p.studyMaterialHtml) {
+              try { idbSet(`m_study_${p.id}`, p.studyMaterialHtml); } catch { }
+            }
+          });
+          const mergedPapers = [
+            ...rehydratedPapers,
+            ...papers.filter(p => !rehydratedPapers.some(rp => rp.id === p.id))
+          ];
+          setPapers(mergedPapers);
+          idbSet('m_papers', JSON.stringify(mergedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+        }
 
-        // Restore questions
-        setQuestions(backup.questions);
-        idbSet('m_questions', JSON.stringify(backup.questions));
+        if (importedQuestions.length > 0) {
+          const mergedQuestions = [
+            ...importedQuestions,
+            ...questions.filter(q => !importedQuestions.some(iq => iq.id === q.id))
+          ];
+          setQuestions(mergedQuestions);
+          idbSet('m_questions', JSON.stringify(mergedQuestions));
+        }
 
-        // Clear attempts (they reference question ids which may have changed)
-        setAttempts([]);
-        idbSet('m_attempts', JSON.stringify([]));
-
-        // If admin is logged in, offer to sync/persist to Cloudflare D1
+        // 2. Automatically upload to Cloudflare D1 & Backblaze B2 Snapshot
         const hasAdmin = Boolean(localStorage.getItem('adminToken'));
         if (hasAdmin) {
-          const uploadToCloud = confirm(
-            `Local cache restored (${rehydratedPapers.length} papers, ${backup.questions.length} questions).\\n\\nDo you also want to upload and persist this data to the Cloudflare cloud database?`
-          );
-          if (uploadToCloud) {
-            setIsSyncing(true);
-            try {
-              if (backup.subjects && backup.subjects.length > 0) {
-                await dbSaveSubjects(importedSubjects);
-              }
-              for (const p of rehydratedPapers) {
-                await dbSavePaper(p);
-                if (p.studyMaterialHtml) {
-                  await dbSaveStudyHtml(p.id, p.studyMaterialHtml);
-                }
-              }
-              if (backup.questions && backup.questions.length > 0) {
-                await dbSaveQuestions(backup.questions);
-              }
-              alert(`Cloud upload complete! ${rehydratedPapers.length} papers and ${backup.questions.length} questions persisted to Cloudflare D1.\\n\\nTo make this visible to public students, click 'Publish to Live' in the Admin toolbar.`);
-            } catch (cloudErr: any) {
-              console.error('Cloud upload error:', cloudErr);
-              alert(`Saved to local cache, but cloud upload had an error: ${cloudErr.message || 'Unknown error'}`);
-            } finally {
-              setIsSyncing(false);
+          setIsSyncing(true);
+          try {
+            if (importedSubjects.length > 0) {
+              await dbSaveSubjects(importedSubjects);
             }
-          } else {
-            alert(`Import successful locally! ${rehydratedPapers.length} papers and ${backup.questions.length} questions restored in local cache.`);
+            for (const p of rehydratedPapers) {
+              await dbSavePaper(p);
+              if (p.studyMaterialHtml) {
+                await dbSaveStudyHtml(p.id, p.studyMaterialHtml);
+              }
+            }
+            if (importedQuestions.length > 0) {
+              await dbSaveQuestions(importedQuestions);
+            }
+            // Auto-build snapshot to Backblaze B2
+            await dbBuildPublication();
+            clearPublicManifestCache();
+            alert(`JSON uploaded to cloud successfully! ${rehydratedPapers.length} papers and ${importedQuestions.length} questions are now live and accessible from any device.`);
+          } catch (cloudErr: any) {
+            console.error('Cloud upload error:', cloudErr);
+            alert(`Saved locally, but cloud upload had an issue: ${cloudErr.message || 'Unknown error'}`);
+          } finally {
+            setIsSyncing(false);
           }
         } else {
-          alert(`Import successful! ${rehydratedPapers.length} papers and ${backup.questions.length} questions restored.`);
+          alert(`Import successful locally! ${rehydratedPapers.length} papers and ${importedQuestions.length} questions loaded.`);
         }
       } catch (err: any) {
-        console.error('Failed to parse backup file:', err);
-        alert('Failed to parse backup file. Make sure it is a valid Mehewara export.');
+        console.error('Failed to parse JSON file:', err);
+        alert('Failed to parse JSON file. Make sure it contains valid JSON.');
       }
     };
     reader.readAsText(file);

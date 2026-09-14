@@ -14,7 +14,7 @@ export async function getPublicManifest() {
   if (cachedManifest) return cachedManifest;
   if (manifestFetchPromise) return manifestFetchPromise;
   
-  manifestFetchPromise = publicApi.get('/publication/current').then(res => {
+  manifestFetchPromise = publicApi.get(`/publication/current?t=${Date.now()}`).then(res => {
     cachedManifest = res.data.manifest;
     return cachedManifest;
   }).catch(err => {
