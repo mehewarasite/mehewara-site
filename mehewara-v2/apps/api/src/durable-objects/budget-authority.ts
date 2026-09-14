@@ -28,11 +28,12 @@ export class BudgetAuthority implements DurableObject {
       if (path === "/reserve") return Response.json({ permit: await this.core.reserve(body) });
       if (path === "/commit") { await this.core.commit(body); return Response.json({ ok: true }); }
       if (path === "/release") { await this.core.release(body); return Response.json({ ok: true }); }
-      if (path === "/emergency") { await this.core.activateEmergency(body as any); return Response.json({ ok: true }); } // BudgetAuthorityCore.activateEmergency is
-      // deliberately NOT HTTP-reachable. Emergency activation requires a
-      // future authenticated, audited super-admin control plane; exposing it
-      // on the same unauthenticated Worker→DO channel as reserve/commit
-      // would hand every requester the capability the core reserves.
+      if (path === "/emergency") { await this.core.activateEmergency(body as any); return Response.json({ ok: true }); }
+      if (path === "/reset") {
+        this.ctx.storage.sql.exec("DELETE FROM budget_authority_state");
+        await this.core.resetCounters();
+        return Response.json({ ok: true, message: "Budget authority counters reset" });
+      }
       if (path === "/status") {
         const state = await this.core.status();
         const status = BudgetStatus.parse({

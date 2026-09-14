@@ -278,7 +278,10 @@ export async function adminLoadAboutUs(): Promise<AboutData | null> {
       youtube_link: data?.social?.youtubeUrl || '',
       linkedin_link: data?.social?.linkedinUrl || '',
     };
-  } catch (e) {
+  } catch (e: any) {
+    if (e.response?.status === 404) {
+      return null;
+    }
     console.error('Failed to load admin about us from D1:', e);
     return null;
   }
@@ -356,7 +359,9 @@ async function setPublishState(
       expectedUpdatedAt: token
     });
   } catch (err: any) {
-    console.warn(`[State Transition] ${entity} ${entityId} -> ${state}:`, err.response?.data || err.message);
+    const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message;
+    console.error(`[State Transition Failed] ${entity} ${entityId} -> ${state}:`, msg);
+    throw new Error(`Failed to publish ${entity}: ${msg}`);
   }
 }
 
@@ -468,7 +473,7 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
   await api.delete(`/admin/papers/${paperId}`).catch(console.error);
 }
 
-export async function dbSaveQuestion(question: Question): Promise<Question> {
+export async function dbSaveQuestion(question: Question, isNew = false): Promise<Question> {
   const qId = isUuid(question.id) ? question.id : crypto.randomUUID();
   question.id = qId;
 
@@ -478,11 +483,13 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
   }
 
   let existingQ: any = null;
-  try {
-    const checkRes = await api.get(`/admin/questions/${qId}`);
-    existingQ = checkRes.data;
-  } catch {
-    // 404 or new question
+  if (!isNew) {
+    try {
+      const checkRes = await api.get(`/admin/questions/${qId}`);
+      existingQ = checkRes.data;
+    } catch {
+      // 404 or new question
+    }
   }
 
   // 1. Normalize options to strictly 4 or 5 options
@@ -583,11 +590,18 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
   return question;
 }
 
-export async function dbSaveQuestions(questions: Question[]): Promise<void> {
+export async function dbSaveQuestions(
+  questions: Question[],
+  isNew = false,
+  onProgress?: (done: number, total: number) => void
+): Promise<void> {
   const batchSize = 5;
   for (let i = 0; i < questions.length; i += batchSize) {
     const chunk = questions.slice(i, i + batchSize);
-    await Promise.all(chunk.map(q => dbSaveQuestion(q)));
+    await Promise.all(chunk.map(q => dbSaveQuestion(q, isNew)));
+    if (onProgress) {
+      onProgress(Math.min(i + batchSize, questions.length), questions.length);
+    }
   }
 }
 

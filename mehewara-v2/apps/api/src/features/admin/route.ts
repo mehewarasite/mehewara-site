@@ -1194,6 +1194,7 @@ export async function adminRouter(request: Request, deps: AdminDeps): Promise<Re
 
   if (resource === "budget" && id === "status") { return import("./budget-route").then(m => m.budgetStatusRoute(request, authedDeps)); }
   if (resource === "budget" && id === "emergency") { return import("./budget-route").then(m => m.budgetEmergencyRoute(request, authedDeps)); }
+  if (resource === "budget" && id === "reset") { return import("./budget-route").then(m => m.budgetResetRoute(request, authedDeps)); }
   if (resource === "stats") { requireMethod(request, "GET"); return statsRoute(request, authedDeps); }
   if (resource === "audits") {
     requireMethod(request, "GET");

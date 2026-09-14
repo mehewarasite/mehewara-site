@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BudgetAuthorityCore, BudgetFailure, type BudgetPersistence } from "../src/shared/budget-authority";
+import { BudgetAuthorityCore, BudgetFailure, type BudgetPersistence, POOL_POLICIES, OPERATION_CATALOG } from "../src/shared/budget-authority";
 
 function authority() {
   let time = Date.parse("2026-01-02T12:00:00.000Z");
@@ -70,10 +70,11 @@ describe("BudgetAuthorityCore", () => {
     let time = Date.parse("2026-01-02T12:00:00.000Z");
     const persistence: BudgetPersistence = { async load() { return null; }, async save() {} };
     const budget = new BudgetAuthorityCore(persistence, () => time);
-    for (let i = 0; i < 500; i += 1) {
-      await budget.reserve({ permitId: `permit-admin-cap-${i}`, operation: "adminContentRead" });
+    const count = Math.floor(POOL_POLICIES.admin.limit / OPERATION_CATALOG.adminBackupExport.costUnits);
+    for (let i = 0; i < count; i += 1) {
+      await budget.reserve({ permitId: `permit-admin-cap-${i}`, operation: "adminBackupExport" });
     }
-    await expect(budget.reserve({ permitId: "permit-admin-cap-overflow", operation: "adminContentRead" })).rejects.toMatchObject({ reason: "EXCEEDED" });
+    await expect(budget.reserve({ permitId: "permit-admin-cap-overflow", operation: "adminBackupExport" })).rejects.toMatchObject({ reason: "EXCEEDED" });
     await expect(budget.reserve({ permitId: "permit-public-still-ok", operation: "publicSnapshotRead" })).resolves.toBeTruthy();
   });
 

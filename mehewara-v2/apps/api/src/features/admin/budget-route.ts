@@ -26,3 +26,10 @@ export async function budgetEmergencyRoute(request: Request, deps: AdminDeps): P
   });
   return Response.json({ ok: true });
 }
+
+export async function budgetResetRoute(request: Request, deps: AdminDeps): Promise<Response> {
+  requireMethod(request, "POST");
+  if (!deps.principal) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await deps.context.gate.reset();
+  return Response.json({ ok: true, message: "Budget authority counters have been reset to 0." });
+}

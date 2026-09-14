@@ -21,8 +21,8 @@ export type WindowKind = z.infer<typeof BudgetWindow>;
 export type Operation = z.infer<typeof BudgetOperation>;
 
 export const RESOURCE_POLICIES: Readonly<Record<Resource, { limit: number; window: WindowKind }>> = {
-  d1Reads: { limit: 1_000_000, window: "daily" },
-  d1Writes: { limit: 10_000, window: "daily" },
+  d1Reads: { limit: 5_000_000, window: "daily" },
+  d1Writes: { limit: 100_000, window: "daily" },
   b2ClassA: { limit: 2_500, window: "daily" },
   b2ClassB: { limit: 10_000_000, window: "monthly" },
   b2Bytes: { limit: 10_000_000_000, window: "persistent" },
@@ -31,19 +31,19 @@ export const RESOURCE_POLICIES: Readonly<Record<Resource, { limit: number; windo
 
 /** Pool partitions sum to 100%. Public traffic cannot borrow reserved capacity. */
 export const POOL_RESOURCE_ALLOCATIONS: Readonly<Record<Pool, number>> = {
-  public: 0.70,
-  admin: 0.10,
+  public: 0.50,
+  admin: 0.35,
   publication: 0.10,
-  emergency: 0.05,
-  margin: 0.05,
+  emergency: 0.025,
+  margin: 0.025,
 };
 
 export const POOL_POLICIES: Readonly<Record<Pool, { limit: number; window: WindowKind }>> = {
-  public: { limit: 7_000, window: "daily" },
-  admin: { limit: 1_000, window: "daily" },
-  publication: { limit: 1_000, window: "daily" },
-  emergency: { limit: 500, window: "daily" },
-  margin: { limit: 500, window: "daily" },
+  public: { limit: 50_000, window: "daily" },
+  admin: { limit: 35_000, window: "daily" },
+  publication: { limit: 10_000, window: "daily" },
+  emergency: { limit: 2_500, window: "daily" },
+  margin: { limit: 2_500, window: "daily" },
 };
 
 type ResourceAmounts = Partial<Record<Resource, number>>;
@@ -61,16 +61,11 @@ interface OperationPolicy {
 export const OPERATION_CATALOG: Readonly<Record<Operation, OperationPolicy>> = {
   publicSnapshotRead: { pool: "public", resources: { b2ClassB: 1, d1Reads: 2 }, egressDelta: 8_192, costUnits: 1 },
   publicSnapshotCacheFill: { pool: "public", resources: { d1Reads: 1, b2ClassB: 1 }, egressDelta: 16_384, costUnits: 2 },
-  adminContentRead: { pool: "admin", resources: { d1Reads: 2 }, costUnits: 2 },
-  /** Worst-case admin mutation, counted in D1 statements (the unit the
-   *  gate reserves; row counts are unmetered by design): idempotency lookup
-   *  + entity + parent/options/inventory reads (7: same-key create-race
-   *  recovery on a study, ending in descriptor replay), then entity update
-   *  + its updated_at trigger + options delete + five inserts + audit +
-   *  idempotency record (10 writes). Lists bulk-fetch relations in one
-   *  permit (2 statements); simpler entities use fewer. Reservation is
-   *  worst-case by design. */
-  adminContentWrite: { pool: "admin", resources: { d1Reads: 7, d1Writes: 10 }, costUnits: 10 },
+  adminContentRead: { pool: "admin", resources: { d1Reads: 2 }, costUnits: 1 },
+  /** Worst-case admin mutation, counted in D1 statements: idempotency lookup
+   *  + entity + parent/options/inventory reads, then entity update + options
+   *  + audit + idempotency record. */
+  adminContentWrite: { pool: "admin", resources: { d1Reads: 7, d1Writes: 10 }, costUnits: 2 },
   /** Full backup export: ~13 base SELECTs plus one per 100-question options
    *  chunk. Capped at 2,000 questions (route refuses larger with 409), so
    *  35 reads always suffice; larger databases split restores via import
@@ -382,6 +377,13 @@ export class BudgetAuthorityCore {
   }
 
   async status(): Promise<AuthorityState> { return clone(await this.current()); }
+
+  async resetCounters(): Promise<void> {
+    const now = this.now();
+    const fresh = freshState(now);
+    this.state = fresh;
+    await this.save(fresh);
+  }
 }
 
 export function budgetErrorStatus(error: BudgetFailure): number {

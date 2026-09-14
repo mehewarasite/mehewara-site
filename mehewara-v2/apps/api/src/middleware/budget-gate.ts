@@ -16,7 +16,7 @@ export interface ReserveOptions { readonly declaredBytes?: number; readonly ttlS
  * outage, and masking it preserves successful results.
  */
 export interface WithBudgetOptions extends ReserveOptions { readonly strictCommit?: boolean; }
-export interface BudgetGate { status(): Promise<any>; activateEmergency(command: any): Promise<void>; reserve(operation: Operation, opts?: ReserveOptions): Promise<BudgetCapability>; commit(permit: BudgetCapability): Promise<void>; release(permit: BudgetCapability): Promise<void>; }
+export interface BudgetGate { status(): Promise<any>; activateEmergency(command: any): Promise<void>; reserve(operation: Operation, opts?: ReserveOptions): Promise<BudgetCapability>; commit(permit: BudgetCapability): Promise<void>; release(permit: BudgetCapability): Promise<void>; reset(): Promise<void>; }
 export class LocalValidationError extends Error { readonly providerCallStarted = false; }
 export class ProviderOperationError extends Error { readonly providerCallStarted: boolean; constructor(message: string, providerCallStarted = true) { super(message); this.providerCallStarted = providerCallStarted; } }
 
@@ -62,7 +62,7 @@ export async function withBudget<T>(gate: BudgetGate, operation: Operation, call
 const PermitResponse = z.object({ permit: BudgetPermit }).strict();
 export function durableBudgetGate(env: Env, requestId: string): BudgetGate {
   const stub = env.BUDGET_AUTHORITY.get(env.BUDGET_AUTHORITY.idFromName("global"));
-  const call = async (action: "reserve" | "commit" | "release" | "status" | "emergency", payload: unknown): Promise<unknown> => {
+  const call = async (action: "reserve" | "commit" | "release" | "status" | "emergency" | "reset", payload: unknown): Promise<unknown> => {
     const response = await stub.fetch(`https://budget.internal/${action}`, { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": requestId }, body: JSON.stringify(payload) });
     let body: unknown; try { body = await response.json(); } catch { throw new HttpError("INTERNAL_ERROR", 503, "Budget authority is unavailable"); }
     if (!response.ok) { const error = body as { error?: { code?: string; message?: string } }; throw new HttpError(error.error?.code === "BUDGET_EXCEEDED" ? "BUDGET_EXCEEDED" : "INTERNAL_ERROR", response.status >= 500 ? 503 : response.status, error.error?.message ?? "Budget request rejected"); }
@@ -71,6 +71,7 @@ export function durableBudgetGate(env: Env, requestId: string): BudgetGate {
   return {
     async status() { return (await call("status", {}) as any).status; },
     async activateEmergency(cmd) { await call("emergency", cmd); },
+    async reset() { await call("reset", {}); },
     async reserve(operation, opts) {
       const permitId = crypto.randomUUID();
       const payload = BudgetReserveRequest.parse({ permitId, operation, ...(opts?.declaredBytes !== undefined ? { declaredBytes: opts.declaredBytes } : {}), ...(opts?.ttlSeconds !== undefined ? { ttlSeconds: opts.ttlSeconds } : {}) });

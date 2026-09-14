@@ -176,7 +176,7 @@ export default function App() {
 
   const [isHumanVerified, setIsHumanVerified] = useState<boolean>(() => {
     try {
-      if (hasAdminToken) return true;
+      if (hasAdminToken || import.meta.env.DEV) return true;
       return sessionStorage.getItem('mhw_human_verified') === 'true';
     } catch {
       return false;
@@ -994,7 +994,7 @@ export default function App() {
               }
             }
             if (importedQuestions.length > 0) {
-              await dbSaveQuestions(importedQuestions);
+              await dbSaveQuestions(importedQuestions, true);
             }
             // Auto-build snapshot to Backblaze B2
             await dbBuildPublication();
@@ -1007,7 +1007,8 @@ export default function App() {
             setIsSyncing(false);
           }
         } else {
-          alert(`Import successful locally! ${rehydratedPapers.length} paper(s) and ${importedQuestions.length} question(s) loaded.`);
+          setShowAdminLogin(true);
+          alert(`Saved locally! To sync this data to the Cloudflare D1 database and publish to the cloud, please log in as Admin.`);
         }
       } catch (err: any) {
         console.error('Failed to parse JSON file:', err);
