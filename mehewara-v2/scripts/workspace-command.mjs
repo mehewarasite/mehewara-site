@@ -68,7 +68,8 @@ const run = ({ name, command: actualCommand }) => new Promise((resolve) => {
   const child = spawn(npm, ["run", actualCommand, "--workspace", name], {
     cwd: process.cwd(),
     stdio: "inherit",
-    env: process.env
+    env: process.env,
+    shell: process.platform === "win32",
   });
   child.on("close", (code, signal) => resolve(code ?? (signal ? 1 : 0)));
 });

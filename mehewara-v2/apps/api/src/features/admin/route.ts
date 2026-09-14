@@ -130,9 +130,13 @@ async function mutate(opts: {
     const prior = await deps.store.findIdempotency(scoped);
     if (prior) return Response.json(await replayRead(deps, prior.descriptor), { status: prior.status });
     const out = await run(permit);
+    const actorId = principal.username || principal.email || principal.subject;
     const audit: AuditInput = {
-      actorId: principal.subject, action, entityType, entityId: out.entityId,
-      requestId: deps.context.requestId, metadata: out.meta ?? {},
+      actorId, action, entityType, entityId: out.entityId,
+      requestId: deps.context.requestId, metadata: {
+        ...(out.meta ?? {}),
+        ...(principal.username ? { actorUsername: principal.username } : {}),
+      },
     };
     await deps.store.appendAudit(audit);
     try {
@@ -1181,7 +1185,7 @@ export async function adminRouter(request: Request, deps: AdminDeps): Promise<Re
   }
   if (resource === "users") { return usersRoute(request, deps, id ?? null); }
 
-  const known = ["stats", "about", "privacy", "subjects", "papers", "questions", "study-materials", "gallery-items", "content-pages", "publications", "budget"];
+  const known = ["stats", "about", "privacy", "subjects", "papers", "questions", "study-materials", "gallery-items", "content-pages", "publications", "budget", "audits"];
   if (!known.includes(resource)) throw new HttpError("NOT_FOUND", 404, "Route not found");
 
   const principal = await requireAdmin(request, deps.context.access, deps.verifier);
@@ -1191,6 +1195,15 @@ export async function adminRouter(request: Request, deps: AdminDeps): Promise<Re
   if (resource === "budget" && id === "status") { return import("./budget-route").then(m => m.budgetStatusRoute(request, authedDeps)); }
   if (resource === "budget" && id === "emergency") { return import("./budget-route").then(m => m.budgetEmergencyRoute(request, authedDeps)); }
   if (resource === "stats") { requireMethod(request, "GET"); return statsRoute(request, authedDeps); }
+  if (resource === "audits") {
+    requireMethod(request, "GET");
+    const query = parseListQuery(url);
+    if ("error" in query) return badRequest(deps.context.requestId, query.error);
+    const audits = await authedDeps.store.listAudits(query.limit, query.cursor);
+    const last = audits.length === query.limit && audits.length > 0 ? audits[audits.length - 1] : undefined;
+    const nextCursor = last ? last.id : null;
+    return Response.json({ items: audits, nextCursor });
+  }
   if (resource === "about" && id === undefined) { requireMethod(request, "GET", "PUT", "PATCH"); return aboutRoute(request, authedDeps); }
   if (resource === "privacy" && id === undefined) { requireMethod(request, "GET", "PUT", "PATCH"); return privacyRoute(request, authedDeps); }
   if (id !== undefined && !UUID_PATTERN.test(id)) {

@@ -3,7 +3,7 @@ import { HttpError } from "../../shared/errors";
 import { requireMethod, parseJson } from "../../shared/validation";
 import { signJwt } from "../../shared/jwt";
 import { verifyPassword, hashPassword } from "../../shared/password";
-import { requireAdmin, requireSuperAdmin } from "../../shared/auth";
+import { requireAdmin, requireSuperAdmin, checkSuperAdmin } from "../../shared/auth";
 import { sendOtpEmail, sendWelcomeEmail } from "../../shared/email";
 import { z } from "zod";
 
@@ -312,7 +312,12 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
   const principal = await requireAdmin(request, deps.context.access, deps.verifier);
   const db = deps.db;
 
+  const isSuperAdmin = await checkSuperAdmin(principal, db);
+
   if (request.method === "GET") {
+    if (!isSuperAdmin) {
+      throw new HttpError("FORBIDDEN", 403, "Super-admin role required to view administrator accounts");
+    }
     if (entityId) throw new HttpError("NOT_FOUND", 404, "Route not found");
     const users = await db.prepare(
       "SELECT id, username, name, email, role, status, created_at, updated_at FROM admin_users ORDER BY created_at DESC"
@@ -321,17 +326,6 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
   }
 
   if (request.method === "POST") {
-    // Only super-admins can directly create new admin users
-    let isSuperAdmin = principal.roles.includes("super-admin");
-    if (!isSuperAdmin && db) {
-      const dbUser = await db.prepare(
-        "SELECT role FROM admin_users WHERE id = ? OR LOWER(username) = LOWER(?)"
-      ).bind(principal.subject, principal.subject).first() as { role?: string } | null;
-      if (dbUser?.role === "super-admin") {
-        isSuperAdmin = true;
-      }
-    }
-
     if (!isSuperAdmin) {
       throw new HttpError("FORBIDDEN", 403, "Super-admin role required to create accounts directly");
     }
@@ -372,13 +366,13 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
     }
 
     // Determine who created this account
-    let createdBy = "Super Administrator";
+    let createdBy = principal.username || "Super Administrator";
     try {
       const creatorRow = await db.prepare(
         "SELECT username, name FROM admin_users WHERE id = ? OR username = ?"
       ).bind(principal.subject, principal.subject).first() as { username?: string; name?: string } | null;
       if (creatorRow?.name || creatorRow?.username) {
-        createdBy = creatorRow.name || creatorRow.username || "Super Administrator";
+        createdBy = creatorRow.name || creatorRow.username || createdBy;
       }
     } catch {
       // fallback
@@ -402,6 +396,23 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
       emailResult = { delivered: false, error: emailErr.message };
     }
 
+    // Record audit log entry
+    if (deps.store?.appendAudit) {
+      await deps.store.appendAudit({
+        actorId: principal.username || principal.email || principal.subject,
+        action: "admin_user.create",
+        entityType: "admin_user",
+        entityId: id,
+        requestId: deps.context.requestId,
+        metadata: {
+          username: cleanUsername,
+          email: cleanEmail,
+          role: body.role,
+          createdBy,
+        },
+      }).catch(console.error);
+    }
+
     return Response.json({
       id,
       username: body.username,
@@ -415,14 +426,40 @@ export async function usersRoute(request: Request, deps: AdminDeps, entityId: st
 
   if (request.method === "DELETE") {
     if (!entityId) throw new HttpError("BAD_REQUEST", 400, "User ID required");
-    if (!principal.roles.includes("super-admin")) {
+    if (!isSuperAdmin) {
       throw new HttpError("FORBIDDEN", 403, "Super-admin role required to delete admin accounts");
     }
-    if (principal.subject === entityId) {
+    if (principal.subject === entityId || (principal.username && principal.username.toLowerCase() === entityId.toLowerCase())) {
       throw new HttpError("BAD_REQUEST", 400, "You cannot delete your own account");
     }
 
-    await db.prepare("DELETE FROM admin_users WHERE id = ?").bind(entityId).run();
+    const targetUser = await db.prepare(
+      "SELECT id, username, email, role FROM admin_users WHERE id = ? OR username = ?"
+    ).bind(entityId, entityId).first() as { id: string; username: string; email: string; role: string } | null;
+
+    if (!targetUser) {
+      throw new HttpError("NOT_FOUND", 404, "Admin account not found");
+    }
+
+    await db.prepare("DELETE FROM admin_users WHERE id = ?").bind(targetUser.id).run();
+
+    // Record audit log entry
+    if (deps.store?.appendAudit) {
+      await deps.store.appendAudit({
+        actorId: principal.username || principal.email || principal.subject,
+        action: "admin_user.delete",
+        entityType: "admin_user",
+        entityId: targetUser.id,
+        requestId: deps.context.requestId,
+        metadata: {
+          deletedUsername: targetUser.username,
+          targetUsername: targetUser.username,
+          deletedRole: targetUser.role,
+          deletedBy: principal.username || principal.subject,
+        },
+      }).catch(console.error);
+    }
+
     return new Response(null, { status: 204 });
   }
 

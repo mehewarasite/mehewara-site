@@ -1,4 +1,5 @@
 import { HttpError } from "../../shared/errors";
+import { AuditRecord } from "@mehewara-v2/contracts";
 import type {
   SubjectRow, PaperRow, QuestionRow, QuestionOptionRow, StudyMaterialRow,
   GalleryItemRow, ContentPageRow, AboutRow, PrivacyRow,
@@ -47,6 +48,7 @@ export interface AdminStore {
   findIdempotency(key: string): Promise<AdminIdempotencyRecord | null>;
   recordIdempotency(key: string, status: number, descriptor: IdempotencyDescriptor): Promise<void>;
   appendAudit(input: AuditInput): Promise<void>;
+  listAudits(limit: number, cursor: string | null): Promise<AuditRecord[]>;
   stats(): Promise<StatsCounts>;
 
   listSubjects(limit: number, cursor: string | null): Promise<SubjectRow[]>;
@@ -231,6 +233,51 @@ export function d1AdminStore(db: D1Database): AdminStore {
       await run(
         "INSERT INTO admin_audit_log (id, actor_id, action, entity_type, entity_id, request_id, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
         crypto.randomUUID(), input.actorId, input.action, input.entityType, input.entityId, input.requestId, JSON.stringify(entries));
+    },
+    async listAudits(limit = 50, cursor = null) {
+      const boundedLimit = Math.min(Math.max(limit, 1), 100);
+      let query = "SELECT id, actor_id, action, entity_type, entity_id, request_id, metadata_json, created_at FROM admin_audit_log";
+      const params: unknown[] = [];
+      if (cursor) {
+        query += " WHERE created_at < (SELECT created_at FROM admin_audit_log WHERE id = ?)";
+        params.push(cursor);
+      }
+      query += " ORDER BY created_at DESC, id DESC LIMIT ?";
+      params.push(boundedLimit);
+
+      const rows = await all<{
+        id: string;
+        actor_id: string;
+        action: string;
+        entity_type: string;
+        entity_id: string | null;
+        request_id: string;
+        metadata_json: string;
+        created_at: string;
+      }>(query, ...params);
+
+      return rows.map((r) => {
+        let metadata: { key: string; value: string }[] = [];
+        try {
+          const parsed = JSON.parse(r.metadata_json);
+          if (Array.isArray(parsed)) metadata = parsed;
+          else if (parsed && typeof parsed === "object") {
+            metadata = Object.entries(parsed).map(([k, v]) => ({ key: String(k), value: String(v) }));
+          }
+        } catch {
+          metadata = [];
+        }
+        return {
+          id: r.id,
+          actorId: r.actor_id,
+          action: r.action,
+          entityType: r.entity_type,
+          entityId: r.entity_id,
+          requestId: r.request_id,
+          metadata,
+          createdAt: r.created_at,
+        };
+      });
     },
     async stats() {
       const row = await first<StatsCounts>(`SELECT

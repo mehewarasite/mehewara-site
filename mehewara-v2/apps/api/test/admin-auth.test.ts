@@ -282,4 +282,137 @@ describe("Admin Authentication & Account Management Routes", () => {
     const loginRes = await loginRoute(loginReq, deps);
     expect(loginRes.status).toBe(200);
   });
+
+  it("enforces strict RBAC: regular admins cannot list, create, or delete users", async () => {
+    const mockDb = createMockDb();
+    const audits: any[] = [];
+    const deps = {
+      ...createDeps(mockDb),
+      store: {
+        appendAudit: async (input: any) => { audits.push(input); },
+      } as any,
+    };
+
+    // Pre-insert an existing admin
+    mockDb.users.push({
+      id: "admin-target-1",
+      username: "regularadmin",
+      name: "Regular Admin",
+      email: "regular@example.com",
+      password_hash: "hash",
+      role: "admin",
+      status: "active",
+      created_at: new Date().toISOString(),
+    });
+
+    const regularAdminToken = await signJwt(
+      { sub: "admin-target-1", role: "admin", username: "regularadmin" },
+      adminSecret,
+      3600000
+    );
+
+    // 1. Regular admin attempts GET /admin/users -> 403 Forbidden
+    const listReq = new Request("https://api/v1/admin/users", {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${regularAdminToken}` },
+    });
+    await expect(usersRoute(listReq, deps, null)).rejects.toThrow("Super-admin role required");
+
+    // 2. Regular admin attempts POST /admin/users -> 403 Forbidden
+    const createReq = new Request("https://api/v1/admin/users", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${regularAdminToken}`,
+      },
+      body: JSON.stringify({
+        username: "hacker",
+        email: "hacker@example.com",
+        password: "Pass12345!Password",
+        role: "admin",
+      }),
+    });
+    await expect(usersRoute(createReq, deps, null)).rejects.toThrow("Super-admin role required");
+
+    // 3. Regular admin attempts DELETE /admin/users/admin-target-1 -> 403 Forbidden
+    const deleteReq = new Request("https://api/v1/admin/users/admin-target-1", {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${regularAdminToken}` },
+    });
+    await expect(usersRoute(deleteReq, deps, "admin-target-1")).rejects.toThrow("Super-admin role required");
+  });
+
+  it("allows super-admin to list, create, and delete users and records audit logs", async () => {
+    const mockDb = createMockDb();
+    const audits: any[] = [];
+    const deps = {
+      ...createDeps(mockDb),
+      store: {
+        appendAudit: async (input: any) => { audits.push(input); },
+      } as any,
+    };
+
+    const superAdminToken = await signJwt(
+      { sub: "super-id-1", role: "super-admin", username: "superboss", email: "super@example.com" },
+      adminSecret,
+      3600000
+    );
+
+    // 1. Super-admin lists users
+    const listReq = new Request("https://api/v1/admin/users", {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${superAdminToken}` },
+    });
+    const listRes = await usersRoute(listReq, deps, null);
+    expect(listRes.status).toBe(200);
+
+    // 2. Super-admin creates a user
+    const createReq = new Request("https://api/v1/admin/users", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${superAdminToken}`,
+      },
+      body: JSON.stringify({
+        name: "New Admin",
+        username: "newadmin",
+        email: "newadmin@example.com",
+        password: "ValidPassword123!",
+        role: "admin",
+      }),
+    });
+    const createRes = await usersRoute(createReq, deps, null);
+    expect(createRes.status).toBe(201);
+    const createdUser: any = await createRes.json();
+    expect(createdUser.username).toBe("newadmin");
+
+    // Verify audit log for create
+    const createAudit = audits.find(a => a.action === "admin_user.create");
+    expect(createAudit).toBeDefined();
+    expect(createAudit.actorId).toBe("superboss");
+    expect(createAudit.metadata.username).toBe("newadmin");
+
+    // 3. Super-admin cannot delete themselves
+    const selfDeleteReq = new Request("https://api/v1/admin/users/super-id-1", {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${superAdminToken}` },
+    });
+    await expect(usersRoute(selfDeleteReq, deps, "super-id-1")).rejects.toThrow("You cannot delete your own account");
+
+    // 4. Super-admin deletes created user
+    const deleteReq = new Request(`https://api/v1/admin/users/${createdUser.id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${superAdminToken}` },
+    });
+    const deleteRes = await usersRoute(deleteReq, deps, createdUser.id);
+    expect(deleteRes.status).toBe(204);
+
+    // Verify audit log for delete
+    const deleteAudit = audits.find(a => a.action === "admin_user.delete");
+    expect(deleteAudit).toBeDefined();
+    expect(deleteAudit.actorId).toBe("superboss");
+    expect(deleteAudit.entityId).toBe(createdUser.id);
+    expect(deleteAudit.metadata.targetUsername).toBe("newadmin");
+  });
 });
+

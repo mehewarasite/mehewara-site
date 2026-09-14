@@ -630,3 +630,23 @@ export async function dbAdminDeleteUser(userId: string): Promise<void> {
   await api.delete(`/admin/users/${userId}`);
 }
 
+export interface AuditItem {
+  id: string;
+  actorId: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  requestId: string;
+  metadata: Array<{ key: string; value: string }>;
+  createdAt: string;
+}
+
+export async function dbLoadAuditLog(limit = 50): Promise<AuditItem[]> {
+  try {
+    const { data } = await api.get(`/admin/audits?limit=${limit}`);
+    return data.items || [];
+  } catch (err) {
+    console.error("Failed to load audit log:", err);
+    return [];
+  }
+}

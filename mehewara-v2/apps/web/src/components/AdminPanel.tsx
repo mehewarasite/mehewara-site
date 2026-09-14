@@ -240,6 +240,12 @@ export default function AdminPanel({
   };
 
   const [activeTab, setActiveTab] = useState<AdminTab>('subjects');
+ 
+  React.useEffect(() => {
+    if (activeTab === 'accounts' && currentUser && currentUser.role !== 'super-admin') {
+      setActiveTab('papers');
+    }
+  }, [activeTab, currentUser]);
 
   // We still lift QNumber and targetPaperId slightly out of AddQuestionTab
   // so that PapersTab can set them when the user clicks "+ MCQ" on an existing paper.
@@ -460,13 +466,15 @@ export default function AdminPanel({
             />
 
             <div className={`text-[10px] font-bold ${textMuted} uppercase tracking-wider mb-3 px-3 mt-6`}>System</div>
-            <NavButton
-              active={activeTab === 'accounts'}
-              onClick={() => setActiveTab('accounts')}
-              icon={Users}
-              label="Admin Accounts"
-              theme={adminTheme}
-            />
+            {currentUser?.role === 'super-admin' && (
+              <NavButton
+                active={activeTab === 'accounts'}
+                onClick={() => setActiveTab('accounts')}
+                icon={Users}
+                label="Admin Accounts"
+                theme={adminTheme}
+              />
+            )}
             <NavButton
               active={activeTab === 'stats'}
               onClick={() => setActiveTab('stats')}
@@ -571,7 +579,7 @@ export default function AdminPanel({
               />
             )}
 
-            {activeTab === 'accounts' && (
+            {activeTab === 'accounts' && currentUser?.role === 'super-admin' && (
               <AccountsTab
                 theme={adminTheme}
                 showFlash={showFlash}

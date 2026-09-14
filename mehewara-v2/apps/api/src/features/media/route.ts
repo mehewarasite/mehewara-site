@@ -2,7 +2,7 @@ import type { B2Client } from "../../storage/b2-client";
 import { sha256StreamHex, type B2TicketShape } from "../../storage/b2-client";
 import { HttpError, apiError } from "../../shared/errors";
 import { MediaUploadTicketRequest, MediaUploadConfirmRequest } from "@mehewara-v2/contracts";
-import { requireAdmin, type AccessVerifier } from "../../shared/auth";
+import { requireAdmin, type AccessVerifier, type AdminPrincipal } from "../../shared/auth";
 import { requireIdempotencyKey } from "../../shared/idempotency";
 import { parseBody } from "../../shared/validation";
 import { parseJson } from "../../shared/validation";
@@ -408,7 +408,7 @@ function isStaleClaim(intent: UploadIntent, nowMs: number): boolean {
  *  Responses always reflect the persisted row, never an assumed state.
  */
 export async function confirmUploadHttpRoute(request: Request, deps: { b2: B2Client; context: FeatureContext; verifier?: AccessVerifier }): Promise<Response> {
-  await requireAdmin(request, deps.context.access, deps.verifier);
+  const principal = await requireAdmin(request, deps.context.access, deps.verifier);
   requireIdempotencyKey(request);
   const body = await parseBody(request, deps.context.requestId, () => parseJson(request, MediaUploadConfirmRequest));
   if (!body.ok) return body.response;
@@ -463,7 +463,7 @@ export async function confirmUploadHttpRoute(request: Request, deps: { b2: B2Cli
       // Staging is gone: either nothing was uploaded, or a previous attempt
       // crashed after promoting. Resume from the final key when it carries
       // exactly the declared bytes; otherwise fail closed.
-      return resumeFromFinal(deps, claimed, deadline);
+      return resumeFromFinal(deps, claimed, deadline, principal);
     }
     if (staged.contentLength !== claimed.declaredByteSize) {
       return failClaimed(deps, claimed,
@@ -481,20 +481,20 @@ export async function confirmUploadHttpRoute(request: Request, deps: { b2: B2Cli
     }
     await deps.b2.copyObject(staging, claimed.objectKey, { signal: deadline });
     await deps.b2.deleteObject(staging, { signal: deadline }).catch(() => undefined);
-    return verifyFinalAndConfirm(deps, claimed, deadline);
+    return verifyFinalAndConfirm(deps, claimed, deadline, principal);
   }, { ttlSeconds: CONFIRM_PERMIT_TTL_SECONDS });
 }
 
 /** Resume a confirm whose worker crashed after promoting: if the final key
  *  carries exactly the declared bytes and its sha matches, confirm it;
  *  otherwise fail closed and clean up. */
-async function resumeFromFinal(deps: { b2: B2Client; context: FeatureContext }, claimed: UploadIntent, deadline: AbortSignal): Promise<Response> {
+async function resumeFromFinal(deps: { b2: B2Client; context: FeatureContext }, claimed: UploadIntent, deadline: AbortSignal, principal?: AdminPrincipal): Promise<Response> {
   const final = await deps.b2.headObject(claimed.objectKey, { signal: deadline });
   if (!final || final.contentLength !== claimed.declaredByteSize) {
     return failClaimed(deps, claimed,
       { code: "NOT_FOUND", message: "No object was uploaded for this intent", status: 404 });
   }
-  return verifyFinalAndConfirm(deps, claimed, deadline);
+  return verifyFinalAndConfirm(deps, claimed, deadline, principal);
 }
 
 /**
@@ -526,7 +526,7 @@ async function failClaimed(
  *  never become publishable — but only after winning the terminal flip, so a
  *  superseded verifier never touches the winner's object. The reported
  *  outcome always reflects the persisted row. */
-async function verifyFinalAndConfirm(deps: { b2: B2Client; context: FeatureContext }, claimed: UploadIntent, deadline: AbortSignal): Promise<Response> {
+async function verifyFinalAndConfirm(deps: { b2: B2Client; context: FeatureContext }, claimed: UploadIntent, deadline: AbortSignal, principal?: AdminPrincipal): Promise<Response> {
   const body = await deps.b2.streamGetObject(claimed.objectKey, { signal: deadline });
   if (!body) {
     return failClaimed(deps, claimed,
@@ -542,6 +542,22 @@ async function verifyFinalAndConfirm(deps: { b2: B2Client; context: FeatureConte
       });
   }
   const { row } = await deps.context.uploads.markConfirmed(claimed, claimed.declaredByteSize);
+  if (principal && deps.context.admin?.appendAudit) {
+    await deps.context.admin.appendAudit({
+      actorId: principal.username || principal.email || principal.subject,
+      action: "media.upload",
+      entityType: "media",
+      entityId: claimed.objectKey,
+      requestId: deps.context.requestId,
+      metadata: {
+        intentId: claimed.id,
+        objectKey: claimed.objectKey,
+        declaredByteSize: String(claimed.declaredByteSize),
+        contentType: claimed.contentType,
+        actorUsername: principal.username || principal.name || principal.email || principal.subject,
+      },
+    }).catch(console.error);
+  }
   // The returned row IS the fresh read (RETURNING): a won flip reports
   // confirmed, a lost race reports the winner's persisted state. No second
   // read is needed, keeping the run within the reserved D1 reads. The row
