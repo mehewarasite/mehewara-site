@@ -59,6 +59,14 @@ export default function SiteEntryGate({ isDark, isEn, onVerified }: SiteEntryGat
   };
 
   useEffect(() => {
+    // Automatically bypass on local dev or preview deploys where Turnstile sitekey domain doesn't match
+    if (import.meta.env.DEV || (typeof window !== 'undefined' && window.location.hostname.endsWith('pages.dev') && window.location.hostname !== 'mehewara-site.pages.dev')) {
+      console.warn('Bypassing Turnstile on preview domain');
+      sessionStorage.setItem('mhw_human_verified', 'true');
+      onVerified();
+      return;
+    }
+
     const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAElpXtkwfy5K8yzw';
     let pollTimer: any;
 
@@ -75,8 +83,8 @@ export default function SiteEntryGate({ isDark, isEn, onVerified }: SiteEntryGat
               setErrorMessage(isEn ? 'Verification expired. Please check the box again.' : 'සත්‍යාපනය කල් ඉකුත් විය. නැවත සලකුණු කරන්න.');
             },
             'error-callback': () => {
-              if (import.meta.env.DEV) {
-                console.warn('Turnstile rejected on localhost/DEV; auto-bypassing gate');
+              if (import.meta.env.DEV || (typeof window !== 'undefined' && window.location.hostname.endsWith('pages.dev'))) {
+                console.warn('Turnstile rejected on preview/DEV; auto-bypassing gate');
                 sessionStorage.setItem('mhw_human_verified', 'true');
                 setIsFadingOut(true);
                 setTimeout(() => onVerified(), 300);

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const DEFAULT_BASE_URL = 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
-const FALLBACK_BASE_URL = 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
+const DEFAULT_BASE_URL = 'https://mehewara-v2-api-production.mehewara-site.workers.dev';
+const FALLBACK_BASE_URL = 'https://mehewara-v2-api-production.mehewara-site.workers.dev';
 
 // In development, route through Vite proxy (/api/v1) to avoid Cloudflare Worker CORS restrictions.
 // In production (or if VITE_DIRECT_API is set), use the configured or default base URL.
@@ -18,7 +18,11 @@ if (!isDev || forceDirect) {
 let activeBaseURL = rawBaseURL.replace(/\/+$/, '');
 
 export function getActiveMediaBaseUrl(): string {
-  return (activeBaseURL || (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)).trim().replace(/\/+$/, '');
+  let base = (activeBaseURL || (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)).trim().replace(/\/+$/, '');
+  if (base && !base.startsWith('http://') && !base.startsWith('https://')) {
+    base = `https://${base}`;
+  }
+  return base;
 }
 
 export function normalizeMediaUrl(url: string | null | undefined): string {
@@ -65,6 +69,11 @@ function setupNetworkFallback(instance: typeof api) {
           window.dispatchEvent(new Event('admin-logout'));
         }
       }
+
+      if (error.response?.status === 429) {
+        window.dispatchEvent(new Event('admin-budget-exceeded'));
+      }
+
       return Promise.reject(error);
     }
   );
@@ -73,14 +82,26 @@ function setupNetworkFallback(instance: typeof api) {
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('adminToken');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers.set) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   // The Cloudflare Worker API requires an Idempotency-Key header on every
   // admin mutation (POST/PATCH/PUT/DELETE). Auto-generate one for every
   // mutating request so callers never forget it.
   const method = (config.method || '').toUpperCase();
-  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method) && !config.headers['Idempotency-Key']) {
-    config.headers['Idempotency-Key'] = crypto.randomUUID();
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
+    const hasKey = config.headers.get ? config.headers.get('Idempotency-Key') : config.headers['Idempotency-Key'];
+    if (!hasKey) {
+      const newKey = crypto.randomUUID();
+      if (config.headers.set) {
+        config.headers.set('Idempotency-Key', newKey);
+      } else {
+        config.headers['Idempotency-Key'] = newKey;
+      }
+    }
   }
   return config;
 });
@@ -134,16 +155,22 @@ export async function uploadToB2(file: File | Blob, endpointOrPrefix: string = '
 
   // 2. Direct binary upload to Backblaze B2 presigned S3 PUT URL
   // Note: Do not send the admin Bearer token to B2 since SigV4 is in query parameters.
-  const putRes = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': contentType,
-    },
-    body: file,
-  });
+  let putRes: Response;
+  try {
+    putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+      },
+      body: file,
+    });
+  } catch (err: any) {
+    throw new Error(`Failed to connect to storage: ${err?.message || 'Network or CORS error'}`);
+  }
 
   if (!putRes.ok) {
-    throw new Error(`Failed to upload media to storage (HTTP ${putRes.status})`);
+    const errText = await putRes.text().catch(() => '');
+    throw new Error(`Failed to upload media to storage (HTTP ${putRes.status}${errText ? `: ${errText.substring(0, 100)}` : ''})`);
   }
 
   // 3. Confirm upload with API to verify sha256 and promote from staging to final key in D1

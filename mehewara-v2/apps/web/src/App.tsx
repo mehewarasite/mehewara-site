@@ -202,7 +202,7 @@ export default function App() {
 
   const [isHumanVerified, setIsHumanVerified] = useState<boolean>(() => {
     try {
-      if (hasAdminToken || import.meta.env.DEV) return true;
+      if (hasAdminToken || import.meta.env.DEV || (typeof window !== 'undefined' && window.location.hostname.endsWith('pages.dev') && window.location.hostname !== 'mehewara-site.pages.dev')) return true;
       return sessionStorage.getItem('mhw_human_verified') === 'true';
     } catch {
       return false;
@@ -593,8 +593,19 @@ export default function App() {
     setPapers(updatedPapers);
     idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
 
+    if (importQuestions && importQuestions.length > 0) {
+      const updatedQuestions = [...questions, ...importQuestions];
+      setQuestions(updatedQuestions);
+      idbSet('m_questions', JSON.stringify(updatedQuestions));
+    }
+
     // Persist paper to API (without studyMaterialHtml — stored separately)
-    await dbSavePaper(paperWithCount);
+    const saved = await dbSavePaper(paperWithCount, true);
+    if (saved?.subjectId && saved.subjectId !== paperWithCount.subjectId) {
+      paperWithCount.subjectId = saved.subjectId;
+      setPapers(prev => prev.map(p => p.id === paperWithCount.id ? paperWithCount : p));
+      idbSet('m_papers', JSON.stringify(updatedPapers.map(p => p.id === paperWithCount.id ? { ...paperWithCount, studyMaterialHtml: undefined } : { ...p, studyMaterialHtml: undefined })));
+    }
 
     // Persist study HTML to API if present
     if (newPaper.studyMaterialHtml) {
@@ -605,10 +616,7 @@ export default function App() {
 
     // Persist questions to API
     if (importQuestions && importQuestions.length > 0) {
-      const updatedQuestions = [...questions, ...importQuestions];
-      setQuestions(updatedQuestions);
-      idbSet('m_questions', JSON.stringify(updatedQuestions));
-      await dbSaveQuestions(importQuestions);
+      await dbSaveQuestions(importQuestions, undefined, true);
     }
 
     // Automatically build Backblaze B2 publication snapshot so all devices see the new paper immediately
@@ -906,10 +914,13 @@ export default function App() {
           if (typeof p.sinhalaTitle === 'object' && p.sinhalaTitle !== null) {
             p.sinhalaTitle = (p.sinhalaTitle as any).si || (p.sinhalaTitle as any).en || p.title;
           }
-          // Validate subjectId exists in subjects list, or fallback to first subject
-          if (!isUuid(p.subjectId) || !subjects.some(s => s.id === p.subjectId)) {
-            const matched = subjects.find(s => s.id === p.subjectId || s.code === p.subjectId || s.name.toLowerCase() === String(p.subjectId).toLowerCase());
-            p.subjectId = matched ? matched.id : (subjects[0]?.id || p.subjectId);
+          // Validate subjectId exists in subjects list or initial subjects, without wiping valid subject selections
+          const matched = subjects.find(s => s.id === p.subjectId || s.code === p.subjectId || s.name.toLowerCase() === String(p.subjectId).toLowerCase())
+            || INITIAL_SUBJECTS.find(s => s.id === p.subjectId || s.code === p.subjectId || s.name.toLowerCase() === String(p.subjectId).toLowerCase());
+          if (matched) {
+            p.subjectId = matched.id;
+          } else if (!p.subjectId && subjects[0]?.id) {
+            p.subjectId = subjects[0].id;
           }
         });
 
@@ -1015,13 +1026,16 @@ export default function App() {
               await dbSaveSubjects(importedSubjects);
             }
             for (const p of rehydratedPapers) {
-              await dbSavePaper(p);
+              const saved = await dbSavePaper(p);
+              if (saved?.subjectId && saved.subjectId !== p.subjectId) {
+                p.subjectId = saved.subjectId;
+              }
               if (p.studyMaterialHtml) {
                 await dbSaveStudyHtml(p.id, p.studyMaterialHtml);
               }
             }
             if (importedQuestions.length > 0) {
-              await dbSaveQuestions(importedQuestions, true);
+              await dbSaveQuestions(importedQuestions, undefined, true);
             }
             // Auto-build snapshot to Backblaze B2
             await dbBuildPublication();

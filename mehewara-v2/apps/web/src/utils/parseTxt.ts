@@ -1,14 +1,21 @@
 import katex from 'katex';
 
-const TARGET_API_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL)
-  ? (import.meta as any).env.VITE_API_BASE_URL.replace(/\/+$/, '')
-  : 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
+function getNormalizedTargetApiUrl(): string {
+  let url = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL)
+    ? String((import.meta as any).env.VITE_API_BASE_URL).trim().replace(/\/+$/, '')
+    : 'https://mehewara-v2-api-production.mehewara-site.workers.dev';
+  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
+  }
+  return url;
+}
 
 export function normalizeHtmlMediaUrls(html: string): string {
   if (!html) return html;
+  const target = getNormalizedTargetApiUrl();
   return html
-    .replace(/https?:\/\/[^/]+\/api\/v1\/media\//g, `${TARGET_API_URL}/api/v1/media/`)
-    .replace(/src=["']\/api\/v1\/media\//g, `src="${TARGET_API_URL}/api/v1/media/`);
+    .replace(/https?:\/\/[^/]+\/api\/v1\/media\//g, `${target}/api/v1/media/`)
+    .replace(/src=["']\/api\/v1\/media\//g, `src="${target}/api/v1/media/`);
 }
 
 export function renderMathInHtml(text: string): string {
@@ -16,7 +23,7 @@ export function renderMathInHtml(text: string): string {
   const normalized = normalizeHtmlMediaUrls(text);
   return normalized.replace(/\$(.*?)\$/g, (match, latex) => {
     try {
-      const rendered = katex.renderToString(latex.trim(), { throwOnError: false, displayMode: false });
+      const rendered = katex.renderToString(latex.trim(), { throwOnError: false, displayMode: false, strict: false });
       return `<span class="mhw-eq">${rendered}</span>`;
     } catch (e) {
       console.warn("KaTeX render error for:", latex);
@@ -47,6 +54,15 @@ export function unrenderMathHtml(html: string): string {
   }
 }
 
+function stringifyContent(val: any): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    return val.html || val.si || val.en || val.text || JSON.stringify(val);
+  }
+  return String(val);
+}
+
 export function parseTxtToQuizData(text: string): Array<{
   id: number;
   part?: number;
@@ -58,6 +74,11 @@ export function parseTxtToQuizData(text: string): Array<{
 }> {
   if (!text) return [];
 
+  let cleanText = text.trim();
+  if (cleanText.charCodeAt(0) === 0xFEFF) {
+    cleanText = cleanText.slice(1).trim();
+  }
+
   const processText = (str: string) => {
     if (!str) return str;
     return str.replace(/\[IMAGE:\s*(.*?)\]/gi, (_, filename) => {
@@ -68,13 +89,15 @@ export function parseTxtToQuizData(text: string): Array<{
 
   // 1. Try parsing as JSON first (New JSON format support)
   try {
-    const jsonObj = JSON.parse(text);
+    const jsonObj = JSON.parse(cleanText);
     let items: any[] = [];
     if (Array.isArray(jsonObj)) {
       items = jsonObj;
     } else if (jsonObj && typeof jsonObj === 'object') {
       if (Array.isArray(jsonObj.questions)) {
         items = jsonObj.questions;
+      } else if (Array.isArray(jsonObj.paper?.questions)) {
+        items = jsonObj.paper.questions;
       } else if (Array.isArray(jsonObj.items)) {
         items = jsonObj.items;
       } else if (Array.isArray(jsonObj.data)) {
@@ -84,13 +107,11 @@ export function parseTxtToQuizData(text: string): Array<{
 
     if (items.length > 0) {
       return items.map((item, index) => {
-        const rawQ = item.questionHtml ?? item.question_text ?? item.question ?? '';
+        const rawQ = stringifyContent(item.questionHtml ?? item.question_text ?? item.question ?? '');
         const rawOpts = item.optionsHtml ?? item.options ?? [];
         const mappedOpts = Array.isArray(rawOpts)
           ? rawOpts.map((opt: any) => {
-              if (typeof opt === 'string') return processText(opt);
-              if (opt && typeof opt === 'object') return processText(opt.html ?? opt.text ?? String(opt));
-              return String(opt);
+              return processText(stringifyContent(opt));
             })
           : [];
 
@@ -106,7 +127,7 @@ export function parseTxtToQuizData(text: string): Array<{
           if (idx !== -1) correctIdx = idx;
         }
 
-        const rawExp = item.explanationHtml ?? item.explanation ?? '';
+        const rawExp = stringifyContent(item.explanationHtml ?? item.explanation ?? '');
 
         return {
           id: item.qNumber ?? item.question_number ?? item.number ?? (typeof item.id === 'number' ? item.id : index + 1),
@@ -115,7 +136,7 @@ export function parseTxtToQuizData(text: string): Array<{
           code: item.code,
           options: mappedOpts,
           correctIndex: correctIdx >= 0 && correctIdx < 5 ? correctIdx : 0,
-          explanation: processText(rawExp.replace(/\n/g, '<br/>'))
+          explanation: rawExp ? processText(rawExp.replace(/\n/g, '<br/>')) : undefined
         };
       });
     }
@@ -125,7 +146,7 @@ export function parseTxtToQuizData(text: string): Array<{
 
   // 2. Pre-process the text to convert [EN], [/EN], [SIN], [/SIN] into separators
   // This cleanly splits language blocks without merging them.
-  let preprocessed = text
+  let preprocessed = cleanText
     .replace(/\[\/?EN\]/gi, '\n---\n')
     .replace(/\[\/?SIN\]/gi, '\n---\n');
 

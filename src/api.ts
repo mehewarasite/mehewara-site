@@ -1,5 +1,6 @@
 import { api, publicApi, getActiveMediaBaseUrl, normalizeMediaUrl } from './apiClient';
 import type { Paper, Question, Subject, GalleryPhoto, AboutData } from './types';
+import { INITIAL_SUBJECTS } from './data';
 
 // ─── Public Manifest Cache (Backblaze B2 Snapshot via Edge CDN) ───────────────
 let cachedManifest: any = null;
@@ -408,19 +409,62 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
   await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
 }
 
-export async function dbSavePaper(paper: Paper): Promise<Paper> {
-  const paperId = isUuid(paper.id) ? paper.id : crypto.randomUUID();
+export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper> {
+  const hadExistingId = isUuid(paper.id);
+  const paperId = hadExistingId ? paper.id : crypto.randomUUID();
   paper.id = paperId;
+  const isReallyNew = isNew ?? !hadExistingId;
 
   // Guarantee subjectId is a valid UUID of an existing subject in D1
   let subjectId = paper.subjectId;
-  if (!isUuid(subjectId)) {
-    const subjects = await adminLoadSubjects().catch(() => null);
-    if (subjects && subjects.length > 0) {
-      const match = subjects.find(s => s.code === subjectId || s.id === subjectId || s.name.toLowerCase() === String(subjectId).toLowerCase());
-      subjectId = match ? match.id : subjects[0].id;
+  let subjects: Subject[] | null = null;
+  try {
+    subjects = await adminLoadSubjects();
+  } catch (err) {
+    console.warn("Failed to load subjects from D1:", err);
+  }
+
+  // 1. Check if subject already exists in D1 by UUID, code, or name
+  const match = subjects?.find(s =>
+    s.id === subjectId ||
+    (s.code && s.code.toLowerCase() === String(subjectId).toLowerCase()) ||
+    (s.name && s.name.toLowerCase() === String(subjectId).toLowerCase()) ||
+    (s.sinhalaName && s.sinhalaName === String(subjectId))
+  );
+
+  if (match) {
+    subjectId = match.id;
+  } else {
+    // 2. If not found in D1, match against canonical INITIAL_SUBJECTS definitions
+    // (preserves Sinhala name, icon, colors, and examType instead of inventing a placeholder)
+    const canonical = INITIAL_SUBJECTS.find(s =>
+      s.id === subjectId ||
+      (s.code && s.code.toLowerCase() === String(subjectId).toLowerCase()) ||
+      (s.name && s.name.toLowerCase() === String(subjectId).toLowerCase()) ||
+      (s.sinhalaName && s.sinhalaName === String(subjectId))
+    );
+
+    if (canonical) {
+      const newSubjectId = isUuid(subjectId) ? subjectId : crypto.randomUUID();
+      try {
+        await dbSaveSubjects([{
+          ...canonical,
+          id: newSubjectId,
+        }]);
+        subjectId = newSubjectId;
+      } catch (err) {
+        console.warn("Failed to seed canonical subject to D1:", err);
+        if (subjects && subjects.length > 0) {
+          subjectId = subjects[0].id;
+        }
+      }
+    } else if (subjects && subjects.length > 0) {
+      // 3. Subject is unrecognized and cannot be seeded canonically; fallback safely to first existing subject
+      console.warn(`Unrecognized subjectId "${subjectId}". Falling back to existing subject "${subjects[0].name}" (${subjects[0].id}).`);
+      subjectId = subjects[0].id;
     }
   }
+  paper.subjectId = subjectId;
 
   const validSlug = generateSlug(paper.title, paperId);
   const examType = (paper.examType === 'ol' || paper.examType === 'al') ? paper.examType : 'al';
@@ -448,7 +492,10 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
 
   let savedUpdatedAt: string | undefined;
   try {
-    const existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
+    let existing: any = null;
+    if (!isReallyNew) {
+      existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
+    }
     if (existing?.data) {
       const patchRes = await api.patch(`/admin/papers/${paperId}`, {
         ...payload,
@@ -459,9 +506,9 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
       const createRes = await api.post('/admin/papers', { id: paperId, ...payload });
       savedUpdatedAt = createRes.data?.updatedAt;
     }
-  } catch (e: any) {
-    console.error("Failed to save paper to D1:", e.response?.data || e.message);
-    throw e;
+  } catch (err) {
+    console.error("Failed to persist paper to API:", err);
+    throw err;
   }
 
   await setPublishState('paper', paperId, 'published', savedUpdatedAt);
@@ -473,8 +520,9 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
   await api.delete(`/admin/papers/${paperId}`).catch(console.error);
 }
 
-export async function dbSaveQuestion(question: Question, isNew = false): Promise<Question> {
-  const qId = isUuid(question.id) ? question.id : crypto.randomUUID();
+export async function dbSaveQuestion(question: Question, isNew?: boolean): Promise<Question> {
+  const hadExistingId = isUuid(question.id);
+  const qId = hadExistingId ? question.id : crypto.randomUUID();
   question.id = qId;
 
   if (!isUuid(question.paperId)) {
@@ -482,11 +530,12 @@ export async function dbSaveQuestion(question: Question, isNew = false): Promise
     throw new Error(`Cannot save question: paperId ${question.paperId} is not a valid UUID.`);
   }
 
+  const isReallyNew = isNew ?? !hadExistingId;
   let existingQ: any = null;
-  if (!isNew) {
+  if (!isReallyNew) {
     try {
-      const checkRes = await api.get(`/admin/questions/${qId}`);
-      existingQ = checkRes.data;
+      const checkRes = await api.get(`/admin/questions/${qId}`).catch(() => null);
+      existingQ = checkRes?.data;
     } catch {
       // 404 or new question
     }
@@ -592,18 +641,76 @@ export async function dbSaveQuestion(question: Question, isNew = false): Promise
 
 export async function dbSaveQuestions(
   questions: Question[],
-  isNew = false,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (progress: { current: number; total: number; percent: number; error?: string }) => void,
+  isNew?: boolean
 ): Promise<void> {
-  const batchSize = 5;
+  const batchSize = 3;
+  const successfullySavedQIds: string[] = [];
+  const total = questions.length;
+
   for (let i = 0; i < questions.length; i += batchSize) {
     const chunk = questions.slice(i, i + batchSize);
-    await Promise.all(chunk.map(q => dbSaveQuestion(q, isNew)));
-    if (onProgress) {
-      onProgress(Math.min(i + batchSize, questions.length), questions.length);
+
+    try {
+      const results = await Promise.all(
+        chunk.map(async (q) => {
+          let lastErr: any = null;
+          // Up to 2 retries per question
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              const saved = await dbSaveQuestion(q, isNew);
+              return saved;
+            } catch (err: any) {
+              lastErr = err;
+              if (attempt < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+              }
+            }
+          }
+          throw lastErr || new Error(`Failed to save question ${q.qNumber}`);
+        })
+      );
+
+      for (const saved of results) {
+        if (saved?.id) successfullySavedQIds.push(saved.id);
+      }
+
+      const currentDone = Math.min(i + chunk.length, total);
+      if (onProgress) {
+        onProgress({
+          current: currentDone,
+          total,
+          percent: Math.round((currentDone / total) * 100),
+        });
+      }
+    } catch (batchError: any) {
+      console.error(`[dbSaveQuestions] Failure during bulk question save at index ${i}:`, batchError);
+
+      // All-or-nothing rollback: clean up previously created questions for this session
+      if (successfullySavedQIds.length > 0) {
+        console.warn(`[dbSaveQuestions] Rolling back ${successfullySavedQIds.length} questions...`);
+        if (onProgress) {
+          onProgress({
+            current: i,
+            total,
+            percent: Math.round((i / total) * 100),
+            error: `Error at question batch ${i + 1}-${i + chunk.length}. Rolling back created questions...`,
+          });
+        }
+
+        await Promise.allSettled(
+          successfullySavedQIds.map((id) => dbDeleteQuestion(id))
+        );
+      }
+
+      const errorMsg = batchError.response?.data?.message || batchError.message || 'Unknown network/database error';
+      throw new Error(
+        `Bulk question upload failed and was rolled back cleanly (${successfullySavedQIds.length} questions reverted). Error: ${errorMsg}`
+      );
     }
   }
 }
+
 
 export async function dbDeleteQuestion(questionId: string): Promise<void> {
   await setPublishState('question', questionId, 'archived');

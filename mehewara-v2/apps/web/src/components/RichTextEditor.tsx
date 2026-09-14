@@ -40,7 +40,7 @@ const EquationDialog = ({
   useEffect(() => {
     if (!latex.trim()) { setPreview(''); setError(''); return; }
     try {
-      const rendered = katex.renderToString(latex, { throwOnError: true, displayMode: false });
+      const rendered = katex.renderToString(latex, { throwOnError: true, displayMode: false, strict: false });
       setPreview(rendered);
       setError('');
     } catch (e: any) {

@@ -42,8 +42,8 @@ export const POOL_POLICIES: Readonly<Record<Pool, { limit: number; window: Windo
   public: { limit: 50_000, window: "daily" },
   admin: { limit: 35_000, window: "daily" },
   publication: { limit: 10_000, window: "daily" },
-  emergency: { limit: 2_500, window: "daily" },
-  margin: { limit: 2_500, window: "daily" },
+  emergency: { limit: 5_000, window: "daily" },
+  margin: { limit: 5_000, window: "daily" },
 };
 
 type ResourceAmounts = Partial<Record<Resource, number>>;
@@ -278,6 +278,9 @@ export class BudgetAuthorityCore {
 
   private checkCapacity(state: AuthorityState, pool: Pool, resource: Resource, amount: number): void {
     if (amount <= 0) return;
+    // Emergency mode: completely bypass the Cloudflare quota limits
+    if (state.emergencyUntil !== null) return;
+    
     const policy = RESOURCE_POLICIES[resource];
     const allowance = Math.floor(policy.limit * POOL_RESOURCE_ALLOCATIONS[pool]);
     if (state.resources[resource].reserved + state.resources[resource].committed + amount > policy.limit
@@ -304,7 +307,13 @@ export class BudgetAuthorityCore {
       : (policy.storageDelta ?? 0);
     for (const [resource, amount] of Object.entries(policy.resources) as [Resource, number][]) this.checkCapacity(state, policy.pool, resource, amount);
     if (storage > 0) this.checkCapacity(state, policy.pool, "b2Bytes", storage);
-    if (state.pools[policy.pool].reserved + state.pools[policy.pool].committed + policy.costUnits > POOL_POLICIES[policy.pool].limit) throw new BudgetFailure("EXCEEDED");
+    
+    // Emergency mode: completely bypass pool-specific rate limits
+    if (state.pools[policy.pool].reserved + state.pools[policy.pool].committed + policy.costUnits > POOL_POLICIES[policy.pool].limit) {
+      if (state.emergencyUntil === null) {
+        throw new BudgetFailure("EXCEEDED");
+      }
+    }
     const ttlSeconds = parsed.data.ttlSeconds ?? 30;
     const expiresAt = this.now() + ttlSeconds * 1000;
     for (const [resource, amount] of Object.entries(policy.resources) as [Resource, number][]) {
