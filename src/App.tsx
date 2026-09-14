@@ -176,7 +176,7 @@ export default function App() {
 
   const [isHumanVerified, setIsHumanVerified] = useState<boolean>(() => {
     try {
-      if (hasAdminToken || import.meta.env.DEV) return true;
+      if (hasAdminToken || import.meta.env.DEV || (typeof window !== 'undefined' && window.location.hostname.endsWith('pages.dev') && window.location.hostname !== 'mehewara-site.pages.dev')) return true;
       return sessionStorage.getItem('mhw_human_verified') === 'true';
     } catch {
       return false;
