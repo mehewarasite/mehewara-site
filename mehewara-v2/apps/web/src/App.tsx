@@ -7,6 +7,7 @@ import {
   Lightbulb,
   Infinity as InfinityIcon,
   BookOpen,
+  Calculator,
   Compass,
   ChevronRight,
   ArrowLeft,
@@ -51,7 +52,7 @@ import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/sto
 
 const ICON_MAP: { [key: string]: React.ComponentType<any> } = {
   Atom, FlaskConical, Dna, Cpu, Lightbulb,
-  Infinity: InfinityIcon, BookOpen, Compass,
+  Infinity: InfinityIcon, BookOpen, Calculator, Compass,
   Banknote, Map: MapIcon, Landmark
 };
 
@@ -67,6 +68,9 @@ const SUBJECT_COLOR_PRESETS: Record<string, string> = {
   // Mathematics
   'math': 'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]',
   'maths': 'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]',
+  'cmaths': 'from-blue-600 via-indigo-700 to-slate-900 border-blue-500/30 shadow-[0_4px_20px_rgba(59,130,246,0.15)]',
+  'combinedmaths': 'from-blue-600 via-indigo-700 to-slate-900 border-blue-500/30 shadow-[0_4px_20px_rgba(59,130,246,0.15)]',
+  'combinedmathematics': 'from-blue-600 via-indigo-700 to-slate-900 border-blue-500/30 shadow-[0_4px_20px_rgba(59,130,246,0.15)]',
   'mathematics': 'from-indigo-600 via-violet-700 to-purple-900 border-indigo-500/30 shadow-[0_4px_20px_rgba(99,102,241,0.15)]',
   // Sinhala Language
   'sinhala': 'from-amber-600 via-orange-600 to-red-800 border-orange-500/30 shadow-[0_4px_20px_rgba(249,115,22,0.15)]',
@@ -114,29 +118,51 @@ function resolveSubjectColor(sub: Subject, index: number = 0): string {
   return FALLBACK_PALETTES[index % FALLBACK_PALETTES.length];
 }
 
+const LEGACY_ID_TO_UUID: Record<string, string> = {
+  'al-physics': 'aa2aabf6-65f9-51d0-a993-4d385208c245',
+  'al-chemistry': '9115cadf-011b-508a-ba48-6ced5cb75a05',
+  'al-biology': 'cf2019b1-4121-5f26-866c-dc2e992e8244',
+  'al-ict': '1128871a-03d8-5251-bca3-d8b476d56e89',
+  'al-combined-maths': '5329a153-b09c-597e-9e30-37f4f0339213',
+  'ol-science': '2d525961-5e47-517a-9afe-27525e46dbb8',
+  'ol-maths': 'd61493fa-a854-53fd-83e8-57e99c85aad5',
+  'ol-sinhala': 'c3d9ea08-548a-5b9f-b434-ce6e8eb7bc31',
+  'ol-history': '19e7a0fe-dc35-5d85-be49-83fc260f6b36',
+  'ol-ict': 'ff68db84-2003-597e-9ac1-df665344a348',
+  'ol-civic': '655b9d9a-f257-5574-8d14-24546b8152f7',
+};
+
+const canonicalSubjectId = (id?: string | null): string => {
+  if (!id) return '';
+  return LEGACY_ID_TO_UUID[id] || id;
+};
+
 function deduplicateAndEnrichSubjects(loaded: Subject[], defaults: Subject[], currentPapers: Paper[]): Subject[] {
   const merged: Subject[] = [];
   const seenKeys = new Map<string, number>();
 
-  const allCandidates = [...loaded];
+  const allCandidates = loaded.map(s => ({ ...s, id: canonicalSubjectId(s.id) }));
 
   for (const def of defaults) {
+    const defId = canonicalSubjectId(def.id);
     const normName = (def.name || '').toLowerCase().trim();
     const normCode = (def.code || '').toLowerCase().replace(/^(ol|al)[-_]?/, '').trim();
 
-    const alreadyPresent = loaded.some(s => {
+    const alreadyPresent = allCandidates.some(s => {
+      const sId = canonicalSubjectId(s.id);
       const sName = (s.name || '').toLowerCase().trim();
       const sCode = (s.code || '').toLowerCase().replace(/^(ol|al)[-_]?/, '').trim();
-      return (s.examType || 'ol') === (def.examType || 'ol') && (sName === normName || sCode === normCode || s.id === def.id);
+      return (s.examType || 'ol') === (def.examType || 'ol') && (sName === normName || sCode === normCode || sId === defId);
     });
 
     if (!alreadyPresent) {
-      allCandidates.push(def);
+      allCandidates.push({ ...def, id: defId });
     }
   }
 
   allCandidates.forEach((s) => {
-    if (!s || s.id === 'al-combined-maths') return;
+    if (!s) return;
+    s.id = canonicalSubjectId(s.id);
     const normName = (s.name || '').toLowerCase().trim();
     const normCode = (s.code || '').toLowerCase().replace(/^(ol|al)[-_]?/, '').trim();
     const key = `${s.examType || 'ol'}-${normName || normCode}`;
@@ -152,8 +178,8 @@ function deduplicateAndEnrichSubjects(loaded: Subject[], defaults: Subject[], cu
     } else {
       const existingIdx = seenKeys.get(key)!;
       const existingSub = merged[existingIdx];
-      const existingPaperCount = currentPapers.filter(p => p.subjectId === existingSub.id).length;
-      const newPaperCount = currentPapers.filter(p => p.subjectId === s.id).length;
+      const existingPaperCount = currentPapers.filter(p => canonicalSubjectId(p.subjectId) === existingSub.id).length;
+      const newPaperCount = currentPapers.filter(p => canonicalSubjectId(p.subjectId) === s.id).length;
 
       // Keep the one with more papers
       if (newPaperCount > existingPaperCount) {
@@ -378,7 +404,9 @@ export default function App() {
   const loadFromLocal = async () => {
     try {
       const storedPapers = await idbGet('m_papers');
-      const parsedPapers: Paper[] = storedPapers ? JSON.parse(storedPapers) : INITIAL_PAPERS;
+      const parsedPapers: Paper[] = storedPapers
+        ? JSON.parse(storedPapers).map((p: Paper) => ({ ...p, subjectId: canonicalSubjectId(p.subjectId) }))
+        : INITIAL_PAPERS;
       if (storedPapers) {
         setPapers(parsedPapers);
       } else {
@@ -388,7 +416,7 @@ export default function App() {
       const storedSubjects = await idbGet('m_subjects');
       let rawSubjects: Subject[] = [];
       if (storedSubjects) {
-        rawSubjects = JSON.parse(storedSubjects).filter((s: Subject) => s.id !== 'al-combined-maths');
+        rawSubjects = JSON.parse(storedSubjects).map((s: Subject) => ({ ...s, id: canonicalSubjectId(s.id) }));
       } else {
         rawSubjects = [...INITIAL_SUBJECTS];
       }
@@ -447,8 +475,7 @@ export default function App() {
       }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
-        let filtered = remoteSubjects.filter((s: Subject) => s.id !== 'al-combined-maths');
-        const deduplicated = deduplicateAndEnrichSubjects(filtered, INITIAL_SUBJECTS, remotePapers || papers);
+        const deduplicated = deduplicateAndEnrichSubjects(remoteSubjects, INITIAL_SUBJECTS, remotePapers || papers);
         setSubjects(deduplicated);
         idbSet('m_subjects', JSON.stringify(deduplicated));
       }

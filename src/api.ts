@@ -51,7 +51,7 @@ export async function dbLoadSubjects(): Promise<Subject[] | null> {
     name: s.title?.en || '',
     sinhalaName: s.title?.si || '',
     examType: s.examType || 'al',
-    code: s.slug || s.code || '',
+    code: s.code || s.slug || '',
     icon: s.presentation?.icon || 'BookOpen',
     color: s.presentation?.color || 'blue'
   }));
@@ -187,7 +187,7 @@ export async function adminLoadSubjects(): Promise<Subject[] | null> {
       name: s.title?.en || '',
       sinhalaName: s.title?.si || '',
       examType: s.examType || 'al',
-      code: s.slug || s.code || '',
+      code: s.code || s.slug || '',
       icon: s.presentation?.icon || 'BookOpen',
       color: s.presentation?.color || 'blue'
     }));

@@ -30,7 +30,7 @@ export default function SubjectsTab({ theme, subjects, onAddSubject, onUpdateSub
     const isEditing = !!editingSubjectId;
     let finalId = newSubject.id;
     if (!finalId) {
-      finalId = `${newSubject.examType}-${newSubject.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      finalId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${newSubject.examType}-${newSubject.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
     }
 
     const subjectData: Subject = {
@@ -84,7 +84,7 @@ export default function SubjectsTab({ theme, subjects, onAddSubject, onUpdateSub
             <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>විෂය හැඳුනුම් අංකය (Subject ID - Optional)</label>
             <input
               type="text"
-              placeholder="e.g. al-physics (Leave blank to auto-generate)"
+              placeholder="Leave blank to auto-generate UUID"
               value={newSubject.id || ''}
               onChange={(e) => setNewSubject({ ...newSubject, id: e.target.value })}
               className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-emerald-500 transition-colors`}
