@@ -3,7 +3,7 @@ import katex from 'katex';
 function getNormalizedTargetApiUrl(): string {
   let url = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL)
     ? String((import.meta as any).env.VITE_API_BASE_URL).trim().replace(/\/+$/, '')
-    : 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
+    : 'https://mehewara-v2-api-production.mehewara-site.workers.dev';
   if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
     url = `https://${url}`;
   }
