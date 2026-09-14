@@ -69,6 +69,11 @@ function setupNetworkFallback(instance: typeof api) {
           window.dispatchEvent(new Event('admin-logout'));
         }
       }
+
+      if (error.response?.status === 429) {
+        window.dispatchEvent(new Event('admin-budget-exceeded'));
+      }
+
       return Promise.reject(error);
     }
   );
@@ -150,16 +155,22 @@ export async function uploadToB2(file: File | Blob, endpointOrPrefix: string = '
 
   // 2. Direct binary upload to Backblaze B2 presigned S3 PUT URL
   // Note: Do not send the admin Bearer token to B2 since SigV4 is in query parameters.
-  const putRes = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': contentType,
-    },
-    body: file,
-  });
+  let putRes: Response;
+  try {
+    putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+      },
+      body: file,
+    });
+  } catch (err: any) {
+    throw new Error(`Failed to connect to storage: ${err?.message || 'Network or CORS error'}`);
+  }
 
   if (!putRes.ok) {
-    throw new Error(`Failed to upload media to storage (HTTP ${putRes.status})`);
+    const errText = await putRes.text().catch(() => '');
+    throw new Error(`Failed to upload media to storage (HTTP ${putRes.status}${errText ? `: ${errText.substring(0, 100)}` : ''})`);
   }
 
   // 3. Confirm upload with API to verify sha256 and promote from staging to final key in D1

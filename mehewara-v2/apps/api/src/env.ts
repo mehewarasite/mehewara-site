@@ -18,6 +18,7 @@ import type { ImportStore } from "./features/import-export/store";
  */
 export interface Env {
   D1: D1Database;
+  DB?: D1Database;
   BUDGET_AUTHORITY: DurableObjectNamespace;
   ENVIRONMENT: string;
   ADMIN_SECRET: string;

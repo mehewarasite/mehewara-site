@@ -23,7 +23,7 @@ export function renderMathInHtml(text: string): string {
   const normalized = normalizeHtmlMediaUrls(text);
   return normalized.replace(/\$(.*?)\$/g, (match, latex) => {
     try {
-      const rendered = katex.renderToString(latex.trim(), { throwOnError: false, displayMode: false });
+      const rendered = katex.renderToString(latex.trim(), { throwOnError: false, displayMode: false, strict: false });
       return `<span class="mhw-eq">${rendered}</span>`;
     } catch (e) {
       console.warn("KaTeX render error for:", latex);

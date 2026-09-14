@@ -76,7 +76,6 @@ export default function PapersTab({
   const [unrecognizedSubjectKey, setUnrecognizedSubjectKey] = useState('');
 
 
-  
   const [paperSearchQuery, setPaperSearchQuery] = useState('');
   const [editingPaperId, setEditingPaperId] = useState<string | null>(null);
   const [editPaperData, setEditPaperData] = useState<Partial<Paper>>({});
@@ -281,7 +280,6 @@ export default function PapersTab({
     commitCreatePaper(selectedSubjectId);
   };
 
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Create New Paper Form (Col-5) */}
@@ -315,6 +313,7 @@ export default function PapersTab({
               value={newPaperTitle}
               onChange={(e) => setNewPaperTitle(e.target.value)}
               className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
+              required
             />
           </div>
 
@@ -322,56 +321,57 @@ export default function PapersTab({
             <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>ප්‍රශ්න පත්‍ර නාමය - සිංහල (Sinhala Title)</label>
             <input
               type="text"
-              placeholder="e.g. 2026 උසස් පෙළ භෞතික විද්‍යාව"
+              placeholder="උදා: 2026 උසස් පෙළ භෞතික විද්‍යාව"
               value={newPaperSinhalaTitle}
               onChange={(e) => setNewPaperSinhalaTitle(e.target.value)}
               className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
+              required
             />
           </div>
 
-          <div>
-            <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>භාෂාව (Language)</label>
-            <select
-              value={newPaperLanguage}
-              onChange={(e) => setNewPaperLanguage(e.target.value as 'si' | 'en')}
-              className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
-            >
-              <option value="si">Sinhala (සිංහල)</option>
-              <option value="en">English (English)</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>වසර (Year)</label>
+              <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>වර්ෂය (Year)</label>
               <input
                 type="number"
                 value={newPaperYear}
                 onChange={(e) => setNewPaperYear(parseInt(e.target.value) || 2026)}
                 className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
+                required
               />
             </div>
             <div>
-              <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>කාලය (Duration Mins)</label>
+              <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>කාලය (විනාඩි)</label>
               <input
                 type="number"
                 value={newPaperDuration}
-                onChange={(e) => setNewPaperDuration(parseInt(e.target.value) || 120)}
+                onChange={(e) => setNewPaperDuration(parseInt(e.target.value) || 60)}
                 className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
+                required
               />
+            </div>
+            <div>
+              <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>භාෂාව (Language)</label>
+              <select
+                value={newPaperLanguage}
+                onChange={(e) => setNewPaperLanguage(e.target.value as 'si' | 'en')}
+                className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
+              >
+                <option value="si">සිංහල (SI)</option>
+                <option value="en">English (EN)</option>
+              </select>
             </div>
           </div>
 
-          {/* Study Material HTML Upload */}
+          {/* HTML Study Material Upload */}
           <div>
-            <label className={`block text-xs font-semibold ${textMuted} mb-1.5 flex items-center gap-1.5`}>
-              <FileCode className="w-3.5 h-3.5 text-sky-400" />
-              අධ්‍යයන ද්‍රව්‍ය HTML (Study Material — Optional)
+            <label className={`block text-xs font-semibold ${textMuted} mb-1.5`}>
+              අධ්‍යයන සටහන / ප්‍රශ්න පත්‍රය HTML (.html)
             </label>
             <label
-              className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${studyMaterialHtml
-                ? 'border-emerald-500/40 bg-emerald-500/5'
-                : `${isDark ? 'border-slate-700 bg-slate-900/50' : 'border-slate-300 bg-slate-50'} hover:border-sky-500/50`
+              className={`flex items-center gap-3 w-full border-2 border-dashed rounded-xl p-3 cursor-pointer transition-all ${studyMaterialHtml
+                ? 'border-emerald-500/50 bg-emerald-500/5'
+                : `${inputBdr} hover:border-sky-500/50 hover:bg-sky-500/5`
                 }`}
             >
               <input
@@ -554,103 +554,130 @@ export default function PapersTab({
       </div>
 
       {/* Existing Papers List (Col-7) */}
-      <div className={`lg:col-span-7 flex flex-col ${cardBg} border ${cardBdr} rounded-2xl p-6 ${isDark ? '' : 'shadow-md'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <h2 className={`text-lg font-bold ${textPrimary}`}>පවතින ප්‍රශ්න පත්‍ර (Active Papers)</h2>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className={`h-4 w-4 ${textMuted}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              placeholder="Search papers..."
-              value={paperSearchQuery}
-              onChange={(e) => setPaperSearchQuery(e.target.value)}
-              className={`pl-9 pr-4 py-2 w-full sm:w-64 text-xs ${inputBg} border ${inputBdr} ${textPrimary} rounded-xl focus:outline-none focus:border-sky-500 transition-colors`}
-            />
+      <div className={`lg:col-span-7 ${cardBg} border ${cardBdr} rounded-2xl p-6 ${isDark ? '' : 'shadow-md'}`}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
+              <FileCode className="w-4 h-4 text-sky-400" />
+              පවතින ප්‍රශ්න පත්‍ර (Existing Papers)
+            </h2>
+            <p className={`text-xs ${textMuted} mt-0.5 font-mono`}>Total Papers: {papers.length}</p>
           </div>
+          <input
+            type="text"
+            placeholder="Search papers by title..."
+            value={paperSearchQuery}
+            onChange={(e) => setPaperSearchQuery(e.target.value)}
+            className={`w-full sm:w-64 ${inputBg} border ${inputBdr} rounded-xl px-3 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-sky-500 transition-colors`}
+          />
         </div>
 
         {(() => {
-          const filteredPapers = papers.filter(p =>
+          const filtered = papers.filter(p =>
             p.title.toLowerCase().includes(paperSearchQuery.toLowerCase()) ||
             p.sinhalaTitle.toLowerCase().includes(paperSearchQuery.toLowerCase())
           );
 
-          return filteredPapers.length === 0 ? (
-            <div className={`text-center py-8 ${isDark ? 'bg-slate-900/20 border-slate-800' : 'bg-slate-50 border-slate-300'} rounded-xl border border-dashed ${textMuted} text-xs`}>
-              ප්‍රශ්න පත්‍ර කිසිවක් හමු නොවීය. (No papers found)
-            </div>
-          ) : (
+          if (filtered.length === 0) {
+            return (
+              <div className={`p-8 text-center border ${cardBdr} border-dashed rounded-xl`}>
+                <p className={`text-xs ${textMuted}`}>No papers found matching your search.</p>
+              </div>
+            );
+          }
+
+          return (
             <div className="space-y-3">
-              {filteredPapers.map((p) => {
-                const paperQCount = questions.filter(q => q.paperId === p.id).length;
+              {filtered.map(p => {
                 const sub = subjects.find(s => s.id === p.subjectId);
+                const paperQCount = questions.filter(q => q.paperId === p.id).length;
+                const isEditing = editingPaperId === p.id;
+
                 return (
                   <div
                     key={p.id}
-                    className={`flex items-center justify-between p-4 ${isDark ? 'bg-slate-900/50 hover:bg-slate-900 border-slate-800' : 'bg-slate-50 hover:bg-white border-slate-200'} border rounded-xl transition-all`}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border ${cardBdr} rounded-xl gap-4 transition-all ${subtleBg} hover:border-sky-500/30`}
                   >
-                    {editingPaperId === p.id ? (
-                      <div className="flex-1 w-full space-y-3">
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <select
-                            value={editPaperData.language || 'si'}
-                            onChange={(e) => setEditPaperData({ ...editPaperData, language: e.target.value as 'si' | 'en' })}
-                            className={`text-xs px-2 py-1.5 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
-                          >
-                            <option value="si">Sinhala</option>
-                            <option value="en">English</option>
-                          </select>
-                          <input
-                            type="number"
-                            value={editPaperData.year || 2026}
-                            onChange={(e) => setEditPaperData({ ...editPaperData, year: parseInt(e.target.value) || 2026 })}
-                            className={`text-xs px-2 py-1.5 w-24 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
-                            placeholder="Year"
-                          />
-                          <input
-                            type="number"
-                            value={editPaperData.durationMinutes || 120}
-                            onChange={(e) => setEditPaperData({ ...editPaperData, durationMinutes: parseInt(e.target.value) || 120 })}
-                            className={`text-xs px-2 py-1.5 w-24 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
-                            placeholder="Duration (mins)"
-                          />
-                          <span className={`text-xs ${textMuted}`}>mins</span>
+                    {isEditing ? (
+                      <div className="w-full space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className={`block text-[10px] font-semibold ${textMuted} mb-1`}>English Title</label>
+                            <input
+                              type="text"
+                              value={editPaperData.title ?? p.title}
+                              onChange={(e) => setEditPaperData(prev => ({ ...prev, title: e.target.value }))}
+                              className={`w-full ${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-sky-500`}
+                            />
+                          </div>
+                          <div>
+                            <label className={`block text-[10px] font-semibold ${textMuted} mb-1`}>Sinhala Title</label>
+                            <input
+                              type="text"
+                              value={editPaperData.sinhalaTitle ?? p.sinhalaTitle}
+                              onChange={(e) => setEditPaperData(prev => ({ ...prev, sinhalaTitle: e.target.value }))}
+                              className={`w-full ${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-sky-500`}
+                            />
+                          </div>
                         </div>
-                        <input
-                          type="text"
-                          value={editPaperData.sinhalaTitle || ''}
-                          onChange={(e) => setEditPaperData({ ...editPaperData, sinhalaTitle: e.target.value })}
-                          className={`w-full text-sm font-semibold px-2 py-1.5 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
-                          placeholder="Sinhala Title"
-                        />
-                        <input
-                          type="text"
-                          value={editPaperData.title || ''}
-                          onChange={(e) => setEditPaperData({ ...editPaperData, title: e.target.value })}
-                          className={`w-full text-xs font-mono px-2 py-1.5 rounded-md ${inputBg} border ${inputBdr} ${textPrimary} outline-none focus:border-sky-500`}
-                          placeholder="English Title"
-                        />
-                        <div className="flex justify-end gap-2 mt-2">
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className={`block text-[10px] font-semibold ${textMuted} mb-1`}>Year</label>
+                            <input
+                              type="number"
+                              value={editPaperData.year ?? p.year}
+                              onChange={(e) => setEditPaperData(prev => ({ ...prev, year: parseInt(e.target.value) || p.year }))}
+                              className={`w-full ${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-sky-500`}
+                            />
+                          </div>
+                          <div>
+                            <label className={`block text-[10px] font-semibold ${textMuted} mb-1`}>Duration (Mins)</label>
+                            <input
+                              type="number"
+                              value={editPaperData.durationMinutes ?? p.durationMinutes}
+                              onChange={(e) => setEditPaperData(prev => ({ ...prev, durationMinutes: parseInt(e.target.value) || p.durationMinutes }))}
+                              className={`w-full ${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-sky-500`}
+                            />
+                          </div>
+                          <div>
+                            <label className={`block text-[10px] font-semibold ${textMuted} mb-1`}>Language</label>
+                            <select
+                              value={editPaperData.language ?? p.language ?? 'si'}
+                              onChange={(e) => setEditPaperData(prev => ({ ...prev, language: e.target.value as 'si' | 'en' }))}
+                              className={`w-full ${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-sky-500`}
+                            >
+                              <option value="si">Sinhala (SI)</option>
+                              <option value="en">English (EN)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2">
                           <button
+                            type="button"
                             onClick={() => {
                               setEditingPaperId(null);
                               setEditPaperData({});
                             }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                            className={`flex items-center gap-1 px-3 py-1.5 border ${inputBdr} hover:${subtleBg} ${textMuted} rounded-lg text-xs font-semibold transition-colors`}
                           >
                             <X className="w-3 h-3" /> Cancel
                           </button>
                           <button
+                            type="button"
                             onClick={() => {
-                              if (onUpdatePaper && editPaperData) {
-                                onUpdatePaper({ ...p, ...editPaperData } as Paper);
-                                setEditingPaperId(null);
-                                setEditPaperData({});
+                              if (!editPaperData.title?.trim() || !editPaperData.sinhalaTitle?.trim()) {
+                                showFlash('Titles cannot be empty', true);
+                                return;
                               }
+                              onUpdatePaper({
+                                ...p,
+                                ...editPaperData,
+                              } as Paper);
+                              setEditingPaperId(null);
+                              setEditPaperData({});
+                              showFlash('Paper updated successfully!');
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg text-xs font-semibold transition-colors"
                           >
@@ -812,4 +839,3 @@ export default function PapersTab({
     </div>
   );
 }
-

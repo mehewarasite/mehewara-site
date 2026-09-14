@@ -405,8 +405,10 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
 }
 
 export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper> {
-  const paperId = isUuid(paper.id) ? paper.id : crypto.randomUUID();
+  const hadExistingId = isUuid(paper.id);
+  const paperId = hadExistingId ? paper.id : crypto.randomUUID();
   paper.id = paperId;
+  const isReallyNew = isNew ?? !hadExistingId;
 
   // Guarantee subjectId is a valid UUID of an existing subject in D1
   let subjectId = paper.subjectId;
@@ -486,7 +488,7 @@ export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper>
   let savedUpdatedAt: string | undefined;
   try {
     let existing: any = null;
-    if (!isNew) {
+    if (!isReallyNew) {
       existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
     }
     if (existing?.data) {
@@ -499,9 +501,9 @@ export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper>
       const createRes = await api.post('/admin/papers', { id: paperId, ...payload });
       savedUpdatedAt = createRes.data?.updatedAt;
     }
-  } catch (e: any) {
-    console.error("Failed to save paper to D1:", e.response?.data || e.message);
-    throw e;
+  } catch (err) {
+    console.error("Failed to persist paper to API:", err);
+    throw err;
   }
 
   await setPublishState('paper', paperId, 'published', savedUpdatedAt);
@@ -514,7 +516,8 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
 }
 
 export async function dbSaveQuestion(question: Question, isNew?: boolean): Promise<Question> {
-  const qId = isUuid(question.id) ? question.id : crypto.randomUUID();
+  const hadExistingId = isUuid(question.id);
+  const qId = hadExistingId ? question.id : crypto.randomUUID();
   question.id = qId;
 
   if (!isUuid(question.paperId)) {
@@ -522,11 +525,12 @@ export async function dbSaveQuestion(question: Question, isNew?: boolean): Promi
     throw new Error(`Cannot save question: paperId ${question.paperId} is not a valid UUID.`);
   }
 
+  const isReallyNew = isNew ?? !hadExistingId;
   let existingQ: any = null;
-  if (!isNew) {
+  if (!isReallyNew) {
     try {
-      const checkRes = await api.get(`/admin/questions/${qId}`);
-      existingQ = checkRes.data;
+      const checkRes = await api.get(`/admin/questions/${qId}`).catch(() => null);
+      existingQ = checkRes?.data;
     } catch {
       // 404 or new question
     }

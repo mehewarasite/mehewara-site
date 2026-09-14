@@ -64,16 +64,17 @@ export default {
       // the context. Routes receive the raw B2 client plus narrow stores so
       // every byte flows through the budgeted, intent-gated route functions;
       // a convenience handle would be a second minting path around them.
+      const d1 = (env.D1 || env.DB)!;
       const context: FeatureContext = {
         requestId: id,
         environment: env.ENVIRONMENT,
         access: { adminSecret: env.ADMIN_SECRET, superAdminSecret: env.SUPER_ADMIN_SECRET },
         gate: durableBudgetGate(env, id),
-        uploads: d1UploadIntentStore(env.D1),
-        inventory: d1MediaInventoryStore(env.D1),
-        publications: d1PublicationStore(env.D1),
-        admin: d1AdminStore(env.D1),
-        imports: d1ImportStore(env.D1),
+        uploads: d1UploadIntentStore(d1),
+        inventory: d1MediaInventoryStore(d1),
+        publications: d1PublicationStore(d1),
+        admin: d1AdminStore(d1),
+        imports: d1ImportStore(d1),
       };
       let response: Response;
       if (url.pathname === "/api/v1/health") { requireMethod(request, "GET"); response = json({ ok: true, service: "mehewara-v2-api", environment: context.environment, requestId: id }); }
@@ -88,7 +89,7 @@ export default {
         response = await adminRouter(request, {
           context,
           store: context.admin,
-          db: env.D1,
+          db: d1,
           resendApiKey: env.RESEND_API_KEY,
           resendFromEmail: env.RESEND_FROM_EMAIL,
         });

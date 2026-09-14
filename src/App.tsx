@@ -566,8 +566,14 @@ export default function App() {
     setPapers(updatedPapers);
     idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
 
+    if (importQuestions && importQuestions.length > 0) {
+      const updatedQuestions = [...questions, ...importQuestions];
+      setQuestions(updatedQuestions);
+      idbSet('m_questions', JSON.stringify(updatedQuestions));
+    }
+
     // Persist paper to API (without studyMaterialHtml — stored separately)
-    const saved = await dbSavePaper(paperWithCount);
+    const saved = await dbSavePaper(paperWithCount, true);
     if (saved?.subjectId && saved.subjectId !== paperWithCount.subjectId) {
       paperWithCount.subjectId = saved.subjectId;
       setPapers(prev => prev.map(p => p.id === paperWithCount.id ? paperWithCount : p));
@@ -583,10 +589,7 @@ export default function App() {
 
     // Persist questions to API
     if (importQuestions && importQuestions.length > 0) {
-      const updatedQuestions = [...questions, ...importQuestions];
-      setQuestions(updatedQuestions);
-      idbSet('m_questions', JSON.stringify(updatedQuestions));
-      await dbSaveQuestions(importQuestions);
+      await dbSaveQuestions(importQuestions, undefined, true);
     }
 
     // Automatically build Backblaze B2 publication snapshot so all devices see the new paper immediately

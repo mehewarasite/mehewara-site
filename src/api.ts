@@ -404,9 +404,11 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
   await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
 }
 
-export async function dbSavePaper(paper: Paper): Promise<Paper> {
-  const paperId = isUuid(paper.id) ? paper.id : crypto.randomUUID();
+export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper> {
+  const hadExistingId = isUuid(paper.id);
+  const paperId = hadExistingId ? paper.id : crypto.randomUUID();
   paper.id = paperId;
+  const isReallyNew = isNew ?? !hadExistingId;
 
   // Guarantee subjectId is a valid UUID of an existing subject in D1
   let subjectId = paper.subjectId;
@@ -485,7 +487,10 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
 
   let savedUpdatedAt: string | undefined;
   try {
-    const existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
+    let existing: any = null;
+    if (!isReallyNew) {
+      existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
+    }
     if (existing?.data) {
       const patchRes = await api.patch(`/admin/papers/${paperId}`, {
         ...payload,
@@ -496,9 +501,9 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
       const createRes = await api.post('/admin/papers', { id: paperId, ...payload });
       savedUpdatedAt = createRes.data?.updatedAt;
     }
-  } catch (e: any) {
-    console.error("Failed to save paper to D1:", e.response?.data || e.message);
-    throw e;
+  } catch (err) {
+    console.error("Failed to persist paper to API:", err);
+    throw err;
   }
 
   await setPublishState('paper', paperId, 'published', savedUpdatedAt);
@@ -510,8 +515,9 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
   await api.delete(`/admin/papers/${paperId}`).catch(console.error);
 }
 
-export async function dbSaveQuestion(question: Question): Promise<Question> {
-  const qId = isUuid(question.id) ? question.id : crypto.randomUUID();
+export async function dbSaveQuestion(question: Question, isNew?: boolean): Promise<Question> {
+  const hadExistingId = isUuid(question.id);
+  const qId = hadExistingId ? question.id : crypto.randomUUID();
   question.id = qId;
 
   if (!isUuid(question.paperId)) {
@@ -519,12 +525,15 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
     throw new Error(`Cannot save question: paperId ${question.paperId} is not a valid UUID.`);
   }
 
+  const isReallyNew = isNew ?? !hadExistingId;
   let existingQ: any = null;
-  try {
-    const checkRes = await api.get(`/admin/questions/${qId}`);
-    existingQ = checkRes.data;
-  } catch {
-    // 404 or new question
+  if (!isReallyNew) {
+    try {
+      const checkRes = await api.get(`/admin/questions/${qId}`).catch(() => null);
+      existingQ = checkRes?.data;
+    } catch {
+      // 404 or new question
+    }
   }
 
   // 1. Normalize options to strictly 4 or 5 options
@@ -627,7 +636,8 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
 
 export async function dbSaveQuestions(
   questions: Question[],
-  onProgress?: (progress: { current: number; total: number; percent: number; error?: string }) => void
+  onProgress?: (progress: { current: number; total: number; percent: number; error?: string }) => void,
+  isNew?: boolean
 ): Promise<void> {
   const batchSize = 3;
   const successfullySavedQIds: string[] = [];
@@ -643,7 +653,7 @@ export async function dbSaveQuestions(
           // Up to 2 retries per question
           for (let attempt = 1; attempt <= 2; attempt++) {
             try {
-              const saved = await dbSaveQuestion(q);
+              const saved = await dbSaveQuestion(q, isNew);
               return saved;
             } catch (err: any) {
               lastErr = err;
