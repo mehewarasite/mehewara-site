@@ -1,5 +1,6 @@
 import { api, publicApi, getActiveMediaBaseUrl, normalizeMediaUrl } from './apiClient';
 import type { Paper, Question, Subject, GalleryPhoto, AboutData } from './types';
+import { INITIAL_SUBJECTS } from './data';
 
 // ─── Public Manifest Cache (Backblaze B2 Snapshot via Edge CDN) ───────────────
 let cachedManifest: any = null;
@@ -416,6 +417,7 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
     console.warn("Failed to load subjects from D1:", err);
   }
 
+  // 1. Check if subject already exists in D1 by UUID, code, or name
   const match = subjects?.find(s =>
     s.id === subjectId ||
     (s.code && s.code.toLowerCase() === String(subjectId).toLowerCase()) ||
@@ -425,29 +427,34 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
 
   if (match) {
     subjectId = match.id;
-  } else if (!isUuid(subjectId) || !subjects?.some(s => s.id === subjectId)) {
-    // If not found in D1, auto-create this subject in D1 with a UUID so foreign key constraint succeeds
-    const newSubjectId = isUuid(subjectId) ? subjectId : crypto.randomUUID();
-    const fallbackName = String(paper.subjectId)
-      .replace(/^(al|ol)[-_]/i, '')
-      .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, l => l.toUpperCase()) || 'General';
-    try {
-      await dbSaveSubjects([{
-        id: newSubjectId,
-        name: fallbackName,
-        sinhalaName: fallbackName,
-        code: String(paper.subjectId).slice(0, 32),
-        examType: (paper.examType === 'ol' || paper.examType === 'al') ? paper.examType : 'al',
-        icon: 'BookOpen',
-        color: 'blue'
-      }]);
-      subjectId = newSubjectId;
-    } catch (err) {
-      console.warn("Auto-creating subject failed in D1, falling back to existing subject:", err);
-      if (subjects && subjects.length > 0) {
-        subjectId = subjects[0].id;
+  } else {
+    // 2. If not found in D1, match against canonical INITIAL_SUBJECTS definitions
+    // (preserves Sinhala name, icon, colors, and examType instead of inventing a placeholder)
+    const canonical = INITIAL_SUBJECTS.find(s =>
+      s.id === subjectId ||
+      (s.code && s.code.toLowerCase() === String(subjectId).toLowerCase()) ||
+      (s.name && s.name.toLowerCase() === String(subjectId).toLowerCase()) ||
+      (s.sinhalaName && s.sinhalaName === String(subjectId))
+    );
+
+    if (canonical) {
+      const newSubjectId = isUuid(subjectId) ? subjectId : crypto.randomUUID();
+      try {
+        await dbSaveSubjects([{
+          ...canonical,
+          id: newSubjectId,
+        }]);
+        subjectId = newSubjectId;
+      } catch (err) {
+        console.warn("Failed to seed canonical subject to D1:", err);
+        if (subjects && subjects.length > 0) {
+          subjectId = subjects[0].id;
+        }
       }
+    } else if (subjects && subjects.length > 0) {
+      // 3. Subject is unrecognized and cannot be seeded canonically; fallback safely to first existing subject
+      console.warn(`Unrecognized subjectId "${subjectId}". Falling back to existing subject "${subjects[0].name}" (${subjects[0].id}).`);
+      subjectId = subjects[0].id;
     }
   }
   paper.subjectId = subjectId;
