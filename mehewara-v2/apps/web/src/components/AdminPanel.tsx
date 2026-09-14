@@ -30,7 +30,8 @@ import {
   CheckCircle2,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  History
 } from 'lucide-react';
 
 import { Subject, Paper, Question } from '../types';
@@ -47,6 +48,7 @@ import AddQuestionTab from './admin/AddQuestionTab';
 import EditQuestionsTab from './admin/EditQuestionsTab';
 import ManageQuestionsTab from './admin/ManageQuestionsTab';
 import AccountsTab from './admin/AccountsTab';
+import AuditTab from './admin/AuditTab';
 import type { AdminThemeClasses, AdminTab } from './admin/types';
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -476,6 +478,13 @@ export default function AdminPanel({
               />
             )}
             <NavButton
+              active={activeTab === 'audit'}
+              onClick={() => setActiveTab('audit')}
+              icon={History}
+              label="Audit Logs"
+              theme={adminTheme}
+            />
+            <NavButton
               active={activeTab === 'stats'}
               onClick={() => setActiveTab('stats')}
               icon={Activity}
@@ -584,6 +593,13 @@ export default function AdminPanel({
                 theme={adminTheme}
                 showFlash={showFlash}
                 currentUsername={currentUser?.username}
+              />
+            )}
+
+            {activeTab === 'audit' && (
+              <AuditTab
+                theme={adminTheme}
+                showFlash={showFlash}
               />
             )}
 

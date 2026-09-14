@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { BarChart2, TrendingUp, Activity, Globe, HelpCircle, Database, HardDrive, RefreshCw, FileText, BookOpen, History, User, Shield } from 'lucide-react';
+import { BarChart2, TrendingUp, Activity, Globe, HelpCircle, Database, HardDrive, RefreshCw, FileText, BookOpen } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
-import { dbLoadAuditLog, type AuditItem } from '../../api';
 
 import type { AdminThemeClasses } from './types';
 
@@ -30,54 +29,6 @@ export default function StatsTab({ theme, subjects, papers, questions, activeUse
   const [storageBucketSize, setStorageBucketSize] = useState<{ files: number; sizeBytes: number }>({ files: 0, sizeBytes: 0 });
 
   const [budgetStatus, setBudgetStatus] = useState<any>(null);
-
-  const [audits, setAudits] = useState<AuditItem[]>([]);
-  const [auditsLoading, setAuditsLoading] = useState(false);
-  const [auditsError, setAuditsError] = useState<string | null>(null);
-
-  const fetchAudits = useCallback(async () => {
-    setAuditsLoading(true);
-    setAuditsError(null);
-    try {
-      const items = await dbLoadAuditLog(50);
-      setAudits(items);
-    } catch (err: any) {
-      setAuditsError(err?.message || 'Failed to load audit trail');
-    } finally {
-      setAuditsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAudits();
-  }, [fetchAudits]);
-
-  const getActionBadge = (action: string) => {
-    const act = action.toLowerCase();
-    if (act.includes('delete') || act.includes('remove')) {
-      return {
-        label: action.replace(/\./g, ' '),
-        className: isDark ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200',
-      };
-    }
-    if (act.includes('create') || act.includes('insert') || act.includes('upload')) {
-      return {
-        label: action.replace(/\./g, ' '),
-        className: isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      };
-    }
-    return {
-      label: action.replace(/\./g, ' '),
-      className: isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200',
-    };
-  };
-
-  const getAuditDetails = (item: AuditItem) => {
-    const map = new Map(item.metadata.map(m => [m.key, m.value]));
-    const actor = map.get('actorUsername') || item.actorId;
-    const fileOrTarget = map.get('objectKey') || map.get('title') || map.get('slug') || map.get('username') || item.entityId || 'N/A';
-    return { actor, fileOrTarget };
-  };
 
   const fetchStorageUsage = useCallback(async () => {
     setStorageLoading(true);
@@ -470,108 +421,6 @@ export default function StatsTab({ theme, subjects, papers, questions, activeUse
               </div>
             )}
           </div>
-        </div>
-
-        {/* Full-width Activity & Audit Trail */}
-        <div className={`col-span-1 lg:col-span-5 ${surfaceBg} border ${surfaceBdr} rounded-2xl p-5 mt-2 flex flex-col`}>
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <div className={`p-2 rounded-xl ${isDark ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border`}>
-                <History className={`w-4 h-4 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className={`text-sm font-bold ${textPrimary}`}>Activity Log &amp; Audit Trail</h3>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-700'}`}>
-                    {audits.length} events
-                  </span>
-                </div>
-                <p className={`text-[11px] ${textMuted}`}>Tracks which user edited, created, uploaded, or deleted files &amp; resources</p>
-              </div>
-            </div>
-
-            <button
-              onClick={fetchAudits}
-              disabled={auditsLoading}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${isDark
-                ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20'
-                : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
-                } border ${auditsLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${auditsLoading ? 'animate-spin' : ''}`} />
-              {auditsLoading ? 'Refreshing...' : 'Refresh Activity'}
-            </button>
-          </div>
-
-          {auditsError && (
-            <div className="mb-3 px-3 py-2 rounded-xl text-xs font-medium border bg-rose-500/10 border-rose-500/20 text-rose-400">
-              ✕ {auditsError}
-            </div>
-          )}
-
-          {auditsLoading && audits.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-2">
-              <RefreshCw className={`w-6 h-6 ${isDark ? 'text-indigo-400' : 'text-indigo-500'} animate-spin`} />
-              <p className={`text-xs ${textMuted}`}>Loading activity audit records...</p>
-            </div>
-          ) : audits.length === 0 ? (
-            <div className={`text-center py-10 ${textMuted} text-xs`}>
-              <Shield className={`w-8 h-8 mx-auto mb-2 ${textFaint}`} />
-              <p>No audit activity recorded yet</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className={`border-b ${dividerBdr} ${textMuted} text-[11px] font-semibold uppercase tracking-wider`}>
-                    <th className="pb-2.5 pr-4">Timestamp</th>
-                    <th className="pb-2.5 pr-4">User / Editor</th>
-                    <th className="pb-2.5 pr-4">Action</th>
-                    <th className="pb-2.5 pr-4">Resource Type</th>
-                    <th className="pb-2.5">File / Target Details</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${dividerBdr}`}>
-                  {audits.map((item) => {
-                    const { actor, fileOrTarget } = getAuditDetails(item);
-                    const badge = getActionBadge(item.action);
-                    return (
-                      <tr key={item.id} className={`${isDark ? 'hover:bg-slate-900/40' : 'hover:bg-slate-50'} transition-colors`}>
-                        <td className={`py-2.5 pr-4 font-mono text-[11px] whitespace-nowrap ${textMuted}`}>
-                          {new Date(item.createdAt).toLocaleString(undefined, {
-                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
-                          })}
-                        </td>
-                        <td className="py-2.5 pr-4 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold uppercase ${
-                              isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'
-                            }`}>
-                              <User className="w-3 h-3" />
-                            </div>
-                            <span className={`font-semibold ${textPrimary}`}>{actor}</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 pr-4 whitespace-nowrap">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badge.className}`}>
-                            {badge.label}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-4 whitespace-nowrap">
-                          <span className={`font-mono text-[11px] font-medium ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>
-                            {item.entityType}
-                          </span>
-                        </td>
-                        <td className={`py-2.5 font-mono text-[11px] max-w-xs truncate ${textPrimary}`} title={fileOrTarget}>
-                          {fileOrTarget}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
 
       </div>

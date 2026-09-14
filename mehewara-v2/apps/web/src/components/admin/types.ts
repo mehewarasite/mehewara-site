@@ -17,4 +17,4 @@ export interface AdminThemeClasses {
 }
 
 /** Tab identifiers used in the admin panel */
-export type AdminTab = 'subjects' | 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats' | 'gallery' | 'accounts';
+export type AdminTab = 'subjects' | 'papers' | 'add-question' | 'manage-questions' | 'edit-questions' | 'about' | 'stats' | 'gallery' | 'accounts' | 'audit';
