@@ -42,7 +42,8 @@ import {
   dbLoadSubjects, dbSaveSubjects, dbDeleteSubject,
   dbLoadPapers, dbSavePaper, dbDeletePaper,
   dbLoadQuestions, dbSaveQuestion, dbSaveQuestions, dbDeleteQuestion, dbDeleteQuestionsByPaper, dbLoadQuestionsForPaper,
-  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery
+  dbLoadStudyHtml, dbSaveStudyHtml, dbDeleteStudyHtml, dbLoadAboutUs, dbLoadGallery,
+  adminLoadSubjects, adminLoadPapers, adminLoadQuestionsForPaper, adminLoadAboutUs, adminLoadGallery, adminLoadStudyHtml
 } from './api';
 
 import { migrateLocalStorageToIDB, idbGet, idbSet, idbRemove } from './utils/storage';
@@ -234,8 +235,10 @@ export default function App() {
 
     setLoadingPaperQuestionsId(paperId);
     try {
-      const { dbLoadQuestionsForPaper } = await import('./api');
-      const remoteQuestions = await dbLoadQuestionsForPaper(paperId);
+      const isAdminUser = Boolean(localStorage.getItem('adminToken'));
+      const remoteQuestions = (showAdminPanel || isAdminUser)
+        ? await adminLoadQuestionsForPaper(paperId)
+        : await dbLoadQuestionsForPaper(paperId);
       if (remoteQuestions && remoteQuestions.length > 0) {
         setQuestions(prev => {
           const updated = [...prev.filter(q => q.paperId !== paperId), ...remoteQuestions];
@@ -248,7 +251,7 @@ export default function App() {
     } finally {
       setLoadingPaperQuestionsId(null);
     }
-  }, [questions]);
+  }, [questions, showAdminPanel]);
 
   // Handle Browser/Android hardware back button and routing
   useEffect(() => {
@@ -416,12 +419,13 @@ export default function App() {
   const syncFromApi = async () => {
     setIsSyncing(true);
     try {
+      const isAdminView = showAdminPanel || Boolean(localStorage.getItem('adminToken') && isAdminPath());
       const [remoteSubjects, remotePapers, remoteQuestions, remoteAbout, remoteGallery] = await Promise.all([
-        dbLoadSubjects(),
-        dbLoadPapers(),
+        isAdminView ? adminLoadSubjects() : dbLoadSubjects(),
+        isAdminView ? adminLoadPapers() : dbLoadPapers(),
         dbLoadQuestions(),
-        dbLoadAboutUs(),
-        dbLoadGallery(),
+        isAdminView ? adminLoadAboutUs() : dbLoadAboutUs(),
+        isAdminView ? adminLoadGallery() : dbLoadGallery(),
       ]);
 
       if (remoteGallery) {
@@ -582,7 +586,8 @@ export default function App() {
 
     let html = await idbGet(`m_study_${paperId}`);
     if (!html) {
-      const dbHtml = await dbLoadStudyHtml(paperId);
+      const isAdminView = showAdminPanel || Boolean(localStorage.getItem('adminToken') && isAdminPath());
+      const dbHtml = isAdminView ? await adminLoadStudyHtml(paperId) : await dbLoadStudyHtml(paperId);
       if (dbHtml) {
         html = dbHtml;
         try { await idbSet(`m_study_${paperId}`, dbHtml); } catch { }
@@ -755,14 +760,45 @@ export default function App() {
   };
 
   const handleImportData = (file: File) => {
-    if (!confirm('Importing will replace all current papers, questions and study materials. Continue?')) return;
+    if (!confirm('Importing will merge/replace papers, questions and study materials. Continue?')) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const backup = JSON.parse(e.target?.result as string);
-        if (!backup.version || !backup.papers || !backup.questions) {
-          alert('Invalid backup file.');
+        if (Array.isArray(backup) || (backup.questions && !backup.papers)) {
+          alert("This JSON file contains questions. To import questions into a paper, open the Papers tab in the Admin Panel and use the Question JSON Import feature.");
           return;
+        }
+        if (!backup.version || !backup.papers || !backup.questions) {
+          alert('Invalid backup file. Make sure it contains papers and questions.');
+          return;
+        }
+
+        // Remap any non-UUID paper IDs and update question references
+        const paperIdMap = new Map<string, string>();
+        const isUuid = (id?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+
+        (backup.papers as Paper[]).forEach((p: Paper) => {
+          if (!isUuid(p.id)) {
+            const newId = crypto.randomUUID();
+            paperIdMap.set(p.id, newId);
+            p.id = newId;
+          }
+        });
+
+        if (paperIdMap.size > 0) {
+          (backup.questions as Question[]).forEach((q: Question) => {
+            if (paperIdMap.has(q.paperId)) {
+              q.paperId = paperIdMap.get(q.paperId)!;
+            }
+          });
+          if (backup.studyHtmlMap) {
+            const remappedStudy: Record<string, string> = {};
+            for (const [k, v] of Object.entries(backup.studyHtmlMap)) {
+              remappedStudy[paperIdMap.get(k) || k] = v as string;
+            }
+            backup.studyHtmlMap = remappedStudy;
+          }
         }
 
         // Restore subjects
@@ -778,7 +814,7 @@ export default function App() {
           studyMaterialHtml: studyHtmlMap[p.id] ?? undefined,
         }));
 
-        // Save study HTML to separate localStorage keys
+        // Save study HTML to separate localStorage / IDB keys
         rehydratedPapers.forEach(p => {
           if (p.studyMaterialHtml) {
             try { idbSet(`m_study_${p.id}`, p.studyMaterialHtml); } catch { }
@@ -800,8 +836,42 @@ export default function App() {
         setAttempts([]);
         idbSet('m_attempts', JSON.stringify([]));
 
-        alert(`Import successful! ${rehydratedPapers.length} papers and ${backup.questions.length} questions restored.`);
-      } catch {
+        // If admin is logged in, offer to sync/persist to Cloudflare D1
+        const hasAdmin = Boolean(localStorage.getItem('adminToken'));
+        if (hasAdmin) {
+          const uploadToCloud = confirm(
+            `Local cache restored (${rehydratedPapers.length} papers, ${backup.questions.length} questions).\\n\\nDo you also want to upload and persist this data to the Cloudflare cloud database?`
+          );
+          if (uploadToCloud) {
+            setIsSyncing(true);
+            try {
+              if (backup.subjects && backup.subjects.length > 0) {
+                await dbSaveSubjects(importedSubjects);
+              }
+              for (const p of rehydratedPapers) {
+                await dbSavePaper(p);
+                if (p.studyMaterialHtml) {
+                  await dbSaveStudyHtml(p.id, p.studyMaterialHtml);
+                }
+              }
+              if (backup.questions && backup.questions.length > 0) {
+                await dbSaveQuestions(backup.questions);
+              }
+              alert(`Cloud upload complete! ${rehydratedPapers.length} papers and ${backup.questions.length} questions persisted to Cloudflare D1.\\n\\nTo make this visible to public students, click 'Publish to Live' in the Admin toolbar.`);
+            } catch (cloudErr: any) {
+              console.error('Cloud upload error:', cloudErr);
+              alert(`Saved to local cache, but cloud upload had an error: ${cloudErr.message || 'Unknown error'}`);
+            } finally {
+              setIsSyncing(false);
+            }
+          } else {
+            alert(`Import successful locally! ${rehydratedPapers.length} papers and ${backup.questions.length} questions restored in local cache.`);
+          }
+        } else {
+          alert(`Import successful! ${rehydratedPapers.length} papers and ${backup.questions.length} questions restored.`);
+        }
+      } catch (err: any) {
+        console.error('Failed to parse backup file:', err);
         alert('Failed to parse backup file. Make sure it is a valid Mehewara export.');
       }
     };

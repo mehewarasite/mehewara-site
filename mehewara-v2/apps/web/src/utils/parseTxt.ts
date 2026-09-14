@@ -69,17 +69,55 @@ export function parseTxtToQuizData(text: string): Array<{
   // 1. Try parsing as JSON first (New JSON format support)
   try {
     const jsonObj = JSON.parse(text);
-    if (Array.isArray(jsonObj) && jsonObj.length > 0) {
-      // Map JSON to the expected QuizData format
-      return jsonObj.map((item, index) => ({
-        id: item.question_number ?? (index + 1),
-        part: item.part,
-        question: processText((item.question_text ?? item.question ?? '').replace(/\n/g, '<br/>')),
-        code: item.code,
-        options: (item.options ?? []).map((opt: string) => processText(opt)),
-        correctIndex: item.correct_option_index ?? 0,
-        explanation: processText((item.explanation ?? '').replace(/\n/g, '<br/>'))
-      }));
+    let items: any[] = [];
+    if (Array.isArray(jsonObj)) {
+      items = jsonObj;
+    } else if (jsonObj && typeof jsonObj === 'object') {
+      if (Array.isArray(jsonObj.questions)) {
+        items = jsonObj.questions;
+      } else if (Array.isArray(jsonObj.items)) {
+        items = jsonObj.items;
+      } else if (Array.isArray(jsonObj.data)) {
+        items = jsonObj.data;
+      }
+    }
+
+    if (items.length > 0) {
+      return items.map((item, index) => {
+        const rawQ = item.questionHtml ?? item.question_text ?? item.question ?? '';
+        const rawOpts = item.optionsHtml ?? item.options ?? [];
+        const mappedOpts = Array.isArray(rawOpts)
+          ? rawOpts.map((opt: any) => {
+              if (typeof opt === 'string') return processText(opt);
+              if (opt && typeof opt === 'object') return processText(opt.html ?? opt.text ?? String(opt));
+              return String(opt);
+            })
+          : [];
+
+        let correctIdx = 0;
+        if (typeof item.correctOption === 'number') {
+          correctIdx = item.correctOption;
+        } else if (typeof item.correct_option_index === 'number') {
+          correctIdx = item.correct_option_index;
+        } else if (Array.isArray(item.correctOptions) && item.correctOptions.length > 0) {
+          correctIdx = item.correctOptions[0];
+        } else if (Array.isArray(rawOpts)) {
+          const idx = rawOpts.findIndex((o: any) => o && typeof o === 'object' && (o.isCorrect || o.is_correct));
+          if (idx !== -1) correctIdx = idx;
+        }
+
+        const rawExp = item.explanationHtml ?? item.explanation ?? '';
+
+        return {
+          id: item.qNumber ?? item.question_number ?? item.number ?? (typeof item.id === 'number' ? item.id : index + 1),
+          part: item.part,
+          question: processText(rawQ.replace(/\n/g, '<br/>')),
+          code: item.code,
+          options: mappedOpts,
+          correctIndex: correctIdx >= 0 && correctIdx < 5 ? correctIdx : 0,
+          explanation: processText(rawExp.replace(/\n/g, '<br/>'))
+        };
+      });
     }
   } catch (e) {
     // Not JSON, continue to parse as text

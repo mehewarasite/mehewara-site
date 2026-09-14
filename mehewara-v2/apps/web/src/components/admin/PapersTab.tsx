@@ -196,7 +196,7 @@ export default function PapersTab({
     const selectedSub = subjects.find(s => s.id === selectedSubjectId);
     if (!selectedSub) return;
 
-    const paperId = `paper-custom-${Date.now()}`;
+    const paperId = crypto.randomUUID();
     const newPaper: Paper = {
       id: paperId,
       subjectId: selectedSubjectId,
@@ -205,32 +205,37 @@ export default function PapersTab({
       sinhalaTitle: newPaperSinhalaTitle,
       year: newPaperYear,
       durationMinutes: newPaperDuration,
-      questionCount: 0,
+      questionCount: parsedQuestions.length,
       studyMaterialHtml: studyMaterialHtml || undefined,
       language: newPaperLanguage,
     };
 
     let importedQuestions: Question[] | undefined;
     if (parsedQuestions.length > 0) {
-      const ts = Date.now();
-      importedQuestions = parsedQuestions.map((q, idx) => ({
-        id: `q-custom-${ts}-${idx}`,
-        paperId: paperId,
-        qNumber: q.id ?? (idx + 1),
-        questionHtml: q.code
-          ? `<p>${q.question}</p><pre><code>${q.code}</code></pre>`
-          : `<p>${q.question}</p>`,
-        optionsHtml: q.options as [string, string, string, string],
-        correctOption: q.correctIndex as 0 | 1 | 2 | 3,
-        correctOptions: [q.correctIndex],
-        explanationHtml: q.explanation || undefined,
-      }));
+      importedQuestions = parsedQuestions.map((q, idx) => {
+        const rawOpts = (q.options || []).slice(0, 5);
+        while (rawOpts.length < 4) {
+          rawOpts.push(`Option ${rawOpts.length + 1}`);
+        }
+        return {
+          id: crypto.randomUUID(),
+          paperId: paperId,
+          qNumber: q.id ?? (idx + 1),
+          questionHtml: q.code
+            ? `<p>${q.question}</p><pre><code>${q.code}</code></pre>`
+            : `<p>${q.question}</p>`,
+          optionsHtml: rawOpts as [string, string, string, string],
+          correctOption: (q.correctIndex >= 0 && q.correctIndex < rawOpts.length ? q.correctIndex : 0) as 0 | 1 | 2 | 3,
+          correctOptions: [q.correctIndex >= 0 && q.correctIndex < rawOpts.length ? q.correctIndex : 0],
+          explanationHtml: q.explanation || undefined,
+        };
+      });
     }
 
     onAddPaper(newPaper, importedQuestions);
     setTargetPaperId(paperId);
     showFlash(importedQuestions
-      ? `Paper created + ${importedQuestions.length} MCQs imported!`
+      ? `Paper created & ${importedQuestions.length} MCQs uploaded to cloud!`
       : 'Paper created successfully!');
 
     setNewPaperTitle('');

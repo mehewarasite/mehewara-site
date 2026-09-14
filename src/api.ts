@@ -1,11 +1,16 @@
-import { api, publicApi, isAdmin, getActiveMediaBaseUrl, normalizeMediaUrl } from './apiClient';
+import { api, publicApi, getActiveMediaBaseUrl, normalizeMediaUrl } from './apiClient';
 import type { Paper, Question, Subject, GalleryPhoto, AboutData } from './types';
 
-// Cache for public manifest to avoid redundant fetches
+// ─── Public Manifest Cache (Backblaze B2 Snapshot via Edge CDN) ───────────────
 let cachedManifest: any = null;
 let manifestFetchPromise: Promise<any> | null = null;
 
-async function getPublicManifest() {
+export function clearPublicManifestCache() {
+  cachedManifest = null;
+  manifestFetchPromise = null;
+}
+
+export async function getPublicManifest() {
   if (cachedManifest) return cachedManifest;
   if (manifestFetchPromise) return manifestFetchPromise;
   
@@ -13,156 +18,60 @@ async function getPublicManifest() {
     cachedManifest = res.data.manifest;
     return cachedManifest;
   }).catch(err => {
-    console.error("Failed to load publication", err);
+    console.error("Failed to load publication snapshot from Backblaze B2:", err);
+    manifestFetchPromise = null;
     return null;
   });
   
   return manifestFetchPromise;
 }
 
-// ─── Subjects ────────────────────────────────────────────────────────────────
+// ─── Helper: Slug Generator ──────────────────────────────────────────────────
+function generateSlug(text: string, fallbackId: string): string {
+  const clean = (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (clean && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(clean)) {
+    return clean.slice(0, 50);
+  }
+  return `item-${fallbackId.replace(/[^a-z0-9]/gi, '').slice(0, 12).toLowerCase()}`;
+}
+
+const isUuid = (id?: string | null): boolean =>
+  !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+// ─── Public Data Loaders (ALWAYS from Backblaze B2 Snapshot) ───────────────────
 
 export async function dbLoadSubjects(): Promise<Subject[] | null> {
-  if (isAdmin()) {
-    try {
-      let allItems: any[] = [];
-      let cursor: string | null = null;
-      do {
-        const url = `/admin/subjects?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
-        const res = await api.get(url);
-        allItems = allItems.concat(res.data.items || []);
-        cursor = res.data.nextCursor || null;
-      } while (cursor);
-
-      return allItems.map((s: any) => ({
-        id: s.id,
-        name: s.title?.en || '',
-        sinhalaName: s.title?.si || '',
-        examType: s.examType || 'al',
-        code: s.slug || '',
-        icon: s.presentation?.icon || 'BookOpen',
-        color: s.presentation?.color || 'blue'
-      }));
-    } catch (e) {
-      console.error('Failed to load admin subjects:', e);
-      return null;
-    }
-  } else {
-    const manifest = await getPublicManifest();
-    if (!manifest) return [];
-    return manifest.subjects.map((s: any) => ({
-      id: s.id,
-      name: s.title?.en || '',
-      sinhalaName: s.title?.si || '',
-      examType: s.examType || 'al',
-      code: s.slug || '',
-      icon: s.presentation?.icon || 'BookOpen',
-      color: s.presentation?.color || 'blue'
-    }));
-  }
+  const manifest = await getPublicManifest();
+  if (!manifest || !manifest.subjects) return [];
+  return manifest.subjects.map((s: any) => ({
+    id: s.id,
+    name: s.title?.en || '',
+    sinhalaName: s.title?.si || '',
+    examType: s.examType || 'al',
+    code: s.slug || s.code || '',
+    icon: s.presentation?.icon || 'BookOpen',
+    color: s.presentation?.color || 'blue'
+  }));
 }
-
-export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
-  for (const s of subjects) {
-    const payload = {
-      slug: s.code || s.name.toLowerCase().replace(/\s+/g, '-'),
-      title: { en: s.name, si: s.sinhalaName },
-      examType: s.examType || 'al',
-      presentation: { icon: s.icon || 'BookOpen', color: s.color || 'blue', variant: 'solid' },
-      sortOrder: 0
-    };
-    try {
-      await api.patch(`/admin/subjects/${s.id}`, payload);
-    } catch (e: any) {
-      if (e.response?.status === 404) {
-        await api.post('/admin/subjects', { id: s.id, ...payload });
-      } else {
-        console.error("Failed to save subject", e);
-      }
-    }
-    // Auto-publish
-    await api.post(`/admin/subjects/${s.id}/state`, { state: 'published' }).catch(console.error);
-  }
-}
-
-export async function dbDeleteSubject(subjectId: string): Promise<void> {
-  await api.post(`/admin/subjects/${subjectId}/state`, { state: 'archived' }).catch(() => {});
-  await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
-}
-
-// ─── Papers ──────────────────────────────────────────────────────────────────
 
 export async function dbLoadPapers(): Promise<Paper[] | null> {
-  if (isAdmin()) {
-    try {
-      let allItems: any[] = [];
-      let cursor: string | null = null;
-      do {
-        const url = `/admin/papers?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
-        const res = await api.get(url);
-        allItems = allItems.concat(res.data.items || []);
-        cursor = res.data.nextCursor || null;
-      } while (cursor);
-
-      return allItems.map((p: any) => ({
-        id: p.id,
-        subjectId: p.subjectId,
-        examType: p.examType || 'al',
-        title: p.title?.en || '',
-        sinhalaTitle: p.title?.si || '',
-        year: p.year || 2024,
-        durationMinutes: p.durationMinutes || 120,
-        questionCount: p.questionCount || 50,
-        language: p.language || 'si'
-      }));
-    } catch (e) {
-      console.error('Failed to load admin papers:', e);
-      return null;
-    }
-  } else {
-    const manifest = await getPublicManifest();
-    if (!manifest) return [];
-    return manifest.papers.map((p: any) => ({
-      id: p.id,
-      subjectId: p.subjectId,
-      examType: p.examType || 'al',
-      title: p.title?.en || '',
-      sinhalaTitle: p.title?.si || '',
-      year: p.year || 2024,
-      durationMinutes: p.durationMinutes || 120,
-      questionCount: p.questionCount || 50,
-      language: p.language || 'si'
-    }));
-  }
+  const manifest = await getPublicManifest();
+  if (!manifest || !manifest.papers) return [];
+  return manifest.papers.map((p: any) => ({
+    id: p.id,
+    subjectId: p.subjectId,
+    examType: p.examType || 'al',
+    title: p.title?.en || '',
+    sinhalaTitle: p.title?.si || '',
+    year: p.year || 2024,
+    durationMinutes: p.durationMinutes || 120,
+    questionCount: p.questionCount || 0,
+    language: p.language || 'si'
+  }));
 }
-
-export async function dbSavePaper(paper: Paper): Promise<void> {
-  const payload = {
-    subjectId: paper.subjectId,
-    slug: paper.title.toLowerCase().replace(/\s+/g, '-'),
-    title: { en: paper.title, si: paper.sinhalaTitle },
-    examType: paper.examType,
-    year: paper.year,
-    language: paper.language || 'si',
-    durationMinutes: paper.durationMinutes,
-    questionCount: paper.questionCount
-  };
-  try {
-    await api.patch(`/admin/papers/${paper.id}`, payload);
-  } catch (e: any) {
-    if (e.response?.status === 404) {
-      await api.post('/admin/papers', { id: paper.id, ...payload });
-    }
-  }
-  await api.post(`/admin/papers/${paper.id}/state`, { state: 'published' }).catch(console.error);
-}
-
-export async function dbDeletePaper(paperId: string): Promise<void> {
-  await api.post(`/admin/papers/${paperId}/state`, { state: 'archived' }).catch(() => {});
-  await api.delete(`/admin/papers/${paperId}`).catch(console.error);
-}
-
-// ─── Questions ───────────────────────────────────────────────────────────────
 
 export async function dbLoadQuestions(): Promise<Question[] | null> {
   const manifest = await getPublicManifest();
@@ -171,13 +80,16 @@ export async function dbLoadQuestions(): Promise<Question[] | null> {
     let correctIdx = 0;
     let correctArr: number[] = [];
     const opts = (q.options || []).map((o: any, idx: number) => {
-      if (o.isCorrect) { correctIdx = idx; correctArr.push(idx); }
-      return o.html;
+      if (o.isCorrect || o.is_correct) {
+        correctIdx = idx;
+        correctArr.push(idx);
+      }
+      return typeof o === 'string' ? o : (o.html || '');
     });
     return {
       id: q.id,
       paperId: q.paperId,
-      qNumber: q.number,
+      qNumber: q.number ?? q.qNumber ?? 1,
       questionHtml: q.questionHtml,
       optionsHtml: opts as any,
       correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
@@ -190,71 +102,148 @@ export async function dbLoadQuestions(): Promise<Question[] | null> {
 }
 
 export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question[] | null> {
-  if (isAdmin()) {
-    try {
-      let allItems: any[] = [];
-      let cursor: string | null = null;
-      do {
-        const url = `/admin/questions?paperId=${paperId}&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
-        const res = await api.get(url);
-        allItems = allItems.concat(res.data.items || []);
-        cursor = res.data.nextCursor || null;
-      } while (cursor);
-
-      return allItems.map((q: any) => {
-        let correctIdx = 0;
-        let correctArr: number[] = [];
-        const opts = (q.options || []).map((o: any, idx: number) => {
-          if (o.isCorrect) { correctIdx = idx; correctArr.push(idx); }
-          return o.html;
-        });
-        return {
-          id: q.id,
-          paperId: q.paperId,
-          qNumber: q.number,
-          questionHtml: q.questionHtml,
-          optionsHtml: opts as any,
-          correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
-          correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
-          isAllCorrect: q.isAllCorrect ?? q.contentSafety?.isAllCorrect ?? false,
-          explanationHtml: q.explanationHtml || '',
-          updatedAt: q.updatedAt,
-          rawOptions: q.options
-        };
-      });
-    } catch (e) {
-      console.error('Failed to load questions for paper from admin API:', paperId, e);
-      const manifest = await getPublicManifest();
-      if (!manifest) return [];
-      return manifest.questions.filter((q: any) => q.paperId === paperId).map((q: any) => {
-        let correctIdx = 0;
-        let correctArr: number[] = [];
-        const opts = (q.options || []).map((o: any, idx: number) => {
-          if (o.isCorrect) { correctIdx = idx; correctArr.push(idx); }
-          return o.html;
-        });
-        return {
-          id: q.id,
-          paperId: q.paperId,
-          qNumber: q.number,
-          questionHtml: q.questionHtml,
-          optionsHtml: opts as any,
-          correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
-          correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
-          isAllCorrect: q.isAllCorrect || false,
-          explanationHtml: q.explanationHtml || '',
-          updatedAt: q.updatedAt
-        };
-      });
-    }
-  } else {
-    const manifest = await getPublicManifest();
-    if (!manifest) return [];
-    return manifest.questions.filter((q: any) => q.paperId === paperId).map((q: any) => {
+  const manifest = await getPublicManifest();
+  if (!manifest || !manifest.questions) return [];
+  return manifest.questions
+    .filter((q: any) => q.paperId === paperId)
+    .map((q: any) => {
       let correctIdx = 0;
       let correctArr: number[] = [];
       const opts = (q.options || []).map((o: any, idx: number) => {
-        if (o.isCorrect) { correctIdx = idx; correctArr.push(idx); }
+        if (o.isCorrect || o.is_correct) {
+          correctIdx = idx;
+          correctArr.push(idx);
+        }
+        return typeof o === 'string' ? o : (o.html || '');
+      });
+      return {
+        id: q.id,
+        paperId: q.paperId,
+        qNumber: q.number ?? q.qNumber ?? 1,
+        questionHtml: q.questionHtml,
+        optionsHtml: opts as any,
+        correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
+        correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
+        isAllCorrect: q.isAllCorrect || false,
+        explanationHtml: q.explanationHtml || '',
+        updatedAt: q.updatedAt
+      };
+    });
+}
+
+export async function dbLoadStudyHtml(paperId: string): Promise<string | null> {
+  const manifest = await getPublicManifest();
+  const sm = manifest?.studyMaterials?.find((s: any) => s.paperId === paperId);
+  return sm?.html || sm?.html_si || sm?.html_en || null;
+}
+
+export async function dbLoadAboutUs(): Promise<AboutData | null> {
+  const manifest = await getPublicManifest();
+  const data = manifest?.about;
+  if (!data) return null;
+  const rawUrl = data?.image?.url || (data?.image?.objectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${data.image.objectKey}` : null);
+  return {
+    description: data?.description || '',
+    image_url: normalizeMediaUrl(rawUrl),
+    facebook_link: data?.social?.facebookUrl || '',
+    youtube_link: data?.social?.youtubeUrl || '',
+    linkedin_link: data?.social?.linkedinUrl || '',
+  };
+}
+
+export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
+  const manifest = await getPublicManifest();
+  if (!manifest) return [];
+  return (manifest.gallery || []).map((g: any) => {
+    const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
+    return {
+      id: g.id,
+      title: g.title?.en || '',
+      description: g.description?.en || '',
+      imageHex: normalizeMediaUrl(rawUrl),
+      mimeType: g.contentType || 'image/webp',
+      sortOrder: g.sortOrder || 0,
+      createdAt: g.createdAt || '',
+      pinned: g.pinned || false
+    };
+  });
+}
+
+// ─── Dedicated Admin Loaders (Direct from Cloudflare D1) ──────────────────────
+
+export async function adminLoadSubjects(): Promise<Subject[] | null> {
+  try {
+    let allItems: any[] = [];
+    let cursor: string | null = null;
+    do {
+      const url = `/admin/subjects?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+      const res = await api.get(url);
+      allItems = allItems.concat(res.data.items || []);
+      cursor = res.data.nextCursor || null;
+    } while (cursor);
+
+    return allItems.map((s: any) => ({
+      id: s.id,
+      name: s.title?.en || '',
+      sinhalaName: s.title?.si || '',
+      examType: s.examType || 'al',
+      code: s.slug || s.code || '',
+      icon: s.presentation?.icon || 'BookOpen',
+      color: s.presentation?.color || 'blue'
+    }));
+  } catch (e) {
+    console.error('Failed to load admin subjects from D1:', e);
+    return null;
+  }
+}
+
+export async function adminLoadPapers(): Promise<Paper[] | null> {
+  try {
+    let allItems: any[] = [];
+    let cursor: string | null = null;
+    do {
+      const url = `/admin/papers?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+      const res = await api.get(url);
+      allItems = allItems.concat(res.data.items || []);
+      cursor = res.data.nextCursor || null;
+    } while (cursor);
+
+    return allItems.map((p: any) => ({
+      id: p.id,
+      subjectId: p.subjectId,
+      examType: p.examType || 'al',
+      title: p.title?.en || '',
+      sinhalaTitle: p.title?.si || '',
+      year: p.year || 2024,
+      durationMinutes: p.durationMinutes || 120,
+      questionCount: p.questionCount || 0,
+      language: p.language || 'si'
+    }));
+  } catch (e) {
+    console.error('Failed to load admin papers from D1:', e);
+    return null;
+  }
+}
+
+export async function adminLoadQuestionsForPaper(paperId: string): Promise<Question[] | null> {
+  try {
+    let allItems: any[] = [];
+    let cursor: string | null = null;
+    do {
+      const url = `/admin/questions?paperId=${paperId}&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+      const res = await api.get(url);
+      allItems = allItems.concat(res.data.items || []);
+      cursor = res.data.nextCursor || null;
+    } while (cursor);
+
+    return allItems.map((q: any) => {
+      let correctIdx = 0;
+      let correctArr: number[] = [];
+      const opts = (q.options || []).map((o: any, idx: number) => {
+        if (o.isCorrect || o.is_correct) {
+          correctIdx = idx;
+          correctArr.push(idx);
+        }
         return o.html;
       });
       return {
@@ -265,18 +254,155 @@ export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question
         optionsHtml: opts as any,
         correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
         correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
-        isAllCorrect: q.isAllCorrect || false,
+        isAllCorrect: q.isAllCorrect ?? q.contentSafety?.isAllCorrect ?? false,
         explanationHtml: q.explanationHtml || '',
-        updatedAt: q.updatedAt
+        updatedAt: q.updatedAt,
+        rawOptions: q.options
       };
     });
+  } catch (e) {
+    console.error('Failed to load admin questions for paper from D1:', paperId, e);
+    return null;
   }
 }
 
-export async function dbSaveQuestion(question: Question): Promise<void> {
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const qId = isUuid.test(question.id) ? question.id : crypto.randomUUID();
+export async function adminLoadAboutUs(): Promise<AboutData | null> {
+  try {
+    const res = await api.get('/admin/about');
+    const data = res.data;
+    const rawUrl = data?.image?.objectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${data.image.objectKey}` : data?.image?.url;
+    return {
+      description: data?.description || '',
+      image_url: normalizeMediaUrl(rawUrl),
+      facebook_link: data?.social?.facebookUrl || '',
+      youtube_link: data?.social?.youtubeUrl || '',
+      linkedin_link: data?.social?.linkedinUrl || '',
+    };
+  } catch (e) {
+    console.error('Failed to load admin about us from D1:', e);
+    return null;
+  }
+}
+
+export async function adminLoadGallery(): Promise<GalleryPhoto[] | null> {
+  try {
+    let allItems: any[] = [];
+    let cursor: string | null = null;
+    do {
+      const url = `/admin/gallery-items?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+      const res = await api.get(url);
+      allItems = allItems.concat(res.data.items || []);
+      cursor = res.data.nextCursor || null;
+    } while (cursor);
+
+    return allItems.map((g: any) => {
+      const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
+      return {
+        id: g.id,
+        title: g.title?.en || '',
+        description: g.description?.en || '',
+        imageHex: normalizeMediaUrl(rawUrl),
+        mimeType: g.contentType || 'image/webp',
+        sortOrder: g.sortOrder || 0,
+        createdAt: g.createdAt || '',
+        pinned: g.pinned || false
+      };
+    });
+  } catch (e) {
+    console.error('Failed to load admin gallery from D1:', e);
+    return null;
+  }
+}
+
+export async function adminLoadStudyHtml(paperId: string): Promise<string | null> {
+  try {
+    const res = await api.get(`/admin/study-materials?paperId=${paperId}`);
+    return res.data.items[0]?.html || null;
+  } catch (e) {
+    console.error('Failed to load admin study HTML from D1:', e);
+    return null;
+  }
+}
+
+// ─── Mutations (Direct to Cloudflare D1) ───────────────────────────────────────
+
+export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
+  for (const s of subjects) {
+    const sId = isUuid(s.id) ? s.id : crypto.randomUUID();
+    s.id = sId;
+    const payload = {
+      slug: generateSlug(s.code || s.name, sId),
+      title: { en: s.name, si: s.sinhalaName || s.name },
+      examType: s.examType === 'ol' ? 'ol' : 'al',
+      presentation: { icon: s.icon || 'BookOpen', color: s.color || 'blue', variant: 'solid' },
+      sortOrder: 0
+    };
+    try {
+      await api.patch(`/admin/subjects/${sId}`, payload);
+    } catch (e: any) {
+      if (e.response?.status === 404) {
+        await api.post('/admin/subjects', { id: sId, ...payload });
+      } else {
+        console.error("Failed to save subject:", e);
+        throw e;
+      }
+    }
+    await api.post(`/admin/subjects/${sId}/state`, { state: 'published' }).catch(console.error);
+  }
+}
+
+export async function dbDeleteSubject(subjectId: string): Promise<void> {
+  await api.post(`/admin/subjects/${subjectId}/state`, { state: 'archived' }).catch(() => {});
+  await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
+}
+
+export async function dbSavePaper(paper: Paper): Promise<Paper> {
+  const paperId = isUuid(paper.id) ? paper.id : crypto.randomUUID();
+  paper.id = paperId;
+
+  const validSlug = generateSlug(paper.title, paperId);
+  const examType = (paper.examType === 'ol' || paper.examType === 'al') ? paper.examType : 'al';
+  const language = (paper.language === 'en' || paper.language === 'si') ? paper.language : 'si';
+
+  const payload = {
+    subjectId: paper.subjectId,
+    slug: validSlug,
+    title: { en: paper.title || 'Paper', si: paper.sinhalaTitle || paper.title || 'Paper' },
+    examType,
+    year: Number(paper.year) || 2026,
+    language,
+    durationMinutes: Number(paper.durationMinutes) || 120,
+    questionCount: Number(paper.questionCount) || 0,
+    questionCountSource: 'admin_declared' as const
+  };
+
+  try {
+    await api.patch(`/admin/papers/${paperId}`, payload);
+  } catch (e: any) {
+    if (e.response?.status === 404) {
+      await api.post('/admin/papers', { id: paperId, ...payload });
+    } else {
+      console.error("Failed to save paper to D1:", e.response?.data || e.message);
+      throw e;
+    }
+  }
+  await api.post(`/admin/papers/${paperId}/state`, { state: 'published' }).catch(console.error);
+  return paper;
+}
+
+export async function dbDeletePaper(paperId: string): Promise<void> {
+  await api.post(`/admin/papers/${paperId}/state`, { state: 'archived' }).catch(() => {});
+  await api.delete(`/admin/papers/${paperId}`).catch(console.error);
+}
+
+export async function dbSaveQuestion(question: Question): Promise<Question> {
+  const qId = isUuid(question.id) ? question.id : crypto.randomUUID();
   question.id = qId;
+
+  if (!isUuid(question.paperId)) {
+    console.error("Invalid paperId on question (must be UUID):", question.paperId);
+    throw new Error(`Cannot save question: paperId ${question.paperId} is not a valid UUID.`);
+  }
 
   let existingQ: any = null;
   try {
@@ -294,11 +420,11 @@ export async function dbSaveQuestion(question: Question): Promise<void> {
 
   const options = question.optionsHtml.map((html, idx) => {
     const existingOptId = existingQ?.options?.[idx]?.id;
-    const optId = (existingOptId && isUuid.test(existingOptId)) ? existingOptId : crypto.randomUUID();
+    const optId = (existingOptId && isUuid(existingOptId)) ? existingOptId : crypto.randomUUID();
     return {
       id: optId,
       questionId: qId,
-      html,
+      html: html || '',
       contentSafety: { sanitizationStatus: 'sanitized' as const, sanitizerVersion: 'v1' },
       sortOrder: idx,
       isCorrect: isAllCorrect || correctOptions.includes(idx)
@@ -342,11 +468,14 @@ export async function dbSaveQuestion(question: Question): Promise<void> {
   }
 
   await api.post(`/admin/questions/${qId}/state`, { state: 'published' }).catch(console.error);
+  return question;
 }
 
 export async function dbSaveQuestions(questions: Question[]): Promise<void> {
-  for (const q of questions) {
-    await dbSaveQuestion(q);
+  const batchSize = 5;
+  for (let i = 0; i < questions.length; i += batchSize) {
+    const chunk = questions.slice(i, i + batchSize);
+    await Promise.all(chunk.map(q => dbSaveQuestion(q)));
   }
 }
 
@@ -356,24 +485,9 @@ export async function dbDeleteQuestion(questionId: string): Promise<void> {
 }
 
 export async function dbDeleteQuestionsByPaper(paperId: string): Promise<void> {
-  const qs = await dbLoadQuestionsForPaper(paperId);
+  const qs = await adminLoadQuestionsForPaper(paperId);
   if (qs) {
     for (const q of qs) await dbDeleteQuestion(q.id);
-  }
-}
-
-// ─── Study HTML ───────────────────────────────────────────────────────────────
-
-export async function dbLoadStudyHtml(paperId: string): Promise<string | null> {
-  if (isAdmin()) {
-    try {
-      const res = await api.get(`/admin/study-materials?paperId=${paperId}`);
-      return res.data.items[0]?.html || null;
-    } catch { return null; }
-  } else {
-    const manifest = await getPublicManifest();
-    const sm = manifest?.studyMaterials?.find((s: any) => s.paperId === paperId);
-    return sm?.html || null;
   }
 }
 
@@ -389,7 +503,7 @@ export async function dbSaveStudyHtml(paperId: string, html: string): Promise<vo
       await api.post('/admin/study-materials', { id, paperId, html });
       await api.post(`/admin/study-materials/${id}/state`, { state: 'published' });
     }
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error("Failed to save study HTML:", e); }
 }
 
 export async function dbDeleteStudyHtml(paperId: string): Promise<void> {
@@ -399,37 +513,6 @@ export async function dbDeleteStudyHtml(paperId: string): Promise<void> {
       await api.delete(`/admin/study-materials/${res.data.items[0].id}`);
     }
   } catch (e) { console.error(e); }
-}
-
-// ─── About Us ────────────────────────────────────────────────────────────────
-
-export async function dbLoadAboutUs(): Promise<AboutData | null> {
-  if (isAdmin()) {
-    try {
-      const res = await api.get('/admin/about');
-      const data = res.data;
-      const rawUrl = data?.image?.objectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${data.image.objectKey}` : data?.image?.url;
-      return {
-        description: data?.description || '',
-        image_url: normalizeMediaUrl(rawUrl),
-        facebook_link: data?.social?.facebookUrl || '',
-        youtube_link: data?.social?.youtubeUrl || '',
-        linkedin_link: data?.social?.linkedinUrl || '',
-      };
-    } catch { return null; }
-  } else {
-    const manifest = await getPublicManifest();
-    const data = manifest?.about;
-    if (!data) return null;
-    const rawUrl = data?.image?.url || (data?.image?.objectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${data.image.objectKey}` : null);
-    return {
-      description: data?.description || '',
-      image_url: normalizeMediaUrl(rawUrl),
-      facebook_link: data?.social?.facebookUrl || '',
-      youtube_link: data?.social?.youtubeUrl || '',
-      linkedin_link: data?.social?.linkedinUrl || '',
-    };
-  }
 }
 
 export async function dbSaveAboutUs(aboutData: AboutData): Promise<{ error?: string }> {
@@ -454,53 +537,6 @@ export async function dbSaveAboutUs(aboutData: AboutData): Promise<{ error?: str
   }
 }
 
-// ─── Gallery ──────────────────────────────────────────────────────────────────
-
-export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
-  if (isAdmin()) {
-    try {
-      let allItems: any[] = [];
-      let cursor: string | null = null;
-      do {
-        const url = `/admin/gallery-items?limit=100${cursor ? `&cursor=${cursor}` : ''}`;
-        const res = await api.get(url);
-        allItems = allItems.concat(res.data.items || []);
-        cursor = res.data.nextCursor || null;
-      } while (cursor);
-
-      return allItems.map((g: any) => {
-        const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
-        return {
-          id: g.id,
-          title: g.title?.en || '',
-          description: g.description?.en || '',
-          imageHex: normalizeMediaUrl(rawUrl),
-          mimeType: g.contentType || 'image/webp',
-          sortOrder: g.sortOrder || 0,
-          createdAt: g.createdAt || '',
-          pinned: g.pinned || false
-        };
-      });
-    } catch { return null; }
-  } else {
-    const manifest = await getPublicManifest();
-    if (!manifest) return [];
-    return (manifest.gallery || []).map((g: any) => {
-      const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
-      return {
-        id: g.id,
-        title: g.title?.en || '',
-        description: g.description?.en || '',
-        imageHex: normalizeMediaUrl(rawUrl),
-        mimeType: g.contentType || 'image/webp',
-        sortOrder: g.sortOrder || 0,
-        createdAt: g.createdAt || '',
-        pinned: g.pinned || false
-      };
-    });
-  }
-}
-
 export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?: string }> {
   const objectKey = photo.imageHex.includes('/api/v1/media/')
     ? photo.imageHex.split('/api/v1/media/')[1]
@@ -511,7 +547,7 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
 
   if (objectKey) {
     const payload = {
-      slug: photo.id.slice(0, 36),
+      slug: generateSlug(photo.title, photo.id),
       title: titleObj,
       description: descObj,
       altText: titleObj,
@@ -547,11 +583,23 @@ export async function dbUpdateGalleryPhotoOrder(id: string, sortOrder: number): 
 }
 
 export async function dbDeleteAllGalleryPhotos(): Promise<{ error?: string }> {
-  const items = await dbLoadGallery();
+  const items = await adminLoadGallery();
   if (items) {
     for (const item of items) await dbDeleteGalleryPhoto(item.id);
   }
   return {};
+}
+
+// ─── Snapshot Publication Release (Build to Backblaze B2 & Purge Edge Cache) ──
+
+export async function dbBuildPublication(): Promise<{ snapshotId: string; version: number }> {
+  const idempotencyKey = crypto.randomUUID();
+  const res = await api.post('/admin/publications/build', {
+    idempotencyKey,
+    reason: 'Admin publication build'
+  });
+  clearPublicManifestCache();
+  return res.data;
 }
 
 export const dbLoadBudgetStatus = async () => {

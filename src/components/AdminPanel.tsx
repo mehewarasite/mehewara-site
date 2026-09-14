@@ -31,12 +31,13 @@ import {
   Lock,
   Eye,
   EyeOff,
-  History
+  History,
+  CloudUpload
 } from 'lucide-react';
 
 import { Subject, Paper, Question } from '../types';
 import { useTheme } from '../ThemeContext';
-import { dbAdminGetMe, dbAdminChangePassword, dbAdminForgotPasswordRequest } from '../api';
+import { dbAdminGetMe, dbAdminChangePassword, dbAdminForgotPasswordRequest, dbBuildPublication } from '../api';
 
 // --- Import new sub-components ---
 import GalleryTab from './admin/GalleryTab';
@@ -263,6 +264,27 @@ export default function AdminPanel({
     setTimeout(() => setFlashMessage(''), 3000);
   };
 
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublishToLive = async () => {
+    const confirmed = window.confirm(
+      'Publish live snapshot to Backblaze B2?\\n\\nThis will take all subjects, papers, and questions currently in Cloudflare D1 and build a snapshot for all public students. Students will immediately access the new content.'
+    );
+    if (!confirmed) return;
+
+    setIsPublishing(true);
+    try {
+      const res = await dbBuildPublication();
+      showFlash(`Published snapshot v${res?.version ?? 'new'} to Backblaze B2 successfully!`);
+      if (onSync) onSync();
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message;
+      showFlash(`Failed to publish snapshot: ${msg}`, true);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   // Calculate some stats for the top bar
   const olSubjects = subjects.filter(s => s.examType === 'ol').length;
   const alSubjects = subjects.filter(s => s.examType === 'al').length;
@@ -314,6 +336,25 @@ export default function AdminPanel({
               <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
             </button>
           )}
+
+          {/* Publish to Live Snapshot Button */}
+          <button
+            onClick={handlePublishToLive}
+            disabled={isPublishing}
+            className={`flex items-center gap-2 px-4 py-2 ${
+              isDark
+                ? 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+            } rounded-xl font-bold text-xs transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
+            title="Publish Snapshot to Backblaze B2 for Students"
+          >
+            {isPublishing ? (
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+            ) : (
+              <CloudUpload className="w-4 h-4 text-emerald-500" />
+            )}
+            <span className="hidden sm:inline">{isPublishing ? 'Publishing...' : 'Publish to Live'}</span>
+          </button>
 
           <input
             type="file"
