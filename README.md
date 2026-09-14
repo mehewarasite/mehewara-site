@@ -11,7 +11,7 @@ An open, high-performance, and free exam practice platform designed for Sri Lank
 
 ---
 
-## 🚀 Key Highlights & Architecture
+## Key Highlights & Architecture
 
 Mehewara is engineered to be globally fast, cost-efficient, and resilient under high traffic surges during national exam periods.
 
@@ -55,7 +55,7 @@ Mehewara is engineered to be globally fast, cost-efficient, and resilient under 
 
 ---
 
-## ✨ Features
+## Features
 
 ### Student Practice Portal
 - **Exam Categorization**: Practice by Subject, Exam Type (O/L & A/L), Medium (Sinhala, English), and Year.
@@ -74,7 +74,7 @@ Mehewara is engineered to be globally fast, cost-efficient, and resilient under 
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 mehewara-site/
@@ -108,7 +108,7 @@ mehewara-site/
 
 ---
 
-## 🛠️ Getting Started
+## Getting Started
 
 ### Prerequisites
 - **Node.js**: v20 or v22+
@@ -168,7 +168,7 @@ npm run build
 
 ---
 
-## 🌐 Cloudflare Backend Deployment
+## Cloudflare Backend Deployment
 
 ### API Worker Deployment
 
@@ -203,7 +203,7 @@ Deploy the `dist/` folder via Cloudflare Pages:
 
 ---
 
-## 🔒 Security & Best Practices
+## Security & Best Practices
 
 - **Zero Client-Side Admin Secrets**: Admin authentication uses server-issued JWTs verified at the edge worker.
 - **CORS Strict Allowlist**: API only accepts requests from registered domains and approved local ports (`localhost:3000`, `localhost:5173`).
@@ -212,7 +212,7 @@ Deploy the `dist/` folder via Cloudflare Pages:
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
 Mehewara is open-source software built for the benefit of Sri Lankan students and educators.
