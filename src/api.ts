@@ -324,35 +324,82 @@ export async function adminLoadStudyHtml(paperId: string): Promise<string | null
   }
 }
 
+// ─── Entity State Transition Helper (Enforces DraftPublishCommand contract) ───
+
+async function setPublishState(
+  entity: 'subject' | 'paper' | 'question' | 'study_material' | 'gallery_item' | 'content_page',
+  entityId: string,
+  state: 'published' | 'archived' | 'draft',
+  expectedUpdatedAt?: string
+): Promise<void> {
+  try {
+    let token = expectedUpdatedAt;
+    if (!token) {
+      const routePath = entity === 'subject' ? `/admin/subjects/${entityId}`
+        : entity === 'paper' ? `/admin/papers/${entityId}`
+        : entity === 'question' ? `/admin/questions/${entityId}`
+        : entity === 'study_material' ? `/admin/study-materials/${entityId}`
+        : `/admin/gallery-items/${entityId}`;
+      const res = await api.get(routePath).catch(() => null);
+      token = res?.data?.updatedAt || new Date().toISOString();
+    }
+    const endpoint = entity === 'subject' ? `/admin/subjects/${entityId}/state`
+      : entity === 'paper' ? `/admin/papers/${entityId}/state`
+      : entity === 'question' ? `/admin/questions/${entityId}/state`
+      : entity === 'study_material' ? `/admin/study-materials/${entityId}/state`
+      : `/admin/gallery-items/${entityId}/state`;
+
+    await api.post(endpoint, {
+      entity,
+      entityId,
+      state,
+      expectedUpdatedAt: token
+    });
+  } catch (err: any) {
+    console.warn(`[State Transition] ${entity} ${entityId} -> ${state}:`, err.response?.data || err.message);
+  }
+}
+
 // ─── Mutations (Direct to Cloudflare D1) ───────────────────────────────────────
 
 export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
   for (const s of subjects) {
     const sId = isUuid(s.id) ? s.id : crypto.randomUUID();
     s.id = sId;
+    const slug = generateSlug(s.code || s.name, sId);
+    const code = (s.code || s.name || 'subject').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'subject';
     const payload = {
-      slug: generateSlug(s.code || s.name, sId),
-      title: { en: s.name, si: s.sinhalaName || s.name },
+      slug,
+      code,
+      title: { en: s.name || 'Subject', si: s.sinhalaName || s.name || 'Subject' },
+      description: null,
       examType: s.examType === 'ol' ? 'ol' : 'al',
-      presentation: { icon: s.icon || 'BookOpen', color: s.color || 'blue', variant: 'solid' },
+      presentation: { icon: s.icon || 'BookOpen', color: s.color || 'blue', variant: 'solid' as const },
       sortOrder: 0
     };
+    let savedUpdatedAt: string | undefined;
     try {
-      await api.patch(`/admin/subjects/${sId}`, payload);
-    } catch (e: any) {
-      if (e.response?.status === 404) {
-        await api.post('/admin/subjects', { id: sId, ...payload });
+      const existing = await api.get(`/admin/subjects/${sId}`).catch(() => null);
+      if (existing?.data) {
+        const patchRes = await api.patch(`/admin/subjects/${sId}`, {
+          ...payload,
+          expectedUpdatedAt: existing.data.updatedAt || new Date().toISOString()
+        });
+        savedUpdatedAt = patchRes.data?.updatedAt;
       } else {
-        console.error("Failed to save subject:", e);
-        throw e;
+        const createRes = await api.post('/admin/subjects', { id: sId, ...payload });
+        savedUpdatedAt = createRes.data?.updatedAt;
       }
+    } catch (e: any) {
+      console.error("Failed to save subject:", e);
+      throw e;
     }
-    await api.post(`/admin/subjects/${sId}/state`, { state: 'published' }).catch(console.error);
+    await setPublishState('subject', sId, 'published', savedUpdatedAt);
   }
 }
 
 export async function dbDeleteSubject(subjectId: string): Promise<void> {
-  await api.post(`/admin/subjects/${subjectId}/state`, { state: 'archived' }).catch(() => {});
+  await setPublishState('subject', subjectId, 'archived');
   await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
 }
 
@@ -360,38 +407,64 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
   const paperId = isUuid(paper.id) ? paper.id : crypto.randomUUID();
   paper.id = paperId;
 
+  // Guarantee subjectId is a valid UUID of an existing subject in D1
+  let subjectId = paper.subjectId;
+  if (!isUuid(subjectId)) {
+    const subjects = await adminLoadSubjects().catch(() => null);
+    if (subjects && subjects.length > 0) {
+      const match = subjects.find(s => s.code === subjectId || s.id === subjectId || s.name.toLowerCase() === String(subjectId).toLowerCase());
+      subjectId = match ? match.id : subjects[0].id;
+    }
+  }
+
   const validSlug = generateSlug(paper.title, paperId);
   const examType = (paper.examType === 'ol' || paper.examType === 'al') ? paper.examType : 'al';
   const language = (paper.language === 'en' || paper.language === 'si') ? paper.language : 'si';
+  let year = Number(paper.year);
+  if (!Number.isInteger(year) || year < 1900 || year > 2200) {
+    year = new Date().getFullYear();
+  }
+  let durationMinutes = Number(paper.durationMinutes);
+  if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
+    durationMinutes = 120;
+  }
 
   const payload = {
-    subjectId: paper.subjectId,
+    subjectId,
     slug: validSlug,
     title: { en: paper.title || 'Paper', si: paper.sinhalaTitle || paper.title || 'Paper' },
     examType,
-    year: Number(paper.year) || 2026,
+    year,
     language,
-    durationMinutes: Number(paper.durationMinutes) || 120,
+    durationMinutes,
     questionCount: Number(paper.questionCount) || 0,
     questionCountSource: 'admin_declared' as const
   };
 
+  let savedUpdatedAt: string | undefined;
   try {
-    await api.patch(`/admin/papers/${paperId}`, payload);
-  } catch (e: any) {
-    if (e.response?.status === 404) {
-      await api.post('/admin/papers', { id: paperId, ...payload });
+    const existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
+    if (existing?.data) {
+      const patchRes = await api.patch(`/admin/papers/${paperId}`, {
+        ...payload,
+        expectedUpdatedAt: existing.data.updatedAt || new Date().toISOString()
+      });
+      savedUpdatedAt = patchRes.data?.updatedAt;
     } else {
-      console.error("Failed to save paper to D1:", e.response?.data || e.message);
-      throw e;
+      const createRes = await api.post('/admin/papers', { id: paperId, ...payload });
+      savedUpdatedAt = createRes.data?.updatedAt;
     }
+  } catch (e: any) {
+    console.error("Failed to save paper to D1:", e.response?.data || e.message);
+    throw e;
   }
-  await api.post(`/admin/papers/${paperId}/state`, { state: 'published' }).catch(console.error);
+
+  await setPublishState('paper', paperId, 'published', savedUpdatedAt);
   return paper;
 }
 
 export async function dbDeletePaper(paperId: string): Promise<void> {
-  await api.post(`/admin/papers/${paperId}/state`, { state: 'archived' }).catch(() => {});
+  await setPublishState('paper', paperId, 'archived');
   await api.delete(`/admin/papers/${paperId}`).catch(console.error);
 }
 
@@ -412,19 +485,41 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
     // 404 or new question
   }
 
-  const isAllCorrect = question.isAllCorrect || false;
-  const correctOptions = question.correctOptions && question.correctOptions.length > 0
-    ? question.correctOptions
-    : [question.correctOption ?? 0];
+  // 1. Normalize options to strictly 4 or 5 options
+  let rawOptions = Array.isArray(question.optionsHtml) ? [...question.optionsHtml] : [];
+  while (rawOptions.length < 4) {
+    rawOptions.push(`Option ${rawOptions.length + 1}`);
+  }
+  if (rawOptions.length > 5) {
+    rawOptions = rawOptions.slice(0, 5);
+  }
+
+  // 2. Normalize correct options
+  let correctOptions = question.correctOptions && question.correctOptions.length > 0
+    ? question.correctOptions.filter(idx => typeof idx === 'number' && idx >= 0 && idx < rawOptions.length)
+    : [];
+  if (correctOptions.length === 0) {
+    const fallbackIdx = (typeof question.correctOption === 'number' && question.correctOption >= 0 && question.correctOption < rawOptions.length)
+      ? question.correctOption
+      : 0;
+    correctOptions = [fallbackIdx];
+  }
+
+  // If all options are marked correct, isAllCorrect MUST be true
+  const isAllCorrect = question.isAllCorrect || correctOptions.length === rawOptions.length;
+  if (isAllCorrect) {
+    correctOptions = rawOptions.map((_, i) => i);
+  }
   const answerMode = isAllCorrect ? 'all' : (correctOptions.length > 1 ? 'multiple' : 'single');
 
-  const options = question.optionsHtml.map((html, idx) => {
+  // 3. Build options array with strictly unique sortOrder 0..n-1 and unique UUIDs
+  const options = rawOptions.map((html, idx) => {
     const existingOptId = existingQ?.options?.[idx]?.id;
     const optId = (existingOptId && isUuid(existingOptId)) ? existingOptId : crypto.randomUUID();
     return {
       id: optId,
       questionId: qId,
-      html: html || '',
+      html: (html && String(html).trim().length > 0) ? String(html) : `Option ${idx + 1}`,
       contentSafety: { sanitizationStatus: 'sanitized' as const, sanitizerVersion: 'v1' },
       sortOrder: idx,
       isCorrect: isAllCorrect || correctOptions.includes(idx)
@@ -432,12 +527,27 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
   });
 
   const optionCount = options.length as 4 | 5;
+  let savedUpdatedAt: string | undefined;
 
   if (existingQ) {
+    // If the question is currently published and the options structure changed,
+    // move to draft first so replace mode can cleanly overwrite without 409
+    if (existingQ.state === 'published') {
+      const existingOptIds = (existingQ.options || []).map((o: any) => o.id);
+      const newOptIds = options.map(o => o.id);
+      const isSameStructure = existingOptIds.length === newOptIds.length &&
+        existingOptIds.every((id: string, i: number) => id === newOptIds[i]);
+      if (!isSameStructure) {
+        await setPublishState('question', qId, 'draft', existingQ.updatedAt);
+        const refetched = await api.get(`/admin/questions/${qId}`).catch(() => null);
+        if (refetched?.data) existingQ = refetched.data;
+      }
+    }
+
     const patchPayload = {
       paperId: question.paperId,
       number: question.qNumber,
-      questionHtml: question.questionHtml,
+      questionHtml: question.questionHtml || '<p>Question</p>',
       explanationHtml: question.explanationHtml || null,
       contentSafety: { sanitizationStatus: 'sanitized' as const, sanitizerVersion: 'v1' },
       options,
@@ -448,13 +558,14 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
       marks: existingQ.marks || 1,
       expectedUpdatedAt: existingQ.updatedAt || (question as any).updatedAt || new Date().toISOString()
     };
-    await api.patch(`/admin/questions/${qId}`, patchPayload);
+    const patchRes = await api.patch(`/admin/questions/${qId}`, patchPayload);
+    savedUpdatedAt = patchRes.data?.updatedAt;
   } else {
     const createPayload = {
       id: qId,
       paperId: question.paperId,
       number: question.qNumber,
-      questionHtml: question.questionHtml,
+      questionHtml: question.questionHtml || '<p>Question</p>',
       explanationHtml: question.explanationHtml || null,
       contentSafety: { sanitizationStatus: 'sanitized' as const, sanitizerVersion: 'v1' },
       options,
@@ -464,10 +575,11 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
       isAllCorrect,
       marks: 1
     };
-    await api.post('/admin/questions', createPayload);
+    const createRes = await api.post('/admin/questions', createPayload);
+    savedUpdatedAt = createRes.data?.updatedAt;
   }
 
-  await api.post(`/admin/questions/${qId}/state`, { state: 'published' }).catch(console.error);
+  await setPublishState('question', qId, 'published', savedUpdatedAt);
   return question;
 }
 
@@ -480,7 +592,7 @@ export async function dbSaveQuestions(questions: Question[]): Promise<void> {
 }
 
 export async function dbDeleteQuestion(questionId: string): Promise<void> {
-  await api.post(`/admin/questions/${questionId}/state`, { state: 'archived' }).catch(() => {});
+  await setPublishState('question', questionId, 'archived');
   await api.delete(`/admin/questions/${questionId}`).catch(console.error);
 }
 
@@ -496,12 +608,15 @@ export async function dbSaveStudyHtml(paperId: string, html: string): Promise<vo
     const res = await api.get(`/admin/study-materials?paperId=${paperId}`);
     if (res.data.items.length > 0) {
       const id = res.data.items[0].id;
-      await api.patch(`/admin/study-materials/${id}`, { html });
-      await api.post(`/admin/study-materials/${id}/state`, { state: 'published' });
+      const patchRes = await api.patch(`/admin/study-materials/${id}`, {
+        html,
+        expectedUpdatedAt: res.data.items[0].updatedAt || new Date().toISOString()
+      });
+      await setPublishState('study_material', id, 'published', patchRes.data?.updatedAt);
     } else {
       const id = crypto.randomUUID();
-      await api.post('/admin/study-materials', { id, paperId, html });
-      await api.post(`/admin/study-materials/${id}/state`, { state: 'published' });
+      const createRes = await api.post('/admin/study-materials', { id, paperId, html });
+      await setPublishState('study_material', id, 'published', createRes.data?.updatedAt);
     }
   } catch (e) { console.error("Failed to save study HTML:", e); }
 }
@@ -510,7 +625,9 @@ export async function dbDeleteStudyHtml(paperId: string): Promise<void> {
   try {
     const res = await api.get(`/admin/study-materials?paperId=${paperId}`);
     if (res.data.items.length > 0) {
-      await api.delete(`/admin/study-materials/${res.data.items[0].id}`);
+      const id = res.data.items[0].id;
+      await setPublishState('study_material', id, 'archived');
+      await api.delete(`/admin/study-materials/${id}`);
     }
   } catch (e) { console.error(e); }
 }
@@ -560,20 +677,29 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
       pinned: photo.pinned || false,
       sortOrder: photo.sortOrder || 0,
     };
+    let savedUpdatedAt: string | undefined;
     try {
-      await api.patch(`/admin/gallery-items/${photo.id}`, payload);
-    } catch (e: any) {
-      if (e.response?.status === 404) {
-        await api.post('/admin/gallery-items', { id: photo.id, ...payload });
+      const existing = await api.get(`/admin/gallery-items/${photo.id}`).catch(() => null);
+      if (existing?.data) {
+        const patchRes = await api.patch(`/admin/gallery-items/${photo.id}`, {
+          ...payload,
+          expectedUpdatedAt: existing.data.updatedAt || new Date().toISOString()
+        });
+        savedUpdatedAt = patchRes.data?.updatedAt;
+      } else {
+        const createRes = await api.post('/admin/gallery-items', { id: photo.id, ...payload });
+        savedUpdatedAt = createRes.data?.updatedAt;
       }
+    } catch (e: any) {
+      console.error("Failed to save gallery item:", e);
     }
-    await api.post(`/admin/gallery-items/${photo.id}/state`, { state: 'published' }).catch(console.error);
+    await setPublishState('gallery_item', photo.id, 'published', savedUpdatedAt);
   }
   return {};
 }
 
 export async function dbDeleteGalleryPhoto(id: string): Promise<{ error?: string }> {
-  await api.post(`/admin/gallery-items/${id}/state`, { state: 'archived' }).catch(() => {});
+  await setPublishState('gallery_item', id, 'archived');
   await api.delete(`/admin/gallery-items/${id}`).catch(console.error);
   return {};
 }

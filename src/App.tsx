@@ -777,7 +777,10 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const rawContent = e.target?.result as string;
+        let rawContent = (e.target?.result as string || '').trim();
+        if (rawContent.charCodeAt(0) === 0xFEFF) {
+          rawContent = rawContent.slice(1);
+        }
         const backup = JSON.parse(rawContent);
 
         // Extract papers, questions, subjects, and study materials from any JSON format
@@ -793,12 +796,31 @@ export default function App() {
           importedPapers = backup.papers;
         } else if (backup.paper && typeof backup.paper === 'object') {
           importedPapers = [backup.paper];
+        } else if (!Array.isArray(backup) && (backup.title || backup.name) && !backup.questions) {
+          importedPapers = [backup];
         }
 
         if (backup.questions && Array.isArray(backup.questions)) {
           importedQuestions = backup.questions;
         } else if (Array.isArray(backup)) {
           importedQuestions = backup;
+        } else if (backup.paper?.questions && Array.isArray(backup.paper.questions)) {
+          importedQuestions = backup.paper.questions;
+        }
+
+        // If JSON is a single paper object with embedded questions: { title: "...", questions: [...] }
+        if (importedPapers.length === 0 && !Array.isArray(backup) && (backup.title || backup.name) && importedQuestions.length > 0) {
+          importedPapers = [{
+            id: backup.id || crypto.randomUUID(),
+            title: backup.title || backup.name || 'Paper',
+            sinhalaTitle: backup.sinhalaTitle || backup.title || backup.name || 'Paper',
+            subjectId: backup.subjectId || subjects[0]?.id || '',
+            examType: backup.examType || 'al',
+            year: Number(backup.year) || new Date().getFullYear(),
+            durationMinutes: Number(backup.durationMinutes) || 120,
+            questionCount: importedQuestions.length,
+            language: backup.language || 'si'
+          }];
         }
 
         if (backup.subjects && Array.isArray(backup.subjects)) {
@@ -820,6 +842,24 @@ export default function App() {
           return;
         }
 
+        // If there are questions but NO papers, auto-generate a parent container paper
+        if (importedPapers.length === 0 && importedQuestions.length > 0) {
+          const generatedPaperId = crypto.randomUUID();
+          const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Imported Paper';
+          const defaultSubject = subjects[0]?.id || crypto.randomUUID();
+          importedPapers = [{
+            id: generatedPaperId,
+            subjectId: defaultSubject,
+            examType: 'al',
+            title: baseName,
+            sinhalaTitle: baseName,
+            year: new Date().getFullYear(),
+            durationMinutes: 120,
+            questionCount: importedQuestions.length,
+            language: 'si'
+          }];
+        }
+
         // Remap legacy IDs to RFC 4122 UUIDs so Cloudflare D1 accepts them
         const paperIdMap = new Map<string, string>();
         importedPapers.forEach((p: Paper) => {
@@ -830,29 +870,44 @@ export default function App() {
           }
           if (p.examType) {
             p.examType = (p.examType.toLowerCase().includes('ol') ? 'ol' : 'al') as 'ol' | 'al';
+          } else {
+            p.examType = 'al';
+          }
+          if (typeof p.title === 'object' && p.title !== null) {
+            p.title = (p.title as any).en || (p.title as any).si || 'Paper';
+          }
+          if (typeof p.sinhalaTitle === 'object' && p.sinhalaTitle !== null) {
+            p.sinhalaTitle = (p.sinhalaTitle as any).si || (p.sinhalaTitle as any).en || p.title;
+          }
+          // Validate subjectId exists in subjects list, or fallback to first subject
+          if (!isUuid(p.subjectId) || !subjects.some(s => s.id === p.subjectId)) {
+            const matched = subjects.find(s => s.id === p.subjectId || s.code === p.subjectId || s.name.toLowerCase() === String(p.subjectId).toLowerCase());
+            p.subjectId = matched ? matched.id : (subjects[0]?.id || p.subjectId);
           }
         });
 
         // Remap questions and normalize options
-        importedQuestions.forEach((q: any, idx: number) => {
+        importedQuestions.forEach((q: any) => {
           if (!isUuid(q.id)) {
             q.id = crypto.randomUUID();
           }
           if (paperIdMap.has(q.paperId)) {
             q.paperId = paperIdMap.get(q.paperId)!;
-          } else if (importedPapers.length === 1 && (!q.paperId || !isUuid(q.paperId))) {
-            q.paperId = importedPapers[0].id;
+          } else if (!isUuid(q.paperId) || (!importedPapers.some(p => p.id === q.paperId) && !papers.some(p => p.id === q.paperId))) {
+            q.paperId = importedPapers[0]?.id || papers[0]?.id || crypto.randomUUID();
           }
-          if (!q.qNumber && q.number) q.qNumber = q.number;
-          if (!q.qNumber) q.qNumber = idx + 1;
           if (!q.questionHtml && q.question) q.questionHtml = `<p>${q.question}</p>`;
           if (!q.optionsHtml && q.options) {
             q.optionsHtml = q.options.map((o: any) => typeof o === 'string' ? o : (o.text || o.html || ''));
           }
-          if (Array.isArray(q.optionsHtml)) {
-            while (q.optionsHtml.length < 4) {
-              q.optionsHtml.push(`Option ${q.optionsHtml.length + 1}`);
-            }
+          if (!Array.isArray(q.optionsHtml)) {
+            q.optionsHtml = [];
+          }
+          while (q.optionsHtml.length < 4) {
+            q.optionsHtml.push(`Option ${q.optionsHtml.length + 1}`);
+          }
+          if (q.optionsHtml.length > 5) {
+            q.optionsHtml = q.optionsHtml.slice(0, 5);
           }
           if (q.correctOption === undefined && q.correct_option_index !== undefined) {
             q.correctOption = q.correct_option_index;
@@ -860,6 +915,23 @@ export default function App() {
           if (!q.correctOptions || q.correctOptions.length === 0) {
             q.correctOptions = [q.correctOption ?? 0];
           }
+        });
+
+        // Group questions by paperId and ensure strictly unique sequential question numbers 1..N
+        const questionsByPaper = new Map<string, any[]>();
+        importedQuestions.forEach(q => {
+          const pId = q.paperId;
+          const list = questionsByPaper.get(pId) || [];
+          list.push(q);
+          questionsByPaper.set(pId, list);
+        });
+
+        questionsByPaper.forEach((paperQs) => {
+          paperQs.sort((a, b) => (Number(a.qNumber || a.number) || 0) - (Number(b.qNumber || b.number) || 0));
+          paperQs.forEach((q, idx) => {
+            q.qNumber = idx + 1;
+            q.number = idx + 1;
+          });
         });
 
         // Remap study materials
@@ -871,9 +943,10 @@ export default function App() {
           studyHtmlMap = remappedStudy;
         }
 
-        // Rehydrate papers with study HTML
+        // Rehydrate papers with study HTML & actual question counts
         const rehydratedPapers = importedPapers.map((p: Paper) => ({
           ...p,
+          questionCount: importedQuestions.filter(q => q.paperId === p.id).length || p.questionCount,
           studyMaterialHtml: studyHtmlMap[p.id] ?? p.studyMaterialHtml ?? undefined,
         }));
 
@@ -926,15 +999,15 @@ export default function App() {
             // Auto-build snapshot to Backblaze B2
             await dbBuildPublication();
             clearPublicManifestCache();
-            alert(`JSON uploaded to cloud successfully! ${rehydratedPapers.length} papers and ${importedQuestions.length} questions are now live and accessible from any device.`);
+            alert(`JSON uploaded to cloud successfully! ${rehydratedPapers.length} paper(s) and ${importedQuestions.length} question(s) are now live and accessible worldwide on all devices.`);
           } catch (cloudErr: any) {
             console.error('Cloud upload error:', cloudErr);
-            alert(`Saved locally, but cloud upload had an issue: ${cloudErr.message || 'Unknown error'}`);
+            alert(`Saved locally, but cloud upload encountered an issue: ${cloudErr.response?.data?.error?.message || cloudErr.message || 'Unknown error'}`);
           } finally {
             setIsSyncing(false);
           }
         } else {
-          alert(`Import successful locally! ${rehydratedPapers.length} papers and ${importedQuestions.length} questions loaded.`);
+          alert(`Import successful locally! ${rehydratedPapers.length} paper(s) and ${importedQuestions.length} question(s) loaded.`);
         }
       } catch (err: any) {
         console.error('Failed to parse JSON file:', err);
