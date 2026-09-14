@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Check, X, Layers, Sparkles } from 'lucide-react';
+import { Check, X, Sparkles } from 'lucide-react';
 import { Subject } from '../../types';
 import type { AdminThemeClasses } from './types';
 
@@ -24,7 +24,7 @@ export default function SubjectConfirmModal({
   onConfirmCreate,
   onSelectExisting,
 }: SubjectConfirmModalProps) {
-  const { isDark, cardBg, cardBdr, inputBg, inputBdr, textPrimary, textMuted, textFaint, subtleBg } = theme;
+  const { cardBg, cardBdr, inputBg, inputBdr, textPrimary, textMuted, subtleBg } = theme;
 
   const [mode, setMode] = useState<'create' | 'select'>('create');
   const [name, setName] = useState(unrecognizedSubjectKey);

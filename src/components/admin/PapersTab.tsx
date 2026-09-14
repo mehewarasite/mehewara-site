@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { FileText, FileCode, Upload, Edit2, Trash2, X, Save, AlertCircle } from 'lucide-react';
+import { FileText, FileCode, Upload, Edit2, Trash2, X, Save } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
-import { parseTxtToQuizData, renderMathInHtml } from '../../utils/parseTxt';
+import { renderMathInHtml } from '../../utils/parseTxt';
 import { themeHtml } from '../../utils/themeHtml';
 import { uploadImageToStorage, insertOrReplaceImage } from '../../utils/mediaUpload';
 import { validateQuizText } from '../../utils/quizValidator';
@@ -74,7 +74,7 @@ export default function PapersTab({
   // Subject Confirmation Modal State
   const [subjectConfirmOpen, setSubjectConfirmOpen] = useState(false);
   const [unrecognizedSubjectKey, setUnrecognizedSubjectKey] = useState('');
-  const [pendingImportedPaper, setPendingImportedPaper] = useState<{ paper: Paper; questions?: Question[] } | null>(null);
+
 
   
   const [paperSearchQuery, setPaperSearchQuery] = useState('');
