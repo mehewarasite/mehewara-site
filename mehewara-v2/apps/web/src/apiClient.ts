@@ -75,6 +75,13 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // The Cloudflare Worker API requires an Idempotency-Key header on every
+  // admin mutation (POST/PATCH/PUT/DELETE). Auto-generate one for every
+  // mutating request so callers never forget it.
+  const method = (config.method || '').toUpperCase();
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method) && !config.headers['Idempotency-Key']) {
+    config.headers['Idempotency-Key'] = crypto.randomUUID();
+  }
   return config;
 });
 
