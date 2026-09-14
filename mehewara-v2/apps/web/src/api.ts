@@ -404,7 +404,7 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
   await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
 }
 
-export async function dbSavePaper(paper: Paper): Promise<Paper> {
+export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper> {
   const paperId = isUuid(paper.id) ? paper.id : crypto.randomUUID();
   paper.id = paperId;
 
@@ -485,7 +485,10 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
 
   let savedUpdatedAt: string | undefined;
   try {
-    const existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
+    let existing: any = null;
+    if (!isNew) {
+      existing = await api.get(`/admin/papers/${paperId}`).catch(() => null);
+    }
     if (existing?.data) {
       const patchRes = await api.patch(`/admin/papers/${paperId}`, {
         ...payload,
@@ -510,7 +513,7 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
   await api.delete(`/admin/papers/${paperId}`).catch(console.error);
 }
 
-export async function dbSaveQuestion(question: Question): Promise<Question> {
+export async function dbSaveQuestion(question: Question, isNew?: boolean): Promise<Question> {
   const qId = isUuid(question.id) ? question.id : crypto.randomUUID();
   question.id = qId;
 
@@ -520,11 +523,13 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
   }
 
   let existingQ: any = null;
-  try {
-    const checkRes = await api.get(`/admin/questions/${qId}`);
-    existingQ = checkRes.data;
-  } catch {
-    // 404 or new question
+  if (!isNew) {
+    try {
+      const checkRes = await api.get(`/admin/questions/${qId}`);
+      existingQ = checkRes.data;
+    } catch {
+      // 404 or new question
+    }
   }
 
   // 1. Normalize options to strictly 4 or 5 options
@@ -627,7 +632,8 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
 
 export async function dbSaveQuestions(
   questions: Question[],
-  onProgress?: (progress: { current: number; total: number; percent: number; error?: string }) => void
+  onProgress?: (progress: { current: number; total: number; percent: number; error?: string }) => void,
+  isNew?: boolean
 ): Promise<void> {
   const batchSize = 3;
   const successfullySavedQIds: string[] = [];
@@ -643,7 +649,7 @@ export async function dbSaveQuestions(
           // Up to 2 retries per question
           for (let attempt = 1; attempt <= 2; attempt++) {
             try {
-              const saved = await dbSaveQuestion(q);
+              const saved = await dbSaveQuestion(q, isNew);
               return saved;
             } catch (err: any) {
               lastErr = err;
