@@ -176,7 +176,7 @@ export default function App() {
 
   const [isHumanVerified, setIsHumanVerified] = useState<boolean>(() => {
     try {
-      if (hasAdminToken) return true;
+      if (hasAdminToken || import.meta.env.DEV) return true;
       return sessionStorage.getItem('mhw_human_verified') === 'true';
     } catch {
       return false;
@@ -567,7 +567,12 @@ export default function App() {
     idbSet('m_papers', JSON.stringify(updatedPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
 
     // Persist paper to API (without studyMaterialHtml — stored separately)
-    await dbSavePaper(paperWithCount);
+    const saved = await dbSavePaper(paperWithCount);
+    if (saved?.subjectId && saved.subjectId !== paperWithCount.subjectId) {
+      paperWithCount.subjectId = saved.subjectId;
+      setPapers(prev => prev.map(p => p.id === paperWithCount.id ? paperWithCount : p));
+      idbSet('m_papers', JSON.stringify(updatedPapers.map(p => p.id === paperWithCount.id ? { ...paperWithCount, studyMaterialHtml: undefined } : { ...p, studyMaterialHtml: undefined })));
+    }
 
     // Persist study HTML to API if present
     if (newPaper.studyMaterialHtml) {
@@ -879,10 +884,13 @@ export default function App() {
           if (typeof p.sinhalaTitle === 'object' && p.sinhalaTitle !== null) {
             p.sinhalaTitle = (p.sinhalaTitle as any).si || (p.sinhalaTitle as any).en || p.title;
           }
-          // Validate subjectId exists in subjects list, or fallback to first subject
-          if (!isUuid(p.subjectId) || !subjects.some(s => s.id === p.subjectId)) {
-            const matched = subjects.find(s => s.id === p.subjectId || s.code === p.subjectId || s.name.toLowerCase() === String(p.subjectId).toLowerCase());
-            p.subjectId = matched ? matched.id : (subjects[0]?.id || p.subjectId);
+          // Validate subjectId exists in subjects list or initial subjects, without wiping valid subject selections
+          const matched = subjects.find(s => s.id === p.subjectId || s.code === p.subjectId || s.name.toLowerCase() === String(p.subjectId).toLowerCase())
+            || INITIAL_SUBJECTS.find(s => s.id === p.subjectId || s.code === p.subjectId || s.name.toLowerCase() === String(p.subjectId).toLowerCase());
+          if (matched) {
+            p.subjectId = matched.id;
+          } else if (!p.subjectId && subjects[0]?.id) {
+            p.subjectId = subjects[0].id;
           }
         });
 
@@ -988,7 +996,10 @@ export default function App() {
               await dbSaveSubjects(importedSubjects);
             }
             for (const p of rehydratedPapers) {
-              await dbSavePaper(p);
+              const saved = await dbSavePaper(p);
+              if (saved?.subjectId && saved.subjectId !== p.subjectId) {
+                p.subjectId = saved.subjectId;
+              }
               if (p.studyMaterialHtml) {
                 await dbSaveStudyHtml(p.id, p.studyMaterialHtml);
               }

@@ -409,13 +409,48 @@ export async function dbSavePaper(paper: Paper): Promise<Paper> {
 
   // Guarantee subjectId is a valid UUID of an existing subject in D1
   let subjectId = paper.subjectId;
-  if (!isUuid(subjectId)) {
-    const subjects = await adminLoadSubjects().catch(() => null);
-    if (subjects && subjects.length > 0) {
-      const match = subjects.find(s => s.code === subjectId || s.id === subjectId || s.name.toLowerCase() === String(subjectId).toLowerCase());
-      subjectId = match ? match.id : subjects[0].id;
+  let subjects: Subject[] | null = null;
+  try {
+    subjects = await adminLoadSubjects();
+  } catch (err) {
+    console.warn("Failed to load subjects from D1:", err);
+  }
+
+  const match = subjects?.find(s =>
+    s.id === subjectId ||
+    (s.code && s.code.toLowerCase() === String(subjectId).toLowerCase()) ||
+    (s.name && s.name.toLowerCase() === String(subjectId).toLowerCase()) ||
+    (s.sinhalaName && s.sinhalaName === String(subjectId))
+  );
+
+  if (match) {
+    subjectId = match.id;
+  } else if (!isUuid(subjectId) || !subjects?.some(s => s.id === subjectId)) {
+    // If not found in D1, auto-create this subject in D1 with a UUID so foreign key constraint succeeds
+    const newSubjectId = isUuid(subjectId) ? subjectId : crypto.randomUUID();
+    const fallbackName = String(paper.subjectId)
+      .replace(/^(al|ol)[-_]/i, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase()) || 'General';
+    try {
+      await dbSaveSubjects([{
+        id: newSubjectId,
+        name: fallbackName,
+        sinhalaName: fallbackName,
+        code: String(paper.subjectId).slice(0, 32),
+        examType: (paper.examType === 'ol' || paper.examType === 'al') ? paper.examType : 'al',
+        icon: 'BookOpen',
+        color: 'blue'
+      }]);
+      subjectId = newSubjectId;
+    } catch (err) {
+      console.warn("Auto-creating subject failed in D1, falling back to existing subject:", err);
+      if (subjects && subjects.length > 0) {
+        subjectId = subjects[0].id;
+      }
     }
   }
+  paper.subjectId = subjectId;
 
   const validSlug = generateSlug(paper.title, paperId);
   const examType = (paper.examType === 'ol' || paper.examType === 'al') ? paper.examType : 'al';
@@ -585,9 +620,19 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
 
 export async function dbSaveQuestions(questions: Question[]): Promise<void> {
   const batchSize = 5;
+  const errors: any[] = [];
   for (let i = 0; i < questions.length; i += batchSize) {
     const chunk = questions.slice(i, i + batchSize);
-    await Promise.all(chunk.map(q => dbSaveQuestion(q)));
+    const results = await Promise.allSettled(chunk.map(q => dbSaveQuestion(q)));
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        console.error("Failed to save question to D1:", r.reason);
+        errors.push(r.reason);
+      }
+    }
+  }
+  if (errors.length > 0 && errors.length === questions.length) {
+    throw new Error(`Failed to save all ${errors.length} questions: ${errors[0]?.message || 'Unknown error'}`);
   }
 }
 

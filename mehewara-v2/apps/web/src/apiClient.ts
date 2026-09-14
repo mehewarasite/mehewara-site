@@ -18,7 +18,11 @@ if (!isDev || forceDirect) {
 let activeBaseURL = rawBaseURL.replace(/\/+$/, '');
 
 export function getActiveMediaBaseUrl(): string {
-  return (activeBaseURL || (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)).trim().replace(/\/+$/, '');
+  let base = (activeBaseURL || (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)).trim().replace(/\/+$/, '');
+  if (base && !base.startsWith('http://') && !base.startsWith('https://')) {
+    base = `https://${base}`;
+  }
+  return base;
 }
 
 export function normalizeMediaUrl(url: string | null | undefined): string {
@@ -73,14 +77,26 @@ function setupNetworkFallback(instance: typeof api) {
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('adminToken');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers.set) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   // The Cloudflare Worker API requires an Idempotency-Key header on every
   // admin mutation (POST/PATCH/PUT/DELETE). Auto-generate one for every
   // mutating request so callers never forget it.
   const method = (config.method || '').toUpperCase();
-  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method) && !config.headers['Idempotency-Key']) {
-    config.headers['Idempotency-Key'] = crypto.randomUUID();
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
+    const hasKey = config.headers.get ? config.headers.get('Idempotency-Key') : config.headers['Idempotency-Key'];
+    if (!hasKey) {
+      const newKey = crypto.randomUUID();
+      if (config.headers.set) {
+        config.headers.set('Idempotency-Key', newKey);
+      } else {
+        config.headers['Idempotency-Key'] = newKey;
+      }
+    }
   }
   return config;
 });

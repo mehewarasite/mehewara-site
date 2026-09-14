@@ -132,14 +132,14 @@ export default function PapersTab({
       try {
         const parsed = parseTxtToQuizData(rawText);
         if (parsed.length === 0) {
-          alert("No questions found. Please check your formatting tags like [EN], [SIN], or ---.");
+          alert("No questions found. Please check your formatting (valid JSON or text with [EN], [SIN], or ---).");
           return;
         }
         setParsedQuestions(parsed);
-        alert(`Successfully loaded ${parsed.length} questions from text file!`);
+        alert(`Successfully loaded ${parsed.length} questions from ${file.name}!`);
       } catch (error) {
         console.error("Parsing error:", error);
-        alert("Failed to parse file. Make sure it follows the exact formatting rules.");
+        alert("Failed to parse file. Make sure it follows the supported JSON or text formatting rules.");
       }
     };
     reader.readAsText(file);
