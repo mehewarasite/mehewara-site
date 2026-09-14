@@ -625,23 +625,77 @@ export async function dbSaveQuestion(question: Question): Promise<Question> {
   return question;
 }
 
-export async function dbSaveQuestions(questions: Question[]): Promise<void> {
-  const batchSize = 5;
-  const errors: any[] = [];
+export async function dbSaveQuestions(
+  questions: Question[],
+  onProgress?: (progress: { current: number; total: number; percent: number; error?: string }) => void
+): Promise<void> {
+  const batchSize = 3;
+  const successfullySavedQIds: string[] = [];
+  const total = questions.length;
+
   for (let i = 0; i < questions.length; i += batchSize) {
     const chunk = questions.slice(i, i + batchSize);
-    const results = await Promise.allSettled(chunk.map(q => dbSaveQuestion(q)));
-    for (const r of results) {
-      if (r.status === 'rejected') {
-        console.error("Failed to save question to D1:", r.reason);
-        errors.push(r.reason);
+
+    try {
+      const results = await Promise.all(
+        chunk.map(async (q) => {
+          let lastErr: any = null;
+          // Up to 2 retries per question
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              const saved = await dbSaveQuestion(q);
+              return saved;
+            } catch (err: any) {
+              lastErr = err;
+              if (attempt < 2) {
+                await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+              }
+            }
+          }
+          throw lastErr || new Error(`Failed to save question ${q.qNumber}`);
+        })
+      );
+
+      for (const saved of results) {
+        if (saved?.id) successfullySavedQIds.push(saved.id);
       }
+
+      const currentDone = Math.min(i + chunk.length, total);
+      if (onProgress) {
+        onProgress({
+          current: currentDone,
+          total,
+          percent: Math.round((currentDone / total) * 100),
+        });
+      }
+    } catch (batchError: any) {
+      console.error(`[dbSaveQuestions] Failure during bulk question save at index ${i}:`, batchError);
+
+      // All-or-nothing rollback: clean up previously created questions for this session
+      if (successfullySavedQIds.length > 0) {
+        console.warn(`[dbSaveQuestions] Rolling back ${successfullySavedQIds.length} questions...`);
+        if (onProgress) {
+          onProgress({
+            current: i,
+            total,
+            percent: Math.round((i / total) * 100),
+            error: `Error at question batch ${i + 1}-${i + chunk.length}. Rolling back created questions...`,
+          });
+        }
+
+        await Promise.allSettled(
+          successfullySavedQIds.map((id) => dbDeleteQuestion(id))
+        );
+      }
+
+      const errorMsg = batchError.response?.data?.message || batchError.message || 'Unknown network/database error';
+      throw new Error(
+        `Bulk question upload failed and was rolled back cleanly (${successfullySavedQIds.length} questions reverted). Error: ${errorMsg}`
+      );
     }
   }
-  if (errors.length > 0 && errors.length === questions.length) {
-    throw new Error(`Failed to save all ${errors.length} questions: ${errors[0]?.message || 'Unknown error'}`);
-  }
 }
+
 
 export async function dbDeleteQuestion(questionId: string): Promise<void> {
   await setPublishState('question', questionId, 'archived');

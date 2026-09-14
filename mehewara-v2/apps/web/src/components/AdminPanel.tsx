@@ -516,6 +516,7 @@ export default function AdminPanel({
                 subjects={subjects}
                 papers={papers}
                 questions={questions}
+                onAddSubject={onAddSubject}
                 onAddPaper={onAddPaper}
                 onUpdatePaper={onUpdatePaper!}
                 onDeletePaper={onDeletePaper}

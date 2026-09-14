@@ -1,9 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { FileText, FileCode, Upload, Edit2, Trash2, X, Save } from 'lucide-react';
+import { FileText, FileCode, Upload, Edit2, Trash2, X, Save, AlertCircle } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
 import { parseTxtToQuizData, renderMathInHtml } from '../../utils/parseTxt';
 import { themeHtml } from '../../utils/themeHtml';
 import { uploadImageToStorage, insertOrReplaceImage } from '../../utils/mediaUpload';
+import { validateQuizText } from '../../utils/quizValidator';
+import ParserDiagnosticModal from './ParserDiagnosticModal';
+import SubjectConfirmModal from './SubjectConfirmModal';
 import type { AdminThemeClasses, AdminTab } from './types';
 
 // The parser returns objects with this rough shape:
@@ -21,6 +24,7 @@ interface PapersTabProps {
   subjects: Subject[];
   papers: Paper[];
   questions: Question[];
+  onAddSubject?: (subject: Subject) => void;
   onAddPaper: (paper: Paper, importedQuestions?: Question[]) => void;
   onUpdatePaper: (paper: Paper) => void;
   onDeletePaper: (paperId: string) => void;
@@ -37,6 +41,7 @@ export default function PapersTab({
   subjects,
   papers,
   questions,
+  onAddSubject,
   onAddPaper,
   onUpdatePaper,
   onDeletePaper,
@@ -60,6 +65,17 @@ export default function PapersTab({
   const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestion[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
+
+  // Diagnostic Modal State
+  const [diagnosticModalOpen, setDiagnosticModalOpen] = useState(false);
+  const [uploadedRawContent, setUploadedRawContent] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState('');
+
+  // Subject Confirmation Modal State
+  const [subjectConfirmOpen, setSubjectConfirmOpen] = useState(false);
+  const [unrecognizedSubjectKey, setUnrecognizedSubjectKey] = useState('');
+  const [pendingImportedPaper, setPendingImportedPaper] = useState<{ paper: Paper; questions?: Question[] } | null>(null);
+
   
   const [paperSearchQuery, setPaperSearchQuery] = useState('');
   const [editingPaperId, setEditingPaperId] = useState<string | null>(null);
@@ -128,22 +144,27 @@ export default function PapersTab({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const rawText = ev.target?.result as string;
+      setUploadedRawContent(rawText);
+      setUploadedFileName(file.name);
 
-      try {
-        const parsed = parseTxtToQuizData(rawText);
-        if (parsed.length === 0) {
-          alert("No questions found. Please check your formatting (valid JSON or text with [EN], [SIN], or ---).");
-          return;
-        }
-        setParsedQuestions(parsed);
-        alert(`Successfully loaded ${parsed.length} questions from ${file.name}!`);
-      } catch (error) {
-        console.error("Parsing error:", error);
-        alert("Failed to parse file. Make sure it follows the supported JSON or text formatting rules.");
+      // Run syntax validation
+      const diag = validateQuizText(rawText);
+      if (!diag.isValid || diag.errors.length > 0 || diag.warnings.length > 0) {
+        // Open interactive split-view diagnostic inspector
+        setDiagnosticModalOpen(true);
+      } else {
+        setParsedQuestions(diag.questions);
+        showFlash(`Successfully parsed ${diag.questions.length} questions from ${file.name}!`);
       }
     };
     reader.readAsText(file);
     input.value = '';
+  };
+
+  const handleDiagnosticConfirmImport = (questionsList: any[], fileName: string) => {
+    setParsedQuestions(questionsList);
+    setDiagnosticModalOpen(false);
+    showFlash(`Imported ${questionsList.length} validated questions from ${fileName}!`);
   };
 
   const handleQuestionImageUpload = async (file: File, index: number, target: 'question' | 'explanation' | number = 'question') => {
@@ -186,21 +207,15 @@ export default function PapersTab({
     }
   };
 
-  const handleCreatePaper = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPaperTitle || !newPaperSinhalaTitle) {
-      alert('Please fill in all title fields');
-      return;
-    }
-
-    const selectedSub = subjects.find(s => s.id === selectedSubjectId);
-    if (!selectedSub) return;
-
+  const commitCreatePaper = (targetSubjectId: string, customExamType?: 'ol' | 'al') => {
     const paperId = crypto.randomUUID();
+    const selectedSub = subjects.find(s => s.id === targetSubjectId);
+    const resolvedExamType = selectedSub?.examType || customExamType || 'al';
+
     const newPaper: Paper = {
       id: paperId,
-      subjectId: selectedSubjectId,
-      examType: selectedSub.examType,
+      subjectId: targetSubjectId,
+      examType: resolvedExamType,
       title: newPaperTitle,
       sinhalaTitle: newPaperSinhalaTitle,
       year: newPaperYear,
@@ -235,7 +250,7 @@ export default function PapersTab({
     onAddPaper(newPaper, importedQuestions);
     setTargetPaperId(paperId);
     showFlash(importedQuestions
-      ? `Paper created & ${importedQuestions.length} MCQs uploaded to cloud!`
+      ? `Paper created & ${importedQuestions.length} MCQs uploaded cleanly!`
       : 'Paper created successfully!');
 
     setNewPaperTitle('');
@@ -246,6 +261,26 @@ export default function PapersTab({
     setParsedQuestions([]);
     resetStudyHtmlInput();
   };
+
+  const handleCreatePaper = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPaperTitle || !newPaperSinhalaTitle) {
+      alert('Please fill in all title fields');
+      return;
+    }
+
+    // Verify if selected subject exists in active subjects list
+    const existingSub = subjects.find(s => s.id === selectedSubjectId);
+    if (!existingSub) {
+      // Prompt user with Subject Confirmation Dialog
+      setUnrecognizedSubjectKey(selectedSubjectId || newPaperTitle.split(' ')[0] || 'Subject');
+      setSubjectConfirmOpen(true);
+      return;
+    }
+
+    commitCreatePaper(selectedSubjectId);
+  };
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -743,6 +778,38 @@ export default function PapersTab({
           );
         })()}
       </div>
+
+      {/* Parser Diagnostic Split-View Modal */}
+      <ParserDiagnosticModal
+        theme={theme}
+        isOpen={diagnosticModalOpen}
+        initialFileName={uploadedFileName}
+        initialRawContent={uploadedRawContent}
+        onClose={() => setDiagnosticModalOpen(false)}
+        onConfirmImport={handleDiagnosticConfirmImport}
+      />
+
+      {/* Subject Confirmation Dialog */}
+      <SubjectConfirmModal
+        theme={theme}
+        isOpen={subjectConfirmOpen}
+        unrecognizedSubjectKey={unrecognizedSubjectKey}
+        detectedExamType={newPaperTitle.toLowerCase().includes('o/l') ? 'ol' : 'al'}
+        existingSubjects={subjects}
+        onClose={() => setSubjectConfirmOpen(false)}
+        onConfirmCreate={async (newSub) => {
+          if (onAddSubject) {
+            await onAddSubject(newSub);
+          }
+          setSelectedSubjectId(newSub.id);
+          commitCreatePaper(newSub.id, newSub.examType);
+        }}
+        onSelectExisting={(existingSubId) => {
+          setSelectedSubjectId(existingSubId);
+          commitCreatePaper(existingSubId);
+        }}
+      />
     </div>
   );
 }
+
