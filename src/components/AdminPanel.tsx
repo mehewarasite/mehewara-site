@@ -276,7 +276,7 @@ export default function AdminPanel({
   const alSubjects = subjects.filter(s => s.examType === 'al').length;
 
   return (
-    <div className={`fixed inset-0 w-full h-full min-h-screen z-50 flex flex-col ${pageBg} transition-colors overflow-hidden`}>
+    <div className={`fixed inset-0 w-full h-full min-h-screen z-50 flex flex-col ${pageBg} transition-colors overflow-hidden transform-gpu`}>
       {/* HEADER */}
       <header className={`${cardBg} border-b ${cardBdr} px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10`}>
         <div className="flex items-center gap-4">
@@ -413,7 +413,7 @@ export default function AdminPanel({
       )}
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 w-full min-h-0 h-full overflow-hidden flex flex-col md:flex-row relative z-0">
+      <div className="flex-1 w-full min-h-0 h-full overflow-hidden flex flex-col md:flex-row relative z-0 transform-gpu">
 
         {/* SIDEBAR NAVIGATION */}
         <nav className={`w-full md:w-64 lg:w-72 shrink-0 h-full ${cardBg} border-r ${cardBdr} flex flex-col overflow-y-auto custom-scrollbar shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10`}>
@@ -504,7 +504,7 @@ export default function AdminPanel({
         </nav>
 
         {/* TAB CONTENTS */}
-        <div className={`flex-1 h-full min-h-0 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar ${pageBg}`}>
+        <div className={`flex-1 h-full min-h-0 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar ${pageBg} transform-gpu`}>
           <div className="max-w-[1600px] mx-auto w-full h-full min-h-full">
 
             {activeTab === 'subjects' && (

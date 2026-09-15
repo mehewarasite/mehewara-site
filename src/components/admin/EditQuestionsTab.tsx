@@ -301,10 +301,15 @@ export default function EditQuestionsTab({
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <label className="block text-sm font-medium">Question Body (HTML allowed)</label>
-                          <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors">
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById(`file-q-${liveEditData.id}`)?.click()}
+                            className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors"
+                          >
                             <Image className="w-3 h-3" />
                             Ref image
                             <input
+                              id={`file-q-${liveEditData.id}`}
                               type="file"
                               accept="image/*"
                               disabled={isUploadingImage}
@@ -315,7 +320,7 @@ export default function EditQuestionsTab({
                                 e.target.value = '';
                               }}
                             />
-                          </label>
+                          </button>
                         </div>
                         <textarea
                           value={liveEditData.questionHtml}
@@ -331,10 +336,15 @@ export default function EditQuestionsTab({
                         {liveEditData.optionsHtml.map((opt, oIdx) => (
                           <div key={oIdx} className="flex gap-2 items-center">
                             <span className="font-bold w-4">{String.fromCharCode(65 + oIdx)}.</span>
-                            <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById(`file-o-${liveEditData.id}-${oIdx}`)?.click()}
+                              className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors shrink-0"
+                            >
                               <Image className="w-3 h-3" />
                               Image
                               <input
+                                id={`file-o-${liveEditData.id}-${oIdx}`}
                                 type="file"
                                 accept="image/*"
                                 disabled={isUploadingImage}
@@ -349,7 +359,7 @@ export default function EditQuestionsTab({
                                   e.target.value = '';
                                 }}
                               />
-                            </label>
+                            </button>
                             <textarea
                               value={opt}
                               onChange={(e) => {
