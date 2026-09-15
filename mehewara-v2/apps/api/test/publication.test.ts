@@ -22,6 +22,8 @@ function fakeGate() {
     },
     async commit() { },
     async release() { },
+    async reset() {},
+    async live() { return 1; }
   };
   return { gate, reserves };
 }

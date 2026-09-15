@@ -115,6 +115,8 @@ function fakeGate() {
       commits += 1;
     },
     async release() { releases += 1; },
+    async reset() {},
+    async live() { return 1; }
   };
   return { gate, reserves, failNextReserve(error: HttpError) { void error; failReserveAt = reserveCalls + 1; }, failReserveOnCall(n: number) { failReserveAt = n; }, failCommitOnce() { failNextCommit = true; }, failCommitFor(op: Operation) { failCommitOp = op; }, counts: { get commits() { return commits; }, get releases() { return releases; } } };
 }
