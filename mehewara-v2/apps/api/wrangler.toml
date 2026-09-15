@@ -37,12 +37,24 @@ B2_BUCKET = "mehewara-v2-dev-media"
 name = "mehewara-v2-api-staging"
 [[env.staging.d1_databases]]
 binding = "D1"
-database_name = "mehewara-v2-staging"
-database_id = "REPLACE_WITH_STAGING_D1_DATABASE_ID"
+database_name = "mehewara-v2-production"
+database_id = "0765f10f-0c5e-4c01-a437-5b4c5126d812"
+migrations_dir = "../../migrations"
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "mehewara-v2-production"
+database_id = "0765f10f-0c5e-4c01-a437-5b4c5126d812"
 migrations_dir = "../../migrations"
 [[env.staging.durable_objects.bindings]]
 name = "BUDGET_AUTHORITY"
 class_name = "BudgetAuthority"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+ALLOWED_ORIGINS = "https://mehewara.edu.lk,https://mehewara-site.pages.dev,https://mehewara.pages.dev,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
+B2_REGION = "us-east-005"
+B2_BUCKET = "mehewara"
 
 [env.production]
 name = "mehewara-v2-api-production"
