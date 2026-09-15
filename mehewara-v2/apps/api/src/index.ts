@@ -59,7 +59,14 @@ export default {
       if (request.method === "OPTIONS") return securityHeaders(new Response(null, { status: 204, headers: corsHeaders }));
       const url = new URL(request.url);
       if (!url.pathname.startsWith("/api/v1/")) throw new HttpError("NOT_FOUND", 404, "Route not found");
-      const b2 = resolveB2(env);
+      
+      // Make B2 client lazy so routes like /health and /live don't crash if secrets are missing in staging
+      let _b2: B2Client | undefined;
+      const getB2 = () => {
+        if (!_b2) _b2 = resolveB2(env);
+        return _b2;
+      };
+
       // NOTE: there is deliberately no media streaming/uploading handle on
       // the context. Routes receive the raw B2 client plus narrow stores so
       // every byte flows through the budgeted, intent-gated route functions;
@@ -85,11 +92,11 @@ export default {
         try { if (request.method === "POST") clientId = ((await request.clone().json()) as any).clientId || id; } catch {}
         response = json({ count: await context.gate.live(clientId) }); 
       }
-      else if (url.pathname === "/api/v1/publication/current") { requireMethod(request, "GET"); response = await publicationRoute(request, context, { b2, store: context.publications }); }
+      else if (url.pathname === "/api/v1/publication/current") { requireMethod(request, "GET"); response = await publicationRoute(request, context, { b2: getB2(), store: context.publications }); }
       else if (url.pathname === "/api/v1/admin/content") { requireMethod(request, "POST", "PUT", "PATCH", "DELETE"); throw new HttpError("GONE", 410, "Use /api/v1/admin/<resource>[/<id>[/state]]"); }
       else if (url.pathname === "/api/v1/admin/export") { requireMethod(request, "GET"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
       else if (url.pathname === "/api/v1/admin/import") { requireMethod(request, "POST"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
-      else if (url.pathname === "/api/v1/admin/publications/build") { requireMethod(request, "POST"); response = await buildPublicationRoute(request, { b2, context, store: context.publications }); }
+      else if (url.pathname === "/api/v1/admin/publications/build") { requireMethod(request, "POST"); response = await buildPublicationRoute(request, { b2: getB2(), context, store: context.publications }); }
       else if (url.pathname === "/api/v1/admin/publications/rollback") { requireMethod(request, "POST"); response = await rollbackPublicationRoute(request, { context, store: context.publications }); }
       else if (url.pathname.startsWith("/api/v1/admin/")) {
         response = await adminRouter(request, {
@@ -98,11 +105,12 @@ export default {
           db: d1,
           resendApiKey: env.RESEND_API_KEY,
           resendFromEmail: env.RESEND_FROM_EMAIL,
+          b2: getB2(),
         });
       }
-      else if (url.pathname === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2, context }); }
-      else if (url.pathname === "/api/v1/media/upload-confirm") { requireMethod(request, "POST"); response = await confirmUploadHttpRoute(request, { b2, context }); }
-      else if (url.pathname.startsWith("/api/v1/media/")) { requireMethod(request, "GET", "HEAD"); const objectKey = decodeURIComponent(url.pathname.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2, objectKey, context }); }
+      else if (url.pathname === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2: getB2(), context }); }
+      else if (url.pathname === "/api/v1/media/upload-confirm") { requireMethod(request, "POST"); response = await confirmUploadHttpRoute(request, { b2: getB2(), context }); }
+      else if (url.pathname.startsWith("/api/v1/media/")) { requireMethod(request, "GET", "HEAD"); const objectKey = decodeURIComponent(url.pathname.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2: getB2(), objectKey, context }); }
       else throw new HttpError("NOT_FOUND", 404, "Route not found");
       return withRequestHeaders(response, corsHeaders, id, request.method === "HEAD");
     } catch (error) {
