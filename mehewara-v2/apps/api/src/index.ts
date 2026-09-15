@@ -79,6 +79,12 @@ export default {
       let response: Response;
       if (url.pathname === "/api/v1/health") { requireMethod(request, "GET"); response = json({ ok: true, service: "mehewara-v2-api", environment: context.environment, requestId: id }); }
       else if (url.pathname === "/api/v1/status") { requireMethod(request, "GET"); response = json({ status: "operational", publication: "snapshot-only", requestId: id }); }
+      else if (url.pathname === "/api/v1/live") { 
+        requireMethod(request, "GET", "POST"); 
+        let clientId = id;
+        try { if (request.method === "POST") clientId = ((await request.clone().json()) as any).clientId || id; } catch {}
+        response = json({ count: await context.gate.live(clientId) }); 
+      }
       else if (url.pathname === "/api/v1/publication/current") { requireMethod(request, "GET"); response = await publicationRoute(request, context, { b2, store: context.publications }); }
       else if (url.pathname === "/api/v1/admin/content") { requireMethod(request, "POST", "PUT", "PATCH", "DELETE"); throw new HttpError("GONE", 410, "Use /api/v1/admin/<resource>[/<id>[/state]]"); }
       else if (url.pathname === "/api/v1/admin/export") { requireMethod(request, "GET"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }

@@ -229,13 +229,34 @@ export default function App() {
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
-  const [activeUsersCount, setActiveUsersCount] = useState<number>(12);
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
 
   React.useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveUsersCount(prev => Math.max(1, prev + Math.floor(Math.random() * 5) - 2));
-    }, 15000);
-    return () => clearInterval(interval);
+    // Generate a session ID for this browser tab to track unique live connections
+    const clientId = crypto.randomUUID();
+    let isMounted = true;
+    
+    const pingLiveUsers = async () => {
+      try {
+        const { publicApi } = await import('./apiClient');
+        const res = await publicApi.post('/live', { clientId });
+        if (isMounted && res.data && typeof res.data.count === 'number') {
+          setActiveUsersCount(res.data.count);
+        }
+      } catch (err) {
+        // Silently fail if the live counter endpoint is temporarily unreachable
+      }
+    };
+
+    // Initial ping
+    pingLiveUsers();
+    
+    // Poll every 15 seconds
+    const interval = setInterval(pingLiveUsers, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const [loadingPaperQuestionsId, setLoadingPaperQuestionsId] = useState<string | null>(null);

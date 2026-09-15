@@ -4,6 +4,7 @@ import { BudgetStatus } from "@mehewara-v2/contracts";
 
 export class BudgetAuthority implements DurableObject {
   private readonly core: BudgetAuthorityCore;
+  private readonly activeUsers = new Map<string, number>();
   constructor(private readonly ctx: DurableObjectState) {
     const persistence: BudgetPersistence = {
       async load() {
@@ -33,6 +34,16 @@ export class BudgetAuthority implements DurableObject {
         this.ctx.storage.sql.exec("DELETE FROM budget_authority_state");
         await this.core.resetCounters();
         return Response.json({ ok: true, message: "Budget authority counters reset" });
+      }
+      if (path === "/live") {
+        const { clientId } = body as { clientId: string };
+        const now = Date.now();
+        if (clientId) this.activeUsers.set(clientId, now);
+        // Prune users older than 60 seconds
+        for (const [key, lastSeen] of this.activeUsers.entries()) {
+          if (now - lastSeen > 60000) this.activeUsers.delete(key);
+        }
+        return Response.json({ count: Math.max(1, this.activeUsers.size) });
       }
       if (path === "/status") {
         const state = await this.core.status();

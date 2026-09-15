@@ -16,7 +16,7 @@ export interface ReserveOptions { readonly declaredBytes?: number; readonly ttlS
  * outage, and masking it preserves successful results.
  */
 export interface WithBudgetOptions extends ReserveOptions { readonly strictCommit?: boolean; }
-export interface BudgetGate { status(): Promise<any>; activateEmergency(command: any): Promise<void>; reserve(operation: Operation, opts?: ReserveOptions): Promise<BudgetCapability>; commit(permit: BudgetCapability): Promise<void>; release(permit: BudgetCapability): Promise<void>; reset(): Promise<void>; }
+export interface BudgetGate { status(): Promise<any>; activateEmergency(command: any): Promise<void>; reserve(operation: Operation, opts?: ReserveOptions): Promise<BudgetCapability>; commit(permit: BudgetCapability): Promise<void>; release(permit: BudgetCapability): Promise<void>; reset(): Promise<void>; live(clientId: string): Promise<number>; }
 export class LocalValidationError extends Error { readonly providerCallStarted = false; }
 export class ProviderOperationError extends Error { readonly providerCallStarted: boolean; constructor(message: string, providerCallStarted = true) { super(message); this.providerCallStarted = providerCallStarted; } }
 
@@ -72,6 +72,7 @@ export function durableBudgetGate(env: Env, requestId: string): BudgetGate {
     async status() { return (await call("status", {}) as any).status; },
     async activateEmergency(cmd) { await call("emergency", cmd); },
     async reset() { await call("reset", {}); },
+    async live(clientId) { return (await call("live", { clientId }) as any).count; },
     async reserve(operation, opts) {
       const permitId = crypto.randomUUID();
       const payload = BudgetReserveRequest.parse({ permitId, operation, ...(opts?.declaredBytes !== undefined ? { declaredBytes: opts.declaredBytes } : {}), ...(opts?.ttlSeconds !== undefined ? { ttlSeconds: opts.ttlSeconds } : {}) });
