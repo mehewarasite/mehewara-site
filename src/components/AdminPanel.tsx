@@ -295,9 +295,9 @@ export default function AdminPanel({
 
         <div className="flex items-center gap-3">
           <div className="hidden md:flex items-center gap-4 mr-4 text-xs font-semibold">
-            <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-lg">
-              <Globe className="w-3.5 h-3.5" />
-              Live: {activeUsersCount} {activeUsersCount === 1 ? 'user' : 'users'}
+            <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0">
+              <Globe className="w-3.5 h-3.5 shrink-0" />
+              Live: {activeUsersCount}
             </div>
             <div className={`flex items-center gap-3 px-3 py-1.5 rounded-lg ${isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
               <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" /> {olSubjects} O/L</span>

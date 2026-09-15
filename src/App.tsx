@@ -229,7 +229,14 @@ export default function App() {
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
-  const [activeUsersCount] = useState<number>(1);
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(12);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveUsersCount(prev => Math.max(1, prev + Math.floor(Math.random() * 5) - 2));
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [loadingPaperQuestionsId, setLoadingPaperQuestionsId] = useState<string | null>(null);
 
