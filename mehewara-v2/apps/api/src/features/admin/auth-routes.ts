@@ -27,58 +27,130 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
   const db = deps.db;
   const trimmed = body.username.trim();
 
-  // Look up user by username or email (case-insensitive, or 'admin' alias for super-admin)
-  const user = await db.prepare(
-    "SELECT id, username, name, email, password_hash, role, status FROM admin_users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR (? = 'admin' AND role = 'super-admin')"
-  ).bind(trimmed, trimmed, trimmed).first() as {
-    id: string;
-    username: string;
-    name?: string;
-    email: string;
-    password_hash: string;
-    role: string;
-    status: string;
-  } | null;
-
-  if (user) {
-    if (user.status === "suspended") {
-      throw new HttpError("FORBIDDEN", 403, "Account is suspended. Please contact administrator.");
+  // Ensure admin_users table exists (migrations may not have been applied yet)
+  let tableExists = true;
+  try {
+    await db.prepare("SELECT 1 FROM admin_users LIMIT 1").first();
+  } catch (err: any) {
+    const msg = String(err?.message || err || "");
+    if (msg.includes("no such table") || msg.includes("D1_ERROR")) {
+      tableExists = false;
+      console.error("admin_users table does not exist. D1 migrations need to be applied.");
+    } else {
+      console.error("Database error during login:", msg);
+      throw new HttpError("INTERNAL_ERROR", 500, "Database is temporarily unavailable. Please try again later.");
     }
-
-    const isValid = await verifyPassword(body.password, user.password_hash);
-    if (!isValid) {
-      throw new HttpError("UNAUTHORIZED", 401, "Invalid username or password");
-    }
-
-    const userName = user.name || user.username;
-    const token = await signJwt(
-      { sub: user.id, username: user.username, name: userName, email: user.email, role: user.role },
-      deps.context.access.adminSecret,
-      24 * 60 * 60 * 1000 // 24 hours
-    );
-
-    return Response.json({
-      token,
-      role: user.role,
-      user: {
-        id: user.id,
-        username: user.username,
-        name: userName,
-        email: user.email,
-        role: user.role,
-      },
-    });
   }
 
-  // Fallback for bootstrap / initial configuration if no users exist
-  const countRow = await db.prepare("SELECT COUNT(*) as count FROM admin_users").first() as { count: number } | null;
-  const totalUsers = countRow?.count ?? 0;
+  if (tableExists) {
+    // Look up user by username or email (case-insensitive, or 'admin' alias for super-admin)
+    const user = await db.prepare(
+      "SELECT id, username, name, email, password_hash, role, status FROM admin_users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR (? = 'admin' AND role = 'super-admin')"
+    ).bind(trimmed, trimmed, trimmed).first() as {
+      id: string;
+      username: string;
+      name?: string;
+      email: string;
+      password_hash: string;
+      role: string;
+      status: string;
+    } | null;
 
-  if (totalUsers === 0) {
-    // If no admin users exist yet and credentials match static adminSecret/superAdminSecret or initial bootstrap
+    if (user) {
+      if (user.status === "suspended") {
+        throw new HttpError("FORBIDDEN", 403, "Account is suspended. Please contact administrator.");
+      }
+
+      const isValid = await verifyPassword(body.password, user.password_hash);
+      if (!isValid) {
+        throw new HttpError("UNAUTHORIZED", 401, "Invalid username or password");
+      }
+
+      const userName = user.name || user.username;
+      const token = await signJwt(
+        { sub: user.id, username: user.username, name: userName, email: user.email, role: user.role },
+        deps.context.access.adminSecret,
+        24 * 60 * 60 * 1000 // 24 hours
+      );
+
+      return Response.json({
+        token,
+        role: user.role,
+        user: {
+          id: user.id,
+          username: user.username,
+          name: userName,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    }
+
+    // Fallback for bootstrap / initial configuration if no users exist
+    const countRow = await db.prepare("SELECT COUNT(*) as count FROM admin_users").first() as { count: number } | null;
+    const totalUsers = countRow?.count ?? 0;
+
+    if (totalUsers === 0) {
+      // If no admin users exist yet and credentials match static adminSecret/superAdminSecret or initial bootstrap
+      if (body.password === deps.context.access.superAdminSecret || body.password === deps.context.access.adminSecret) {
+        const isSuper = body.password === deps.context.access.superAdminSecret;
+        const role = isSuper ? "super-admin" : "admin";
+        const id = crypto.randomUUID();
+        const hash = await hashPassword(body.password);
+        const email = `${trimmed}@mehewara.edu.lk`;
+
+        try {
+          await db.prepare(
+            "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
+          ).bind(id, trimmed, trimmed, email, hash, role).run();
+        } catch (err) {
+          console.error("Failed to bootstrap first admin user:", err);
+        }
+
+        const token = await signJwt(
+          { sub: id, username: trimmed, name: trimmed, email, role },
+          deps.context.access.adminSecret,
+          24 * 60 * 60 * 1000
+        );
+
+        return Response.json({
+          token,
+          role,
+          user: { id, username: trimmed, name: trimmed, email, role },
+        });
+      }
+    }
+  } else {
+    // Table doesn't exist — try bootstrap with static secrets only
     if (body.password === deps.context.access.superAdminSecret || body.password === deps.context.access.adminSecret) {
       const isSuper = body.password === deps.context.access.superAdminSecret;
       const role = isSuper ? "super-admin" : "admin";
+      // Create admin_users table on the fly
+      try {
+        await db.prepare(`CREATE TABLE IF NOT EXISTS admin_users (
+          id TEXT PRIMARY KEY,
+          username TEXT NOT NULL UNIQUE,
+          name TEXT,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'admin',
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        )`).run();
+        await db.prepare(`CREATE TABLE IF NOT EXISTS admin_otp (
+          id TEXT PRIMARY KEY,
+          admin_user_id TEXT NOT NULL,
+          otp_hash TEXT NOT NULL,
+          purpose TEXT NOT NULL DEFAULT 'password_reset',
+          expires_at TEXT NOT NULL,
+          used INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now'))
+        )`).run();
+      } catch (createErr) {
+        console.error("Failed to auto-create admin tables:", createErr);
+      }
+
       const id = crypto.randomUUID();
       const hash = await hashPassword(body.password);
       const email = `${trimmed}@mehewara.edu.lk`;
@@ -87,8 +159,8 @@ export async function loginRoute(request: Request, deps: AdminDeps): Promise<Res
         await db.prepare(
           "INSERT INTO admin_users (id, username, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
         ).bind(id, trimmed, trimmed, email, hash, role).run();
-      } catch (err) {
-        console.error("Failed to bootstrap first admin user:", err);
+      } catch (insertErr) {
+        console.error("Failed to bootstrap admin user after table creation:", insertErr);
       }
 
       const token = await signJwt(
