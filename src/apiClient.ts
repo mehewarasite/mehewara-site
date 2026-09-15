@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const DEFAULT_BASE_URL = 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
-const FALLBACK_BASE_URL = 'https://mehewara-v2-api-production.induwaradahamjith2004.workers.dev';
+const DEFAULT_BASE_URL = 'https://mehewara-v2-api-production.mehewara-site.workers.dev';
+const FALLBACK_BASE_URL = 'https://mehewara-v2-api-production.mehewara-site.workers.dev';
 
 // In development, route through Vite proxy (/api/v1) to avoid Cloudflare Worker CORS restrictions.
 // In production (or if VITE_DIRECT_API is set), use the configured or default base URL.
