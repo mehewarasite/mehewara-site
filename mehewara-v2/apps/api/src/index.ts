@@ -105,7 +105,6 @@ export default {
           db: d1,
           resendApiKey: env.RESEND_API_KEY,
           resendFromEmail: env.RESEND_FROM_EMAIL,
-          b2: getB2(),
         });
       }
       else if (url.pathname === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2: getB2(), context }); }
