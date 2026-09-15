@@ -108,7 +108,11 @@ jobs:
           if [[ "${{ needs.setup.outputs.environment }}" == "production" ]]; then
             PAGES_BRANCH="main"
           else
-            PAGES_BRANCH="preview"
+            # For preview environments, use the actual branch name so Cloudflare Pages 
+            # generates a URL like https://branch-name.mehewara-site.pages.dev
+            PAGES_BRANCH="${{ github.ref_name }}"
+            # Fallback if github.ref_name is somehow empty
+            if [[ -z "$PAGES_BRANCH" ]]; then PAGES_BRANCH="preview"; fi
           fi
           npx --yes wrangler pages deploy apps/web/dist \
             --project-name "$CLOUDFLARE_PAGES_PROJECT_NAME" \
