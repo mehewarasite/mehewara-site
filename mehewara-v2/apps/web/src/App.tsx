@@ -228,6 +228,7 @@ export default function App() {
   const [showGallery, setShowGallery] = useState<boolean>(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
+  const [aboutData, setAboutData] = useState<any>(null);
   const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
 
   React.useEffect(() => {
