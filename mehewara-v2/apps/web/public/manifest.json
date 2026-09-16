@@ -1,0 +1,17 @@
+{
+  "name": "මෙහෙවර",
+  "short_name": "Mehewara",
+  "description": "ශ්‍රී ලංකා O/L හා A/L විභාග ප්‍රශ්න පත්‍ර සිංහලෙන් නොමිලේ පුහුණු වන්න.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030304",
+  "theme_color": "#030304",
+  "icons": [
+    {
+      "src": "/image/favicon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

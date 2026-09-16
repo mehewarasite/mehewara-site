@@ -19,7 +19,11 @@ export async function getPublicManifest() {
     cachedManifest = res.data.manifest;
     return cachedManifest;
   }).catch(err => {
-    console.error("Failed to load publication snapshot from Backblaze B2:", err);
+    if (err?.response?.status === 404 || err?.response?.status === 503) {
+      console.warn("Public publication snapshot not yet published or available:", err?.response?.data?.error?.message || err?.message);
+    } else {
+      console.warn("Failed to load publication snapshot:", err?.message || err);
+    }
     manifestFetchPromise = null;
     return null;
   });

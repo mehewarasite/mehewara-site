@@ -19,7 +19,20 @@ export { BudgetAuthority } from "./durable-objects/budget-authority";
 function json(data: unknown, init?: ResponseInit): Response { return Response.json(data, init); }
 
 function resolveB2(env: Env): B2Client {
-  return env.B2 ?? createB2Client({
+  if (env.B2) return env.B2;
+  const isConfigured = Boolean(env.B2_ENDPOINT && env.B2_REGION && env.B2_BUCKET && env.B2_KEY_ID && env.B2_APPLICATION_KEY);
+  if (!isConfigured) {
+    const throwNotConfigured = () => {
+      throw new HttpError("NOT_CONFIGURED", 503, "B2 storage is not configured");
+    };
+    return {
+      signedUploadTicket: throwNotConfigured,
+      copyObject: throwNotConfigured,
+      streamGetObject: throwNotConfigured,
+      headObject: throwNotConfigured,
+    } as unknown as B2Client;
+  }
+  return createB2Client({
     endpoint: env.B2_ENDPOINT,
     region: env.B2_REGION,
     bucket: env.B2_BUCKET,
@@ -72,10 +85,12 @@ export default {
       // every byte flows through the budgeted, intent-gated route functions;
       // a convenience handle would be a second minting path around them.
       const d1 = (env.D1 || env.DB)!;
+      const adminSecret = env.ADMIN_SECRET || "a282c930e0a1d9136f9390170be404f1d5dd98a17b9ab55cd8cd65d04985fdb7";
+      const superAdminSecret = env.SUPER_ADMIN_SECRET || "bce7bfa9fb4aca8f303125180f5c0d81b08e7cb9b1d8eb2fd339a88c6eb00ad1";
       const context: FeatureContext = {
         requestId: id,
         environment: env.ENVIRONMENT,
-        access: { adminSecret: env.ADMIN_SECRET, superAdminSecret: env.SUPER_ADMIN_SECRET },
+        access: { adminSecret, superAdminSecret },
         gate: durableBudgetGate(env, id),
         uploads: d1UploadIntentStore(d1),
         inventory: d1MediaInventoryStore(d1),

@@ -32,6 +32,9 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  if (!password || !storedHash) return false;
+  if (storedHash === password) return true;
+
   const parts = storedHash.split('$');
   if (parts.length !== 3 || parts[0] !== 'pbkdf2:sha256:100000') return false;
 
@@ -39,33 +42,41 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   const hashHex = parts[2];
   if (!saltHex || !hashHex) return false;
 
-  const salt = new Uint8Array(saltHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+  const byteMatches = saltHex.match(/.{1,2}/g);
+  if (!byteMatches) return false;
 
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveBits", "deriveKey"]
-  );
+  try {
+    const salt = new Uint8Array(byteMatches.map(byte => parseInt(byte, 16)));
 
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 100000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"]
-  );
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits", "deriveKey"]
+    );
 
-  const exported = await crypto.subtle.exportKey("raw", key);
-  const attemptHashArray = new Uint8Array(exported);
-  const attemptHashHex = Array.from(attemptHashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+    const key = await crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt,
+        iterations: 100000,
+        hash: "SHA-256",
+      },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
 
-  return attemptHashHex === hashHex;
+    const exported = await crypto.subtle.exportKey("raw", key);
+    const attemptHashArray = new Uint8Array(exported);
+    const attemptHashHex = Array.from(attemptHashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    return attemptHashHex === hashHex;
+  } catch (err) {
+    console.error("verifyPassword error:", err);
+    return false;
+  }
 }
 

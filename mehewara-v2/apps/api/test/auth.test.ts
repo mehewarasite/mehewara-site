@@ -54,4 +54,15 @@ describe("auth seam (Bearer Tokens)", () => {
     const wrongToken = new Request("https://api/", { headers: { "Authorization": "Bearer not-the-secret" } });
     await expect(requireAdmin(wrongToken, config)).rejects.toMatchObject({ status: 401 });
   });
+
+  it("signs and verifies JWT tokens containing Unicode / Sinhala characters without error", async () => {
+    const { signJwt, verifyJwt } = await import("../src/shared/jwt");
+    const unicodePayload = { sub: "admin-1", username: "admin", name: "පාලක පරිශීලක", email: "admin@mehewara.edu.lk", role: "admin" };
+    const token = await signJwt(unicodePayload, "secret-admin", 60 * 1000);
+    expect(typeof token).toBe("string");
+    const decoded = await verifyJwt<typeof unicodePayload>(token, "secret-admin");
+    expect(decoded?.name).toBe("පාලක පරිශීලක");
+    expect(decoded?.sub).toBe("admin-1");
+  });
 });
+

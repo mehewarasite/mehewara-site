@@ -449,13 +449,14 @@ export default function App() {
     setIsSyncing(true);
     clearPublicManifestCache();
     try {
+      const onAdmin = isAdminPath() || showAdminPanel || showAdminLogin;
       const isAdminView = showAdminPanel || Boolean(localStorage.getItem('adminToken') && isAdminPath());
       const [remoteSubjects, remotePapers, remoteQuestions, remoteAbout, remoteGallery] = await Promise.all([
-        isAdminView ? adminLoadSubjects() : dbLoadSubjects(),
-        isAdminView ? adminLoadPapers() : dbLoadPapers(),
-        dbLoadQuestions(),
-        isAdminView ? adminLoadAboutUs() : dbLoadAboutUs(),
-        isAdminView ? adminLoadGallery() : dbLoadGallery(),
+        isAdminView ? adminLoadSubjects() : onAdmin ? Promise.resolve([]) : dbLoadSubjects(),
+        isAdminView ? adminLoadPapers() : onAdmin ? Promise.resolve([]) : dbLoadPapers(),
+        isAdminView || onAdmin ? Promise.resolve([]) : dbLoadQuestions(),
+        isAdminView ? adminLoadAboutUs() : onAdmin ? Promise.resolve(null) : dbLoadAboutUs(),
+        isAdminView ? adminLoadGallery() : onAdmin ? Promise.resolve([]) : dbLoadGallery(),
       ]);
 
       if (remoteGallery) {
