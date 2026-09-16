@@ -195,4 +195,36 @@ describe("BudgetAuthorityCore", () => {
     await reader.commit({ permitId: "permit-artifact-1", providerCallStarted: true });
     expect((await reader.status()).resources.b2Bytes.committed).toBe(123_456);
   });
+
+  it("tracks unique live users via BudgetAuthority fetch /live and handles missing SQLite gracefully", async () => {
+    const { BudgetAuthority } = await import("../src/durable-objects/budget-authority");
+    const mockState = {
+      storage: {}
+    } as unknown as DurableObjectState;
+    const authority = new BudgetAuthority(mockState);
+
+    const res1 = await authority.fetch(new Request("https://budget.internal/live", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: "client-a" }),
+    }));
+    const data1 = await res1.json() as any;
+    expect(data1.count).toBe(1);
+
+    const res2 = await authority.fetch(new Request("https://budget.internal/live", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: "client-b" }),
+    }));
+    const data2 = await res2.json() as any;
+    expect(data2.count).toBe(2);
+
+    const res3 = await authority.fetch(new Request("https://budget.internal/live", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: "client-a" }),
+    }));
+    const data3 = await res3.json() as any;
+    expect(data3.count).toBe(2);
+  });
 });

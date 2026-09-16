@@ -232,8 +232,22 @@ export default function App() {
   const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
 
   React.useEffect(() => {
-    // Generate a session ID for this browser tab to track unique live connections
-    const clientId = crypto.randomUUID();
+    // Generate or retrieve a persistent session ID for this browser tab
+    let clientId: string;
+    try {
+      clientId = sessionStorage.getItem('mehewara_client_id') || '';
+      if (!clientId) {
+        clientId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        sessionStorage.setItem('mehewara_client_id', clientId);
+      }
+    } catch {
+      clientId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
     let isMounted = true;
     
     const pingLiveUsers = async () => {

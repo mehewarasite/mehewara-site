@@ -8,14 +8,26 @@ export class BudgetAuthority implements DurableObject {
   constructor(private readonly ctx: DurableObjectState) {
     const persistence: BudgetPersistence = {
       async load() {
-        const row = [...ctx.storage.sql.exec<{ state_json: string }>("SELECT state_json FROM budget_authority_state WHERE singleton = 1")][0];
-        return row ? JSON.parse(row.state_json) : null;
+        if (!ctx.storage?.sql) return null;
+        try {
+          const row = [...ctx.storage.sql.exec<{ state_json: string }>("SELECT state_json FROM budget_authority_state WHERE singleton = 1")][0];
+          return row ? JSON.parse(row.state_json) : null;
+        } catch {
+          return null;
+        }
       },
       async save(state) {
-        ctx.storage.sql.exec("INSERT INTO budget_authority_state(singleton, state_json) VALUES(1, ?) ON CONFLICT(singleton) DO UPDATE SET state_json = excluded.state_json", JSON.stringify(state));
+        if (!ctx.storage?.sql) return;
+        try {
+          ctx.storage.sql.exec("INSERT INTO budget_authority_state(singleton, state_json) VALUES(1, ?) ON CONFLICT(singleton) DO UPDATE SET state_json = excluded.state_json", JSON.stringify(state));
+        } catch {}
       }
     };
-    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS budget_authority_state (singleton INTEGER PRIMARY KEY CHECK(singleton = 1), state_json TEXT NOT NULL)");
+    if (ctx.storage?.sql) {
+      try {
+        ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS budget_authority_state (singleton INTEGER PRIMARY KEY CHECK(singleton = 1), state_json TEXT NOT NULL)");
+      } catch {}
+    }
     this.core = new BudgetAuthorityCore(persistence);
   }
 
@@ -31,12 +43,15 @@ export class BudgetAuthority implements DurableObject {
       if (path === "/release") { await this.core.release(body); return Response.json({ ok: true }); }
       if (path === "/emergency") { await this.core.activateEmergency(body as any); return Response.json({ ok: true }); }
       if (path === "/reset") {
-        this.ctx.storage.sql.exec("DELETE FROM budget_authority_state");
+        if (this.ctx.storage?.sql) {
+          try { this.ctx.storage.sql.exec("DELETE FROM budget_authority_state"); } catch {}
+        }
         await this.core.resetCounters();
         return Response.json({ ok: true, message: "Budget authority counters reset" });
       }
       if (path === "/live") {
-        const { clientId } = body as { clientId: string };
+        const payload = (body && typeof body === "object") ? (body as { clientId?: string }) : {};
+        const clientId = payload.clientId || requestId;
         const now = Date.now();
         if (clientId) this.activeUsers.set(clientId, now);
         // Prune users older than 60 seconds

@@ -61,8 +61,9 @@ export async function withBudget<T>(gate: BudgetGate, operation: Operation, call
 
 const PermitResponse = z.object({ permit: BudgetPermit }).strict();
 export function durableBudgetGate(env: Env, requestId: string): BudgetGate {
-  const stub = env.BUDGET_AUTHORITY.get(env.BUDGET_AUTHORITY.idFromName("global"));
+  const stub = env.BUDGET_AUTHORITY ? env.BUDGET_AUTHORITY.get(env.BUDGET_AUTHORITY.idFromName("global")) : null;
   const call = async (action: "reserve" | "commit" | "release" | "status" | "emergency" | "reset" | "live", payload: unknown): Promise<unknown> => {
+    if (!stub) throw new HttpError("INTERNAL_ERROR", 503, "Budget authority is unavailable");
     const response = await stub.fetch(`https://budget.internal/${action}`, { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": requestId }, body: JSON.stringify(payload) });
     let body: unknown; try { body = await response.json(); } catch { throw new HttpError("INTERNAL_ERROR", 503, "Budget authority is unavailable"); }
     if (!response.ok) { const error = body as { error?: { code?: string; message?: string } }; throw new HttpError(error.error?.code === "BUDGET_EXCEEDED" ? "BUDGET_EXCEEDED" : "INTERNAL_ERROR", response.status >= 500 ? 503 : response.status, error.error?.message ?? "Budget request rejected"); }
@@ -72,7 +73,17 @@ export function durableBudgetGate(env: Env, requestId: string): BudgetGate {
     async status() { return (await call("status", {}) as any).status; },
     async activateEmergency(cmd) { await call("emergency", cmd); },
     async reset() { await call("reset", {}); },
-    async live(clientId) { return (await call("live", { clientId }) as any).count; },
+    async live(clientId) {
+      if (stub) {
+        try {
+          const res = await call("live", { clientId }) as any;
+          if (typeof res?.count === "number") return res.count;
+        } catch (err) {
+          console.warn("Budget authority live call failed:", err);
+        }
+      }
+      return 1;
+    },
     async reserve(operation, opts) {
       const permitId = crypto.randomUUID();
       const payload = BudgetReserveRequest.parse({ permitId, operation, ...(opts?.declaredBytes !== undefined ? { declaredBytes: opts.declaredBytes } : {}), ...(opts?.ttlSeconds !== undefined ? { ttlSeconds: opts.ttlSeconds } : {}) });

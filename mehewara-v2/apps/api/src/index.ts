@@ -41,6 +41,24 @@ function resolveB2(env: Env): B2Client {
   });
 }
 
+async function trackLiveUserD1(db: D1Database, clientId: string): Promise<number> {
+  const now = Date.now();
+  try {
+    await db.prepare(
+      "CREATE TABLE IF NOT EXISTS active_visitors (id TEXT PRIMARY KEY, last_seen INTEGER NOT NULL)"
+    ).run();
+    await db.prepare(
+      "INSERT INTO active_visitors (id, last_seen) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen"
+    ).bind(clientId, now).run();
+    await db.prepare("DELETE FROM active_visitors WHERE last_seen < ?").bind(now - 60000).run();
+    const row = await db.prepare("SELECT COUNT(*) as count FROM active_visitors").first() as { count: number } | null;
+    return Math.max(1, row?.count ?? 1);
+  } catch (err) {
+    console.warn("D1 trackLiveUser error:", err);
+    return 1;
+  }
+}
+
 function withRequestHeaders(response: Response, corsHeaders: Headers, requestIdValue: string, isHead = false): Response {
   const headers = new Headers(response.headers);
   for (const [key, value] of corsHeaders) headers.set(key, value);
@@ -99,21 +117,38 @@ export default {
         imports: d1ImportStore(d1),
       };
       let response: Response;
-      if (url.pathname === "/api/v1/health") { requireMethod(request, "GET"); response = json({ ok: true, service: "mehewara-v2-api", environment: context.environment, requestId: id }); }
-      else if (url.pathname === "/api/v1/status") { requireMethod(request, "GET"); response = json({ status: "operational", publication: "snapshot-only", requestId: id }); }
-      else if (url.pathname === "/api/v1/live") { 
+      const path = url.pathname.replace(/\/+$/, "") || "/";
+      if (path === "/api/v1/health" || path === "/health") { requireMethod(request, "GET"); response = json({ ok: true, service: "mehewara-v2-api", environment: context.environment, requestId: id }); }
+      else if (path === "/api/v1/status" || path === "/status") { requireMethod(request, "GET"); response = json({ status: "operational", publication: "snapshot-only", requestId: id }); }
+      else if (path === "/api/v1/live" || path === "/live") { 
         requireMethod(request, "GET", "POST"); 
-        let clientId = id;
-        try { if (request.method === "POST") clientId = ((await request.clone().json()) as any).clientId || id; } catch {}
-        response = json({ count: await context.gate.live(clientId) }); 
+        let clientId = url.searchParams.get("clientId") || id;
+        if (request.method === "POST") {
+          try {
+            const body = await request.clone().json() as any;
+            if (body && typeof body.clientId === "string" && body.clientId.trim()) {
+              clientId = body.clientId.trim();
+            }
+          } catch {}
+        }
+        let count = 1;
+        try {
+          count = await context.gate.live(clientId);
+        } catch {}
+        if (count <= 1 && d1) {
+          try {
+            count = await trackLiveUserD1(d1, clientId);
+          } catch {}
+        }
+        response = json({ count: Math.max(1, count) }); 
       }
-      else if (url.pathname === "/api/v1/publication/current") { requireMethod(request, "GET"); response = await publicationRoute(request, context, { b2: getB2(), store: context.publications }); }
-      else if (url.pathname === "/api/v1/admin/content") { requireMethod(request, "POST", "PUT", "PATCH", "DELETE"); throw new HttpError("GONE", 410, "Use /api/v1/admin/<resource>[/<id>[/state]]"); }
-      else if (url.pathname === "/api/v1/admin/export") { requireMethod(request, "GET"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
-      else if (url.pathname === "/api/v1/admin/import") { requireMethod(request, "POST"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
-      else if (url.pathname === "/api/v1/admin/publications/build") { requireMethod(request, "POST"); response = await buildPublicationRoute(request, { b2: getB2(), context, store: context.publications }); }
-      else if (url.pathname === "/api/v1/admin/publications/rollback") { requireMethod(request, "POST"); response = await rollbackPublicationRoute(request, { context, store: context.publications }); }
-      else if (url.pathname.startsWith("/api/v1/admin/")) {
+      else if (path === "/api/v1/publication/current" || path === "/publication/current") { requireMethod(request, "GET"); response = await publicationRoute(request, context, { b2: getB2(), store: context.publications }); }
+      else if (path === "/api/v1/admin/content") { requireMethod(request, "POST", "PUT", "PATCH", "DELETE"); throw new HttpError("GONE", 410, "Use /api/v1/admin/<resource>[/<id>[/state]]"); }
+      else if (path === "/api/v1/admin/export") { requireMethod(request, "GET"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
+      else if (path === "/api/v1/admin/import") { requireMethod(request, "POST"); response = await importExportRouter(request, { context, store: context.imports, inventory: context.inventory }); }
+      else if (path === "/api/v1/admin/publications/build") { requireMethod(request, "POST"); response = await buildPublicationRoute(request, { b2: getB2(), context, store: context.publications }); }
+      else if (path === "/api/v1/admin/publications/rollback") { requireMethod(request, "POST"); response = await rollbackPublicationRoute(request, { context, store: context.publications }); }
+      else if (path.startsWith("/api/v1/admin/")) {
         response = await adminRouter(request, {
           context,
           store: context.admin,
@@ -122,9 +157,9 @@ export default {
           resendFromEmail: env.RESEND_FROM_EMAIL,
         });
       }
-      else if (url.pathname === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2: getB2(), context }); }
-      else if (url.pathname === "/api/v1/media/upload-confirm") { requireMethod(request, "POST"); response = await confirmUploadHttpRoute(request, { b2: getB2(), context }); }
-      else if (url.pathname.startsWith("/api/v1/media/")) { requireMethod(request, "GET", "HEAD"); const objectKey = decodeURIComponent(url.pathname.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2: getB2(), objectKey, context }); }
+      else if (path === "/api/v1/media/upload-ticket") { requireMethod(request, "POST"); response = await signedUploadHttpRoute(request, { b2: getB2(), context }); }
+      else if (path === "/api/v1/media/upload-confirm") { requireMethod(request, "POST"); response = await confirmUploadHttpRoute(request, { b2: getB2(), context }); }
+      else if (path.startsWith("/api/v1/media/")) { requireMethod(request, "GET", "HEAD"); const objectKey = decodeURIComponent(path.slice("/api/v1/media/".length)); response = await mediaStreamRoute(request, { b2: getB2(), objectKey, context }); }
       else throw new HttpError("NOT_FOUND", 404, "Route not found");
       return withRequestHeaders(response, corsHeaders, id, request.method === "HEAD");
     } catch (error) {

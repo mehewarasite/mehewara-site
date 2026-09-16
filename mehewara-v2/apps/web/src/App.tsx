@@ -228,8 +228,49 @@ export default function App() {
   const [showGallery, setShowGallery] = useState<boolean>(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
-  const [aboutData, setAboutData] = useState<any>(null);
-  const [activeUsersCount] = useState<number>(1);
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
+
+  React.useEffect(() => {
+    // Generate or retrieve a persistent session ID for this browser tab
+    let clientId: string;
+    try {
+      clientId = sessionStorage.getItem('mehewara_client_id') || '';
+      if (!clientId) {
+        clientId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        sessionStorage.setItem('mehewara_client_id', clientId);
+      }
+    } catch {
+      clientId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    let isMounted = true;
+    
+    const pingLiveUsers = async () => {
+      try {
+        const { publicApi } = await import('./apiClient');
+        const res = await publicApi.post('/live', { clientId });
+        if (isMounted && res.data && typeof res.data.count === 'number') {
+          setActiveUsersCount(res.data.count);
+        }
+      } catch (err) {
+        // Silently fail if the live counter endpoint is temporarily unreachable
+      }
+    };
+
+    // Initial ping
+    pingLiveUsers();
+    
+    // Poll every 15 seconds
+    const interval = setInterval(pingLiveUsers, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const [loadingPaperQuestionsId, setLoadingPaperQuestionsId] = useState<string | null>(null);
 
