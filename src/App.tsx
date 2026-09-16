@@ -33,6 +33,7 @@ import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
 import HeroSlideshow from './components/HeroSlideshow';
 import SiteEntryGate from './components/SiteEntryGate';
+import LiveCounterBadge from './components/LiveCounterBadge';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const AdminLogin = React.lazy(() => import('./components/AdminLogin'));
@@ -229,7 +230,16 @@ export default function App() {
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [galleryLoading, setGalleryLoading] = useState<boolean>(false);
   const [aboutData, setAboutData] = useState<any>(null);
-  const [activeUsersCount, setActiveUsersCount] = useState<number>(1);
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('mehewara_last_active_count');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    } catch {}
+    return 1;
+  });
 
   React.useEffect(() => {
     // Generate or retrieve a persistent client ID for this browser
@@ -1177,6 +1187,10 @@ export default function App() {
                 <span className="text-[10px] font-semibold text-sky-400 hidden sm:inline">Syncing</span>
               </div>
             )}
+
+            {/* LIVE USER COUNTER */}
+            <LiveCounterBadge count={activeUsersCount} variant="header" />
+
             {/* THEME TOGGLE BUTTON */}
             <button
               onClick={toggleTheme}

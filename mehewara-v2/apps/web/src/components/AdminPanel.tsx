@@ -18,7 +18,6 @@ import {
   LayoutGrid,
   Images,
   Activity,
-  Globe,
   HelpCircle,
   X,
   Plus,
@@ -37,6 +36,7 @@ import {
 import { Subject, Paper, Question } from '../types';
 import { useTheme } from '../ThemeContext';
 import { dbAdminGetMe, dbAdminChangePassword, dbAdminForgotPasswordRequest } from '../api';
+import LiveCounterBadge from './LiveCounterBadge';
 
 // --- Import new sub-components ---
 import GalleryTab from './admin/GalleryTab';
@@ -295,10 +295,7 @@ export default function AdminPanel({
 
         <div className="flex items-center gap-3">
           <div className="hidden md:flex items-center gap-4 mr-4 text-xs font-semibold">
-            <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-lg">
-              <Globe className="w-3.5 h-3.5" />
-              Live: {activeUsersCount} {activeUsersCount === 1 ? 'user' : 'users'}
-            </div>
+            <LiveCounterBadge count={activeUsersCount} variant="compact" />
             <div className={`flex items-center gap-3 px-3 py-1.5 rounded-lg ${isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
               <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" /> {olSubjects} O/L</span>
               <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" /> {alSubjects} A/L</span>

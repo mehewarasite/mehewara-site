@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart2, TrendingUp, Activity, Globe, HelpCircle, Database, HardDrive, RefreshCw, FileText, BookOpen } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
+import LiveCounterBadge from '../LiveCounterBadge';
 
 import type { AdminThemeClasses } from './types';
 
@@ -157,11 +158,14 @@ export default function StatsTab({ theme, subjects, papers, questions, activeUse
             </div>
             <div>
               <div className="flex items-center gap-1.5 text-emerald-500 font-bold text-xs mb-1 relative z-10">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                </span>
                 ACTIVE USERS
               </div>
               <h2 className={`text-3xl md:text-4xl font-black ${textPrimary} font-display tracking-tighter relative z-10`}>
-                {activeUsersCount}
+                <LiveCounterBadge count={activeUsersCount} variant="card" />
               </h2>
             </div>
             <p className={`text-[10px] ${textMuted} mt-2 relative z-10`}>Real-time sessions</p>
