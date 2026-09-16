@@ -50,7 +50,8 @@ async function trackLiveUserD1(db: D1Database, clientId: string): Promise<number
     await db.prepare(
       "INSERT INTO active_visitors (id, last_seen) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen"
     ).bind(clientId, now).run();
-    await db.prepare("DELETE FROM active_visitors WHERE last_seen < ?").bind(now - 60000).run();
+    // Prune entries older than 45 seconds
+    await db.prepare("DELETE FROM active_visitors WHERE last_seen < ?").bind(now - 45000).run();
     const row = await db.prepare("SELECT COUNT(*) as count FROM active_visitors").first() as { count: number } | null;
     return Math.max(1, row?.count ?? 1);
   } catch (err) {

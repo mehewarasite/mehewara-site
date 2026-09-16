@@ -54,9 +54,9 @@ export class BudgetAuthority implements DurableObject {
         const clientId = payload.clientId || requestId;
         const now = Date.now();
         if (clientId) this.activeUsers.set(clientId, now);
-        // Prune users older than 60 seconds
+        // Prune users older than 45 seconds
         for (const [key, lastSeen] of this.activeUsers.entries()) {
-          if (now - lastSeen > 60000) this.activeUsers.delete(key);
+          if (now - lastSeen > 45000) this.activeUsers.delete(key);
         }
         return Response.json({ count: Math.max(1, this.activeUsers.size) });
       }
