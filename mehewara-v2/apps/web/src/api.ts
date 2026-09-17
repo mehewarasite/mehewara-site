@@ -445,36 +445,33 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
     console.warn("Could not check subject presence in D1 before deletion:", err);
   }
 
-  // 1. Clean up any dependent papers and questions under this subject
-  try {
-    const papers = await adminLoadPapers();
-    const subjectPapers = papers?.filter(p => (targetId && p.subjectId === targetId) || p.subjectId === subjectId) || [];
-    for (const p of subjectPapers) {
-      await dbDeleteQuestionsByPaper(p.id).catch(() => {});
-      await dbDeleteStudyHtml(p.id).catch(() => {});
-      await dbDeletePaper(p.id).catch(() => {});
-    }
-  } catch (err) {
-    console.warn("Could not clean up papers before deleting subject:", err);
-  }
-
   // If the subject never existed in D1, it was purely local/default. No backend call needed!
   if (!targetId) {
     return;
   }
 
-  // 2. Archive subject first to satisfy backend state guards
+  // 1. Fetch fresh record to obtain current state and updatedAt token
   try {
-    await setPublishState('subject', targetId, 'archived');
+    const res = await api.get(`/admin/subjects/${targetId}`).catch(() => null);
+    if (res?.data && res.data.state === 'published') {
+      await api.post(`/admin/subjects/${targetId}/state`, {
+        entity: 'subject',
+        entityId: targetId,
+        state: 'archived',
+        expectedUpdatedAt: res.data.updatedAt
+      }).catch((e) => {
+        console.warn("Pre-delete subject archive notice:", e?.message);
+      });
+    }
   } catch (err: any) {
     if (err?.response?.status !== 404) {
       console.warn("Could not archive subject before delete:", err);
     }
   }
 
-  // 3. Delete subject from D1
+  // 2. Delete subject from D1 with ?force=true (backend SQL cascades papers, questions, study materials, options)
   try {
-    await api.delete(`/admin/subjects/${targetId}`);
+    await api.delete(`/admin/subjects/${targetId}?force=true`);
   } catch (err: any) {
     if (err?.response?.status === 404) return;
     throw err;
@@ -605,15 +602,28 @@ export async function dbDeletePaper(paperId: string): Promise<void> {
     return;
   }
 
+  // 1. Fetch fresh record to obtain current state and updatedAt token
   try {
-    await setPublishState('paper', targetId, 'archived');
+    const res = await api.get(`/admin/papers/${targetId}`).catch(() => null);
+    if (res?.data && res.data.state === 'published') {
+      await api.post(`/admin/papers/${targetId}/state`, {
+        entity: 'paper',
+        entityId: targetId,
+        state: 'archived',
+        expectedUpdatedAt: res.data.updatedAt
+      }).catch((e) => {
+        console.warn("Pre-delete paper archive notice:", e?.message);
+      });
+    }
   } catch (err: any) {
     if (err?.response?.status !== 404) {
       console.warn("Could not archive paper before delete:", err);
     }
   }
+
+  // 2. Delete paper from D1 with ?force=true (backend SQL cascades questions, options, study materials)
   try {
-    await api.delete(`/admin/papers/${targetId}`);
+    await api.delete(`/admin/papers/${targetId}?force=true`);
   } catch (err: any) {
     if (err?.response?.status === 404) return;
     throw err;

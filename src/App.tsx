@@ -219,7 +219,8 @@ export default function App() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [deletedSubjectIds, setDeletedSubjectIds] = useState<Set<string>>(new Set());
+  const [, setDeletedSubjectIds] = useState<Set<string>>(new Set());
+  const deletedSubjectIdsRef = useRef<Set<string>>(new Set());
   const [papers, setPapers] = useState<Paper[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [attempts, setAttempts] = useState<UserAttempt[]>([]);
@@ -471,6 +472,7 @@ export default function App() {
 
       const storedDeleted = await idbGet('m_deleted_subjects');
       const loadedDeletedIds = new Set<string>(storedDeleted ? JSON.parse(storedDeleted) : []);
+      deletedSubjectIdsRef.current = loadedDeletedIds;
       setDeletedSubjectIds(loadedDeletedIds);
 
       const storedSubjects = await idbGet('m_subjects');
@@ -481,7 +483,7 @@ export default function App() {
         rawSubjects = [...INITIAL_SUBJECTS];
       }
 
-      const deduplicated = deduplicateAndEnrichSubjects(rawSubjects, INITIAL_SUBJECTS, parsedPapers, loadedDeletedIds);
+      const deduplicated = deduplicateAndEnrichSubjects(rawSubjects, storedSubjects ? [] : INITIAL_SUBJECTS, parsedPapers, loadedDeletedIds);
       setSubjects(deduplicated);
       idbSet('m_subjects', JSON.stringify(deduplicated));
 
@@ -535,7 +537,9 @@ export default function App() {
       }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
-        const deduplicated = deduplicateAndEnrichSubjects(remoteSubjects, INITIAL_SUBJECTS, remotePapers || papers, deletedSubjectIds);
+        const storedDeleted = await idbGet('m_deleted_subjects');
+        const activeDeletedIds = new Set<string>(storedDeleted ? JSON.parse(storedDeleted) : Array.from(deletedSubjectIdsRef.current));
+        const deduplicated = deduplicateAndEnrichSubjects(remoteSubjects, [], remotePapers || papers, activeDeletedIds);
         setSubjects(deduplicated);
         idbSet('m_subjects', JSON.stringify(deduplicated));
       }
@@ -644,6 +648,7 @@ export default function App() {
       next.add(subjectId);
       const canonical = canonicalSubjectId(subjectId);
       if (canonical) next.add(canonical);
+      deletedSubjectIdsRef.current = next;
       idbSet('m_deleted_subjects', JSON.stringify(Array.from(next)));
       return next;
     });

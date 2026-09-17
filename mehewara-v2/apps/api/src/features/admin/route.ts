@@ -366,7 +366,14 @@ async function subjectsRoute(request: Request, deps: AdminDeps, id: string | nul
       run: async () => {
         const existing = await store.getSubject(id);
         if (!existing) throw new HttpError("NOT_FOUND", 404, "Subject not found");
-        if (existing.state === "published") throw new HttpError("CONFLICT", 409, "Published subjects cannot be deleted; archive first");
+        const url = new URL(request.url);
+        const force = url.searchParams.get("force") === "true";
+        if (existing.state === "published" && !force) {
+          throw new HttpError("CONFLICT", 409, "Published subjects cannot be deleted; archive first");
+        }
+        if (existing.state === "published" && force) {
+          await store.setSubjectState(id, "archived", existing.updated_at);
+        }
         await store.deleteSubject(id);
         return { status: 200, body: { id, deleted: true }, entityId: id, deleted: true };
       },
@@ -478,7 +485,14 @@ async function papersRoute(request: Request, deps: AdminDeps, id: string | null,
       run: async () => {
         const existing = await store.getPaper(id);
         if (!existing) throw new HttpError("NOT_FOUND", 404, "Paper not found");
-        if (existing.state === "published") throw new HttpError("CONFLICT", 409, "Published papers cannot be deleted; archive first");
+        const url = new URL(request.url);
+        const force = url.searchParams.get("force") === "true";
+        if (existing.state === "published" && !force) {
+          throw new HttpError("CONFLICT", 409, "Published papers cannot be deleted; archive first");
+        }
+        if (existing.state === "published" && force) {
+          await store.setPaperState(id, "archived", existing.updated_at);
+        }
         await store.deletePaper(id);
         return { status: 200, body: { id, deleted: true }, entityId: id, deleted: true };
       },
@@ -670,7 +684,14 @@ async function questionsRoute(request: Request, deps: AdminDeps, id: string | nu
       run: async () => {
         const existing = await store.getQuestion(id);
         if (!existing) throw new HttpError("NOT_FOUND", 404, "Question not found");
-        if (existing.state === "published") throw new HttpError("CONFLICT", 409, "Published questions cannot be deleted; archive first");
+        const url = new URL(request.url);
+        const force = url.searchParams.get("force") === "true";
+        if (existing.state === "published" && !force) {
+          throw new HttpError("CONFLICT", 409, "Published questions cannot be deleted; archive first");
+        }
+        if (existing.state === "published" && force) {
+          await store.setQuestionState(id, "archived", existing.updated_at);
+        }
         await store.deleteQuestion(id);
         return { status: 200, body: { id, deleted: true }, entityId: id, deleted: true };
       },

@@ -220,6 +220,16 @@ describe("admin content CRUD", () => {
     expect((await adminRouter(adminRequest(`/api/v1/admin/subjects/${SUBJ}`, { method: "GET" }), deps)).status).toBe(404);
   });
 
+  it("allows deleting a published subject directly when force=true is provided", async () => {
+    const h = harness();
+    const deps = { context: h.context, store: h.store, verifier: adminVerifier };
+    await adminRouter(adminRequest("/api/v1/admin/subjects", { body: subjectBody() }), deps);
+    await transition(h, "subjects", SUBJ, "published");
+    const forced = await adminRouter(adminRequest(`/api/v1/admin/subjects/${SUBJ}?force=true`, { method: "DELETE" }), deps);
+    expect(forced.status).toBe(200);
+    expect((await adminRouter(adminRequest(`/api/v1/admin/subjects/${SUBJ}`, { method: "GET" }), deps)).status).toBe(404);
+  });
+
   it("replays an idempotency key without re-applying the mutation or audit", async () => {
     const h = harness();
     const deps = { context: h.context, store: h.store, verifier: adminVerifier };
