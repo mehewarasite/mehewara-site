@@ -377,6 +377,10 @@ async function setPublishState(
     });
   } catch (err: any) {
     const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message;
+    if (err.response?.status === 404 && state === 'archived') {
+      console.info(`[State Transition Skipped] ${entity} ${entityId} not found in backend.`);
+      return;
+    }
     console.error(`[State Transition Failed] ${entity} ${entityId} -> ${state}:`, msg);
     throw new Error(`Failed to publish ${entity}: ${msg}`);
   }
@@ -421,10 +425,28 @@ export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
 }
 
 export async function dbDeleteSubject(subjectId: string): Promise<void> {
+  let targetId = subjectId;
+  let existsInD1 = false;
+  try {
+    const existing = await adminLoadSubjects();
+    const canonical = INITIAL_SUBJECTS.find(s => s.id === subjectId || s.code === subjectId);
+    const match = existing?.find(s =>
+      s.id === subjectId ||
+      (s.code && s.code.toLowerCase() === subjectId.toLowerCase()) ||
+      (canonical?.code && s.code && s.code.toLowerCase() === canonical.code.toLowerCase())
+    );
+    if (match) {
+      targetId = match.id;
+      existsInD1 = true;
+    }
+  } catch (err) {
+    console.warn("Could not check subject presence in D1 before deletion:", err);
+  }
+
   // 1. Clean up any dependent papers and questions under this subject
   try {
     const papers = await adminLoadPapers();
-    const subjectPapers = papers?.filter(p => p.subjectId === subjectId) || [];
+    const subjectPapers = papers?.filter(p => p.subjectId === targetId || p.subjectId === subjectId) || [];
     for (const p of subjectPapers) {
       await dbDeleteQuestionsByPaper(p.id).catch(() => {});
       await dbDeleteStudyHtml(p.id).catch(() => {});
@@ -434,15 +456,33 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
     console.warn("Could not clean up papers before deleting subject:", err);
   }
 
+  // If the subject never existed in D1, deletion is already complete
+  if (!existsInD1) {
+    try {
+      await api.delete(`/admin/subjects/${subjectId}`);
+    } catch (err: any) {
+      if (err?.response?.status === 404) return;
+      throw err;
+    }
+    return;
+  }
+
   // 2. Archive subject first to satisfy backend state guards
   try {
-    await setPublishState('subject', subjectId, 'archived');
-  } catch (err) {
-    console.warn("Could not archive subject before delete:", err);
+    await setPublishState('subject', targetId, 'archived');
+  } catch (err: any) {
+    if (err?.response?.status !== 404) {
+      console.warn("Could not archive subject before delete:", err);
+    }
   }
 
   // 3. Delete subject from D1
-  await api.delete(`/admin/subjects/${subjectId}`);
+  try {
+    await api.delete(`/admin/subjects/${targetId}`);
+  } catch (err: any) {
+    if (err?.response?.status === 404) return;
+    throw err;
+  }
 }
 
 export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper> {
@@ -555,10 +595,17 @@ export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper>
 export async function dbDeletePaper(paperId: string): Promise<void> {
   try {
     await setPublishState('paper', paperId, 'archived');
-  } catch (err) {
-    console.warn("Could not archive paper before delete:", err);
+  } catch (err: any) {
+    if (err?.response?.status !== 404) {
+      console.warn("Could not archive paper before delete:", err);
+    }
   }
-  await api.delete(`/admin/papers/${paperId}`);
+  try {
+    await api.delete(`/admin/papers/${paperId}`);
+  } catch (err: any) {
+    if (err?.response?.status === 404) return;
+    throw err;
+  }
 }
 
 export async function dbSaveQuestion(question: Question, isNew?: boolean): Promise<Question> {
@@ -754,8 +801,19 @@ export async function dbSaveQuestions(
 
 
 export async function dbDeleteQuestion(questionId: string): Promise<void> {
-  await setPublishState('question', questionId, 'archived');
-  await api.delete(`/admin/questions/${questionId}`).catch(console.error);
+  try {
+    await setPublishState('question', questionId, 'archived');
+  } catch (err: any) {
+    if (err?.response?.status !== 404) {
+      console.warn("Could not archive question before delete:", err);
+    }
+  }
+  try {
+    await api.delete(`/admin/questions/${questionId}`);
+  } catch (err: any) {
+    if (err?.response?.status === 404) return;
+    console.error("Failed to delete question:", err);
+  }
 }
 
 export async function dbDeleteQuestionsByPaper(paperId: string): Promise<void> {

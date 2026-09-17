@@ -654,7 +654,11 @@ export default function App() {
 
     try {
       await dbDeleteSubject(subjectId);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.response?.status === 404 || err?.message?.includes('404') || err?.message?.includes('not found')) {
+        // Idempotent: absent from backend
+        return;
+      }
       console.error("Failed to delete subject from backend:", err);
       alert("Failed to delete subject from the backend. Check console for details.");
     }
@@ -757,8 +761,10 @@ export default function App() {
     }
     try {
       await dbDeletePaper(paperId);
-    } catch (e) {
-      console.error("Failed to delete paper from API:", e);
+    } catch (e: any) {
+      if (e?.response?.status !== 404) {
+        console.error("Failed to delete paper from API:", e);
+      }
     }
     dbBuildPublication().catch(() => {});
   };
