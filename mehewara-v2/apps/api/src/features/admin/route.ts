@@ -371,9 +371,6 @@ async function subjectsRoute(request: Request, deps: AdminDeps, id: string | nul
         if (existing.state === "published" && !force) {
           throw new HttpError("CONFLICT", 409, "Published subjects cannot be deleted; archive first");
         }
-        if (existing.state === "published" && force) {
-          await store.setSubjectState(id, "archived", existing.updated_at);
-        }
         await store.deleteSubject(id);
         return { status: 200, body: { id, deleted: true }, entityId: id, deleted: true };
       },
@@ -489,9 +486,6 @@ async function papersRoute(request: Request, deps: AdminDeps, id: string | null,
         const force = url.searchParams.get("force") === "true";
         if (existing.state === "published" && !force) {
           throw new HttpError("CONFLICT", 409, "Published papers cannot be deleted; archive first");
-        }
-        if (existing.state === "published" && force) {
-          await store.setPaperState(id, "archived", existing.updated_at);
         }
         await store.deletePaper(id);
         return { status: 200, body: { id, deleted: true }, entityId: id, deleted: true };

@@ -14,10 +14,11 @@ import {
   Sparkles,
   FileText
 } from 'lucide-react';
-import { Paper, Question, UserAttempt } from '../types';
+import { Paper, Question, UserAttempt, isQuestionAnswerCorrect } from '../types';
 import { useTheme } from '../ThemeContext';
 import { useLanguage } from '../LanguageContext';
 import { renderMathInHtml } from '../utils/parseTxt';
+
 
 interface PracticeSessionProps {
   paper: Paper;
@@ -81,7 +82,7 @@ export default function PracticeSession({
       return;
     }
 
-    const isCorrect = q.isAllCorrect || (q.correctOptions?.includes(selectedOptionIndex) ?? selectedOptionIndex === q.correctOption);
+    const isCorrect = isQuestionAnswerCorrect(q, selectedOptionIndex);
 
     setVerifiedAnswers(prev => ({
       ...prev,
@@ -184,7 +185,7 @@ export default function PracticeSession({
     let correctCount = 0;
     questions.forEach((q) => {
       const qId = q.id || q.qNumber.toString();
-      if (answers[qId] !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(answers[qId]) ?? answers[qId] === q.correctOption))) {
+      if (answers[qId] !== undefined && isQuestionAnswerCorrect(q, answers[qId])) {
         correctCount++;
       }
     });
@@ -225,7 +226,7 @@ export default function PracticeSession({
     let correctCount = 0;
     questions.forEach((q) => {
       const qId = q.id || q.qNumber.toString();
-      if (answers[qId] !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(answers[qId]) ?? answers[qId] === q.correctOption))) {
+      if (answers[qId] !== undefined && isQuestionAnswerCorrect(q, answers[qId])) {
         correctCount++;
       }
     });
@@ -501,7 +502,7 @@ export default function PracticeSession({
               <div className="flex flex-wrap gap-1.5">
                 {questions.map((q, idx) => {
                   const qId = q.id || q.qNumber.toString();
-                  const isCorrect = q.isAllCorrect || (q.correctOptions?.includes(answers[qId]) ?? answers[qId] === q.correctOption);
+                  const isCorrect = isQuestionAnswerCorrect(q, answers[qId]);
                   const isUnanswered = answers[qId] === undefined;
 
                   return (
@@ -530,7 +531,7 @@ export default function PracticeSession({
               const rQ = questions[reviewQIndex];
               const qId = rQ.id || rQ.qNumber.toString();
               const userAns = answers[qId];
-              const isCorrectAtReview = rQ.isAllCorrect || (rQ.correctOptions?.includes(userAns) ?? userAns === rQ.correctOption);
+              const isCorrectAtReview = isQuestionAnswerCorrect(rQ, userAns);
 
               return (
                 <div className="space-y-6 animate-fade-in">
@@ -563,7 +564,7 @@ export default function PracticeSession({
                   {/* MCQ Options with detailed highlighting */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {rQ.optionsHtml.map((opt, optIdx) => {
-                      const isCorrectChoice = rQ.isAllCorrect || (rQ.correctOptions?.includes(optIdx) ?? optIdx === rQ.correctOption);
+                      const isCorrectChoice = isQuestionAnswerCorrect(rQ, optIdx);
                       const isUserChoice = optIdx === userAns;
 
                       let borderStyle = `${ghostBdr} ${ghostBg}`;
@@ -829,7 +830,7 @@ export default function PracticeSession({
                     const qId = activeQuestion.id || activeQuestion.qNumber.toString();
                     const isSelected = answers[qId] === optIdx;
                     const isVerified = verifiedAnswers[qId] !== undefined;
-                    const isCorrectAnswer = activeQuestion.isAllCorrect || (activeQuestion.correctOptions?.includes(optIdx) ?? activeQuestion.correctOption === optIdx);
+                    const isCorrectAnswer = isQuestionAnswerCorrect(activeQuestion, optIdx);
 
                     // Determine dynamic styles based on Practice Mode verification
                     let cardStyle = "";

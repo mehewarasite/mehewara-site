@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { Subject, Paper, Question } from '../../types';
+import { Subject, Paper, Question, isQuestionAnswerCorrect } from '../../types';
 import { renderMathInHtml } from '../../utils/parseTxt';
 import type { AdminThemeClasses } from './types';
 
@@ -150,7 +150,7 @@ export default function ManageQuestionsTab({
                     <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
                     <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700 space-y-1">
                       {q.optionsHtml.map((opt, oIdx) => (
-                        <div key={oIdx} className={`text-xs flex gap-1 items-start ${(q.correctOptions?.includes(oIdx) ?? q.correctOption === oIdx) ? 'text-emerald-500 font-bold' : textMuted}`}>
+                        <div key={oIdx} className={`text-xs flex gap-1 items-start ${isQuestionAnswerCorrect(q, oIdx) ? 'text-emerald-500 font-bold' : textMuted}`}>
                           <span>{String.fromCharCode(65 + oIdx)}.</span>
                           <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
                         </div>

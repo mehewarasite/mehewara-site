@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Image, AlertCircle, RefreshCw } from 'lucide-react';
-import { Subject, Paper, Question } from '../../types';
+import { Subject, Paper, Question, isQuestionAnswerCorrect } from '../../types';
 
 import { fileToImgHtml, insertOrReplaceImage } from '../../utils/mediaUpload';
 import { renderMathInHtml, unrenderMathHtml } from '../../utils/parseTxt';
@@ -278,7 +278,7 @@ export default function EditQuestionsTab({
 
                         <div className="pl-4 border-l-2 border-slate-300 dark:border-slate-700 space-y-2">
                           {liveEditData.optionsHtml.map((opt, oIdx) => (
-                            <div key={oIdx} className={`text-sm flex gap-2 items-start ${(liveEditData!.correctOptions?.includes(oIdx) ?? liveEditData!.correctOption === oIdx) ? 'text-emerald-500 font-bold' : textMuted}`}>
+                            <div key={oIdx} className={`text-sm flex gap-2 items-start ${isQuestionAnswerCorrect(liveEditData, oIdx) ? 'text-emerald-500 font-bold' : textMuted}`}>
                               <span className="mt-1">{String.fromCharCode(65 + oIdx)}.</span>
                               <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
                             </div>
@@ -301,10 +301,15 @@ export default function EditQuestionsTab({
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <label className="block text-sm font-medium">Question Body (HTML allowed)</label>
-                          <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors">
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById(`file-q-${liveEditData.id}`)?.click()}
+                            className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors"
+                          >
                             <Image className="w-3 h-3" />
                             Ref image
                             <input
+                              id={`file-q-${liveEditData.id}`}
                               type="file"
                               accept="image/*"
                               disabled={isUploadingImage}
@@ -315,7 +320,7 @@ export default function EditQuestionsTab({
                                 e.target.value = '';
                               }}
                             />
-                          </label>
+                          </button>
                         </div>
                         <textarea
                           value={liveEditData.questionHtml}
@@ -331,10 +336,15 @@ export default function EditQuestionsTab({
                         {liveEditData.optionsHtml.map((opt, oIdx) => (
                           <div key={oIdx} className="flex gap-2 items-center">
                             <span className="font-bold w-4">{String.fromCharCode(65 + oIdx)}.</span>
-                            <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById(`file-o-${liveEditData.id}-${oIdx}`)?.click()}
+                              className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors shrink-0"
+                            >
                               <Image className="w-3 h-3" />
                               Image
                               <input
+                                id={`file-o-${liveEditData.id}-${oIdx}`}
                                 type="file"
                                 accept="image/*"
                                 disabled={isUploadingImage}
@@ -349,7 +359,7 @@ export default function EditQuestionsTab({
                                   e.target.value = '';
                                 }}
                               />
-                            </label>
+                            </button>
                             <textarea
                               value={opt}
                               onChange={(e) => {
@@ -459,7 +469,7 @@ export default function EditQuestionsTab({
                       <div className={`text-xs ${textMuted} line-clamp-2 overflow-hidden mb-2`} dangerouslySetInnerHTML={{ __html: renderMathInHtml(q.questionHtml) }} />
                       <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-700 space-y-1">
                         {q.optionsHtml.map((opt, oIdx) => (
-                          <div key={oIdx} className={`text-xs flex gap-1 items-start ${(q.correctOptions?.includes(oIdx) ?? q.correctOption === oIdx) ? 'text-blue-500 font-bold' : textMuted}`}>
+                          <div key={oIdx} className={`text-xs flex gap-1 items-start ${isQuestionAnswerCorrect(q, oIdx) ? 'text-blue-500 font-bold' : textMuted}`}>
                             <span>{String.fromCharCode(65 + oIdx)}.</span>
                             <span dangerouslySetInnerHTML={{ __html: renderMathInHtml(opt) }} />
                           </div>

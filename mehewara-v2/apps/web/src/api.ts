@@ -19,11 +19,7 @@ export async function getPublicManifest() {
     cachedManifest = res.data.manifest;
     return cachedManifest;
   }).catch(err => {
-    if (err?.response?.status === 404 || err?.response?.status === 503) {
-      console.warn("Public publication snapshot not yet published or available:", err?.response?.data?.error?.message || err?.message);
-    } else {
-      console.warn("Failed to load publication snapshot:", err?.message || err);
-    }
+    console.error("Failed to load publication snapshot from Backblaze B2:", err);
     manifestFetchPromise = null;
     return null;
   });
@@ -483,47 +479,23 @@ export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
 }
 
 export async function dbDeleteSubject(subjectId: string): Promise<void> {
-  let targetId: string | null = null;
-  try {
-    const existing = await adminLoadSubjects();
-    const canonical = INITIAL_SUBJECTS.find(s => s.id === subjectId || s.code === subjectId);
-    const match = existing?.find(s =>
-      s.id === subjectId ||
-      (s.code && s.code.toLowerCase() === subjectId.toLowerCase()) ||
-      (canonical?.code && s.code && s.code.toLowerCase() === canonical.code.toLowerCase())
-    );
-    if (match) {
-      targetId = match.id;
-    }
-  } catch (err) {
-    console.warn("Could not check subject presence in D1 before deletion:", err);
-  }
-
-  // If the subject never existed in D1, it was purely local/default. No backend call needed!
-  if (!targetId) {
-    return;
-  }
-
-  // 1. Fetch fresh record to obtain current state and updatedAt token
-  try {
-    const res = await api.get(`/admin/subjects/${targetId}`).catch(() => null);
-    if (res?.data && res.data.state === 'published') {
-      await api.post(`/admin/subjects/${targetId}/state`, {
-        entity: 'subject',
-        entityId: targetId,
-        state: 'archived',
-        expectedUpdatedAt: res.data.updatedAt
-      }).catch((e) => {
-        console.warn("Pre-delete subject archive notice:", e?.message);
-      });
-    }
-  } catch (err: any) {
-    if (err?.response?.status !== 404) {
-      console.warn("Could not archive subject before delete:", err);
+  let targetId: string = subjectId;
+  if (!isUuid(subjectId)) {
+    try {
+      const existing = await adminLoadSubjects();
+      const canonical = INITIAL_SUBJECTS.find(s => s.id === subjectId || s.code === subjectId);
+      const match = existing?.find(s =>
+        s.id === subjectId ||
+        (s.code && s.code.toLowerCase() === subjectId.toLowerCase()) ||
+        (canonical?.code && s.code && s.code.toLowerCase() === canonical.code.toLowerCase())
+      );
+      if (match) targetId = match.id;
+    } catch (err) {
+      console.warn("Could not resolve non-UUID subject ID before deletion:", err);
     }
   }
 
-  // 2. Delete subject from D1 with ?force=true (backend SQL cascades papers, questions, study materials, options)
+  // Delete subject from D1 with ?force=true (backend SQL cascades papers, questions, study materials, options)
   try {
     await api.delete(`/admin/subjects/${targetId}?force=true`);
   } catch (err: any) {
@@ -640,42 +612,8 @@ export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper>
 }
 
 export async function dbDeletePaper(paperId: string): Promise<void> {
-  let targetId: string | null = null;
-  try {
-    const existing = await adminLoadPapers();
-    const match = existing?.find(p => p.id === paperId);
-    if (match) {
-      targetId = match.id;
-    }
-  } catch (err) {
-    console.warn("Could not check paper presence in D1 before deletion:", err);
-  }
-
-  // If the paper never existed in D1, it was purely local/default. No backend call needed!
-  if (!targetId) {
-    return;
-  }
-
-  // 1. Fetch fresh record to obtain current state and updatedAt token
-  try {
-    const res = await api.get(`/admin/papers/${targetId}`).catch(() => null);
-    if (res?.data && res.data.state === 'published') {
-      await api.post(`/admin/papers/${targetId}/state`, {
-        entity: 'paper',
-        entityId: targetId,
-        state: 'archived',
-        expectedUpdatedAt: res.data.updatedAt
-      }).catch((e) => {
-        console.warn("Pre-delete paper archive notice:", e?.message);
-      });
-    }
-  } catch (err: any) {
-    if (err?.response?.status !== 404) {
-      console.warn("Could not archive paper before delete:", err);
-    }
-  }
-
-  // 2. Delete paper from D1 with ?force=true (backend SQL cascades questions, options, study materials)
+  const targetId = paperId;
+  // Delete paper from D1 with ?force=true (backend SQL cascades questions, options, study materials)
   try {
     await api.delete(`/admin/papers/${targetId}?force=true`);
   } catch (err: any) {
@@ -1012,16 +950,23 @@ export async function dbDeleteAllGalleryPhotos(): Promise<{ error?: string }> {
   return {};
 }
 
-// ─── Snapshot Publication Release (Build to Backblaze B2 & Purge Edge Cache) ──
+let publicationBuildPromise: Promise<{ snapshotId: string; version: number }> | null = null;
 
 export async function dbBuildPublication(): Promise<{ snapshotId: string; version: number }> {
+  if (publicationBuildPromise) {
+    return publicationBuildPromise;
+  }
   const idempotencyKey = crypto.randomUUID();
-  const res = await api.post('/admin/publications/build', {
+  publicationBuildPromise = api.post('/admin/publications/build', {
     idempotencyKey,
     reason: 'Admin publication build'
+  }).then((res) => {
+    clearPublicManifestCache();
+    return res.data;
+  }).finally(() => {
+    publicationBuildPromise = null;
   });
-  clearPublicManifestCache();
-  return res.data;
+  return publicationBuildPromise;
 }
 
 export const dbLoadBudgetStatus = async () => {

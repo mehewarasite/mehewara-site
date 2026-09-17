@@ -25,7 +25,7 @@ import {
   Youtube,
   Linkedin
 } from 'lucide-react';
-import { Subject, Paper, Question, UserAttempt, GalleryPhoto } from './types';
+import { Subject, Paper, Question, UserAttempt, GalleryPhoto, isQuestionAnswerCorrect } from './types';
 import { INITIAL_SUBJECTS, INITIAL_PAPERS, INITIAL_QUESTIONS } from './data';
 import BootLoader from './components/BootLoader';
 import { useTheme } from './ThemeContext';
@@ -295,15 +295,9 @@ export default function App() {
     try {
       const { dbLoadQuestions } = await import('./api');
       const allQuestions = await dbLoadQuestions();
-      if (allQuestions && allQuestions.length > 0) {
-        setQuestions(prev => {
-          const mergedMap = new Map<string, Question>();
-          prev.forEach(q => mergedMap.set(q.id, q));
-          allQuestions.forEach(q => mergedMap.set(q.id, q));
-          const updated = Array.from(mergedMap.values());
-          idbSet('m_questions', JSON.stringify(updated));
-          return updated;
-        });
+      if (Array.isArray(allQuestions) && allQuestions.length > 0) {
+        setQuestions(allQuestions);
+        idbSet('m_questions', JSON.stringify(allQuestions));
       }
     } catch (e) {
       console.error('Failed to load admin questions:', e);
@@ -323,7 +317,7 @@ export default function App() {
       const remoteQuestions = (showAdminPanel || isAdminUser)
         ? await adminLoadQuestionsForPaper(paperId)
         : await dbLoadQuestionsForPaper(paperId);
-      if (remoteQuestions && remoteQuestions.length > 0) {
+      if (Array.isArray(remoteQuestions)) {
         setQuestions(prev => {
           const updated = [...prev.filter(q => q.paperId !== paperId), ...remoteQuestions];
           idbSet('m_questions', JSON.stringify(updated));
@@ -404,7 +398,7 @@ export default function App() {
     if (!hasQuestions) {
       setIsLoadingQuestions(true);
       const remoteQuestions = await dbLoadQuestionsForPaper(paper.id);
-      if (remoteQuestions && remoteQuestions.length > 0) {
+      if (Array.isArray(remoteQuestions)) {
         setQuestions(prev => {
           const updated = [...prev.filter(q => q.paperId !== paper.id), ...remoteQuestions];
           idbSet('m_questions', JSON.stringify(updated));
@@ -415,7 +409,7 @@ export default function App() {
     } else {
       // Re-fetch in background so questions and answers are always fresh
       dbLoadQuestionsForPaper(paper.id).then((remoteQuestions) => {
-        if (remoteQuestions && remoteQuestions.length > 0) {
+        if (Array.isArray(remoteQuestions)) {
           setQuestions(prev => {
             const updated = [...prev.filter(q => q.paperId !== paper.id), ...remoteQuestions];
             idbSet('m_questions', JSON.stringify(updated));
@@ -537,15 +531,9 @@ export default function App() {
         idbSet('m_gallery', JSON.stringify(remoteGallery));
       }
 
-      if (remoteQuestions && remoteQuestions.length > 0) {
-        setQuestions(prev => {
-          const mergedMap = new Map<string, Question>();
-          prev.forEach(q => mergedMap.set(q.id, q));
-          remoteQuestions.forEach(q => mergedMap.set(q.id, q));
-          const updated = Array.from(mergedMap.values());
-          idbSet('m_questions', JSON.stringify(updated));
-          return updated;
-        });
+      if (Array.isArray(remoteQuestions) && remoteQuestions.length > 0) {
+        setQuestions(remoteQuestions);
+        idbSet('m_questions', JSON.stringify(remoteQuestions));
       }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
@@ -1592,7 +1580,7 @@ export default function App() {
                               let c = 0;
                               paperQuestions.forEach(q => {
                                 const userAns = previousAttempt.answers[q.id || q.qNumber.toString()];
-                                if (userAns !== undefined && (q.isAllCorrect || (q.correctOptions?.includes(userAns) ?? userAns === q.correctOption))) c++;
+                                if (userAns !== undefined && isQuestionAnswerCorrect(q, userAns)) c++;
                               });
                               return c;
                             })() : 0);

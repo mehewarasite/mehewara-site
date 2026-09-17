@@ -67,3 +67,15 @@ export interface AboutData {
   privacy_policy_statement?: string;
   full_privacy_policy_html?: string;
 }
+
+export function isQuestionAnswerCorrect(
+  q: { isAllCorrect?: boolean; correctOptions?: number[]; correctOption?: number },
+  selectedIndex: number | undefined | null
+): boolean {
+  if (selectedIndex === undefined || selectedIndex === null) return false;
+  if (q.isAllCorrect) return true;
+  if (Array.isArray(q.correctOptions) && q.correctOptions.length > 0) {
+    return q.correctOptions.includes(selectedIndex);
+  }
+  return selectedIndex === q.correctOption;
+}

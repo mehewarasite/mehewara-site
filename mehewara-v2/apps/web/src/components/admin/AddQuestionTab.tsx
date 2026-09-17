@@ -317,10 +317,15 @@ export default function AddQuestionTab({
             <label className={`block text-xs font-semibold ${textMuted}`}>
               ප්‍රශ්නය - HTML / රූපය
             </label>
-            <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors">
+            <button
+              type="button"
+              onClick={() => document.getElementById('addq-file-q')?.click()}
+              className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors"
+            >
               <Image className="w-3 h-3" />
               Ref image
               <input
+                id="addq-file-q"
                 type="file"
                 accept="image/*"
                 className="sr-only"
@@ -330,7 +335,7 @@ export default function AddQuestionTab({
                   e.target.value = '';
                 }}
               />
-            </label>
+            </button>
           </div>
 
           <RichTextEditor
@@ -356,10 +361,15 @@ export default function AddQuestionTab({
                   <span className={`w-5 h-5 rounded-full ${isDark ? 'bg-slate-850 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-600'} border font-mono text-[10px] font-bold flex items-center justify-center`}>{label}</span>
                   පිළිතුර {label} — Text / Image
                 </label>
-                <label className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => document.getElementById(`addq-file-o-${label}`)?.click()}
+                  className="flex items-center gap-1 text-[10px] text-sky-400 font-semibold cursor-pointer hover:text-sky-300 transition-colors"
+                >
                   <Image className="w-3 h-3" />
                   Image
                   <input
+                    id={`addq-file-o-${label}`}
                     type="file"
                     accept="image/*"
                     className="sr-only"
@@ -369,7 +379,7 @@ export default function AddQuestionTab({
                       e.target.value = '';
                     }}
                   />
-                </label>
+                </button>
               </div>
               {value.includes('<img') ? (
                 <input
