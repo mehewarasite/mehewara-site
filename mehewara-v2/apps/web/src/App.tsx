@@ -298,8 +298,8 @@ export default function App() {
       if (allQuestions && allQuestions.length > 0) {
         setQuestions(prev => {
           const mergedMap = new Map<string, Question>();
-          allQuestions.forEach(q => mergedMap.set(q.id, q));
           prev.forEach(q => mergedMap.set(q.id, q));
+          allQuestions.forEach(q => mergedMap.set(q.id, q));
           const updated = Array.from(mergedMap.values());
           idbSet('m_questions', JSON.stringify(updated));
           return updated;
@@ -399,8 +399,9 @@ export default function App() {
 
     const paperQuestions = questions.filter(q => q.paperId === paper.id);
     const expectedCount = paper.questionCount || 0;
+    const hasQuestions = paperQuestions.length > 0 && (expectedCount === 0 || paperQuestions.length >= expectedCount);
 
-    if (paperQuestions.length === 0 || (expectedCount > 0 && paperQuestions.length < expectedCount)) {
+    if (!hasQuestions) {
       setIsLoadingQuestions(true);
       const remoteQuestions = await dbLoadQuestionsForPaper(paper.id);
       if (remoteQuestions && remoteQuestions.length > 0) {
@@ -411,6 +412,17 @@ export default function App() {
         });
       }
       setIsLoadingQuestions(false);
+    } else {
+      // Re-fetch in background so questions and answers are always fresh
+      dbLoadQuestionsForPaper(paper.id).then((remoteQuestions) => {
+        if (remoteQuestions && remoteQuestions.length > 0) {
+          setQuestions(prev => {
+            const updated = [...prev.filter(q => q.paperId !== paper.id), ...remoteQuestions];
+            idbSet('m_questions', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }).catch(console.error);
     }
 
     setActivePracticePaper(paper);
@@ -529,8 +541,8 @@ export default function App() {
       if (remoteQuestions && remoteQuestions.length > 0) {
         setQuestions(prev => {
           const mergedMap = new Map<string, Question>();
-          remoteQuestions.forEach(q => mergedMap.set(q.id, q));
           prev.forEach(q => mergedMap.set(q.id, q));
+          remoteQuestions.forEach(q => mergedMap.set(q.id, q));
           const updated = Array.from(mergedMap.values());
           idbSet('m_questions', JSON.stringify(updated));
           return updated;

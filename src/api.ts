@@ -92,15 +92,31 @@ export async function dbLoadQuestions(): Promise<Question[] | null> {
   const manifest = await getPublicManifest();
   if (!manifest || !manifest.questions) return [];
   return manifest.questions.map((q: any) => {
-    let correctIdx = 0;
+    let correctIdx = -1;
     let correctArr: number[] = [];
     const opts = (q.options || []).map((o: any, idx: number) => {
-      if (o.isCorrect || o.is_correct) {
-        correctIdx = idx;
+      const isCorrect = o.isCorrect === true || o.is_correct === 1 || o.is_correct === true || o.is_correct === '1';
+      if (isCorrect) {
+        if (correctIdx === -1) correctIdx = idx;
         correctArr.push(idx);
       }
       return typeof o === 'string' ? o : (o.html || '');
     });
+
+    if (Array.isArray(q.correctOptionIndexes) && q.correctOptionIndexes.length > 0) {
+      correctArr = q.correctOptionIndexes;
+      correctIdx = q.correctOptionIndexes[0];
+    } else if (typeof q.correctOption === 'number') {
+      correctIdx = q.correctOption;
+      if (!correctArr.includes(correctIdx)) correctArr.push(correctIdx);
+    } else if (typeof q.correct_option_index === 'number') {
+      correctIdx = q.correct_option_index;
+      if (!correctArr.includes(correctIdx)) correctArr.push(correctIdx);
+    }
+
+    if (correctIdx < 0) correctIdx = 0;
+    if (correctArr.length === 0) correctArr = [correctIdx];
+
     return {
       id: q.id,
       paperId: q.paperId,
@@ -108,8 +124,8 @@ export async function dbLoadQuestions(): Promise<Question[] | null> {
       questionHtml: q.questionHtml,
       optionsHtml: opts as any,
       correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
-      correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
-      isAllCorrect: q.isAllCorrect || false,
+      correctOptions: correctArr,
+      isAllCorrect: q.isAllCorrect === true || q.is_all_correct === 1 || q.is_all_correct === true || q.answerMode === 'all',
       explanationHtml: q.explanationHtml || '',
       updatedAt: q.updatedAt
     };
@@ -117,20 +133,42 @@ export async function dbLoadQuestions(): Promise<Question[] | null> {
 }
 
 export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question[] | null> {
+  // If adminToken is present, fetch fresh directly from D1
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('adminToken')) {
+    const adminQuestions = await adminLoadQuestionsForPaper(paperId);
+    if (adminQuestions && adminQuestions.length > 0) return adminQuestions;
+  }
+
   const manifest = await getPublicManifest();
   if (!manifest || !manifest.questions) return [];
   return manifest.questions
     .filter((q: any) => q.paperId === paperId)
     .map((q: any) => {
-      let correctIdx = 0;
+      let correctIdx = -1;
       let correctArr: number[] = [];
       const opts = (q.options || []).map((o: any, idx: number) => {
-        if (o.isCorrect || o.is_correct) {
-          correctIdx = idx;
+        const isCorrect = o.isCorrect === true || o.is_correct === 1 || o.is_correct === true || o.is_correct === '1';
+        if (isCorrect) {
+          if (correctIdx === -1) correctIdx = idx;
           correctArr.push(idx);
         }
         return typeof o === 'string' ? o : (o.html || '');
       });
+
+      if (Array.isArray(q.correctOptionIndexes) && q.correctOptionIndexes.length > 0) {
+        correctArr = q.correctOptionIndexes;
+        correctIdx = q.correctOptionIndexes[0];
+      } else if (typeof q.correctOption === 'number') {
+        correctIdx = q.correctOption;
+        if (!correctArr.includes(correctIdx)) correctArr.push(correctIdx);
+      } else if (typeof q.correct_option_index === 'number') {
+        correctIdx = q.correct_option_index;
+        if (!correctArr.includes(correctIdx)) correctArr.push(correctIdx);
+      }
+
+      if (correctIdx < 0) correctIdx = 0;
+      if (correctArr.length === 0) correctArr = [correctIdx];
+
       return {
         id: q.id,
         paperId: q.paperId,
@@ -138,8 +176,8 @@ export async function dbLoadQuestionsForPaper(paperId: string): Promise<Question
         questionHtml: q.questionHtml,
         optionsHtml: opts as any,
         correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
-        correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
-        isAllCorrect: q.isAllCorrect || false,
+        correctOptions: correctArr,
+        isAllCorrect: q.isAllCorrect === true || q.is_all_correct === 1 || q.is_all_correct === true || q.answerMode === 'all',
         explanationHtml: q.explanationHtml || '',
         updatedAt: q.updatedAt
       };
@@ -254,15 +292,31 @@ export async function adminLoadQuestionsForPaper(paperId: string): Promise<Quest
     } while (cursor);
 
     return allItems.map((q: any) => {
-      let correctIdx = 0;
+      let correctIdx = -1;
       let correctArr: number[] = [];
       const opts = (q.options || []).map((o: any, idx: number) => {
-        if (o.isCorrect || o.is_correct) {
-          correctIdx = idx;
+        const isCorrect = o.isCorrect === true || o.is_correct === 1 || o.is_correct === true || o.is_correct === '1';
+        if (isCorrect) {
+          if (correctIdx === -1) correctIdx = idx;
           correctArr.push(idx);
         }
         return o.html;
       });
+
+      if (Array.isArray(q.correctOptionIndexes) && q.correctOptionIndexes.length > 0) {
+        correctArr = q.correctOptionIndexes;
+        correctIdx = q.correctOptionIndexes[0];
+      } else if (typeof q.correctOption === 'number') {
+        correctIdx = q.correctOption;
+        if (!correctArr.includes(correctIdx)) correctArr.push(correctIdx);
+      } else if (typeof q.correct_option_index === 'number') {
+        correctIdx = q.correct_option_index;
+        if (!correctArr.includes(correctIdx)) correctArr.push(correctIdx);
+      }
+
+      if (correctIdx < 0) correctIdx = 0;
+      if (correctArr.length === 0) correctArr = [correctIdx];
+
       return {
         id: q.id,
         paperId: q.paperId,
@@ -270,8 +324,8 @@ export async function adminLoadQuestionsForPaper(paperId: string): Promise<Quest
         questionHtml: q.questionHtml,
         optionsHtml: opts as any,
         correctOption: (correctIdx >= 0 && correctIdx <= 4 ? correctIdx : 0) as 0 | 1 | 2 | 3 | 4,
-        correctOptions: correctArr.length > 0 ? correctArr : [correctIdx],
-        isAllCorrect: q.isAllCorrect ?? q.contentSafety?.isAllCorrect ?? false,
+        correctOptions: correctArr,
+        isAllCorrect: q.isAllCorrect ?? q.contentSafety?.isAllCorrect ?? (q.answerMode === 'all'),
         explanationHtml: q.explanationHtml || '',
         updatedAt: q.updatedAt,
         rawOptions: q.options

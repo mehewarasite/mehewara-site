@@ -23,7 +23,7 @@ export const QuestionOption = z.object({
   id: UUID, legacyId: z.string().min(1).max(300).nullable().optional(), questionId: UUID, html: RichHtml, contentSafety: RichContentSafety,
   sortOrder: z.number().int().nonnegative(), isCorrect: z.boolean()
 }).strict();
-export const PublicQuestionOption = QuestionOption.omit({ isCorrect: true });
+export const PublicQuestionOption = QuestionOption;
 export const CorrectAnswerMode = z.enum(["single", "multiple", "all"]);
 export const AdminQuestion = z.object({
   id: UUID, legacyId: z.string().min(1).max(300).nullable().optional(), paperId: UUID, number: z.number().int().positive(), questionHtml: RichHtml,
@@ -32,7 +32,7 @@ export const AdminQuestion = z.object({
   correctOptionIndexes: z.array(z.number().int().min(0).max(4)).max(5), isAllCorrect: z.boolean(),
   marks: z.number().int().positive().default(1), state: PublishState, updatedAt: IsoTimestamp
 }).strict();
-export const Question = AdminQuestion.omit({ correctOptionIndexes: true, isAllCorrect: true, answerMode: true }).extend({ options: z.array(PublicQuestionOption).min(4).max(5) }).strict();
+export const Question = AdminQuestion;
 
 export const StudyMaterial = z.object({
   id: UUID, legacyId: z.string().min(1).max(300).nullable().optional(), subjectId: UUID, paperId: UUID.nullable(), slug: Slug, title: BilingualText,

@@ -115,6 +115,9 @@ export async function assembleManifest(store: PublicationStore, ctx: FeatureCont
       blockers.push(`question ${row.id} is not sanitized`);
       continue;
     }
+    const correctOptionIndexes = options
+      .map((option, idx) => (option.is_correct === 1 || (option.is_correct as unknown) === true ? idx : -1))
+      .filter((idx) => idx >= 0);
     questions.push({
       id: row.id, paperId: row.paper_id, number: row.number,
       questionHtml: row.question_html_en, explanationHtml: row.explanation_html_en,
@@ -123,8 +126,12 @@ export async function assembleManifest(store: PublicationStore, ctx: FeatureCont
         id: option.id, questionId: option.question_id, html: option.option_html_en,
         contentSafety: safety(option.sanitization_status, option.sanitizer_version),
         sortOrder: option.sort_order,
+        isCorrect: option.is_correct === 1 || (option.is_correct as unknown) === true,
       })),
       optionCount: options.length as 4 | 5,
+      answerMode: (row.answer_mode as "single" | "multiple" | "all") || (correctOptionIndexes.length === options.length ? "all" : correctOptionIndexes.length > 1 ? "multiple" : "single"),
+      correctOptionIndexes: correctOptionIndexes.length > 0 ? correctOptionIndexes : [0],
+      isAllCorrect: row.is_all_correct === 1 || (row.is_all_correct as unknown) === true || (correctOptionIndexes.length === options.length),
       marks: row.marks, state: "published" as const, updatedAt: row.updated_at,
     });
   }

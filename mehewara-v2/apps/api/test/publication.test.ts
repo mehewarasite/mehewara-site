@@ -229,9 +229,9 @@ describe("publication build + current + rollback", () => {
     expect(manifest.snapshotId).toBe(body.id);
     expect(manifest.subjects).toHaveLength(1);
     expect(manifest.questions[0].options).toHaveLength(4);
-    // Public shape leaks no answers.
-    expect(manifest.questions[0]).not.toHaveProperty("correctOptionIndexes");
-    expect(manifest.questions[0].options[0]).not.toHaveProperty("isCorrect");
+    // Manifest options and questions retain correct answers for client-side practice session.
+    expect(manifest.questions[0]).toHaveProperty("correctOptionIndexes");
+    expect(manifest.questions[0].options[0]).toHaveProperty("isCorrect");
     // Current pointer set + history recorded.
     expect(h.getCurrent()).toMatchObject({ snapshot_id: body.id, version: 1 });
     expect(h.history).toHaveLength(1);
