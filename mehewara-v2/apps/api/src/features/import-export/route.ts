@@ -136,7 +136,7 @@ async function parseBoundedJson<T>(request: Request, schema: { safeParse(raw: un
   return result.data;
 }
 
-const EXPORT_QUESTION_CEILING = 2000;
+const EXPORT_QUESTION_CEILING = 20_000;
 export const IMPORT_BODY_CAP = 50_000_000;
 
 /**

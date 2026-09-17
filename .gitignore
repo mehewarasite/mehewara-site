@@ -15,6 +15,9 @@ scratch/
 
 # Local backups
 backup/
+cloudflare_*.json
+live_public_snapshot.json
 
 # Cloudflare Wrangler cache
 .wrangler/
+

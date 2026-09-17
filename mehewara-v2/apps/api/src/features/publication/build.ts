@@ -266,10 +266,8 @@ function snapshotSummary(row: { id: string; version: number; published_at: strin
   return { id: row.id, version: row.version, state: "published", publishedAt: row.published_at, createdAt: row.created_at };
 }
 
-/** Hard ceiling for one snapshot artifact: the budget charges declared
- *  bytes, and unbounded manifests would let a runaway catalog reserve past
- *  any sane allowance. 10 MiB holds hundreds of thousands of entities. */
-export const MAX_SNAPSHOT_BYTES = 10_000_000;
+/** Hard ceiling for one snapshot artifact: 50 MiB ceiling accommodates full question catalogs. */
+export const MAX_SNAPSHOT_BYTES = 50_000_000;
 
 /** POST /api/v1/admin/publications/build — validate, assemble, store, publish. */
 export async function buildPublicationRoute(request: Request, deps: { b2: B2Client; context: FeatureContext; store: PublicationStore; verifier?: AccessVerifier; edgeCache?: MediaEdgeCache | null }): Promise<Response> {
@@ -449,8 +447,25 @@ export async function currentPublicationRoute(
     } catch {
       throw new HttpError("INTERNAL_ERROR", 502, "Stored snapshot is not valid JSON");
     }
+    // Tolerate legacy snapshots where options lacked isCorrect or questions lacked answerMode/correctOptionIndexes
+    if (manifest && typeof manifest === "object" && Array.isArray((manifest as { questions?: unknown[] }).questions)) {
+      for (const q of (manifest as { questions: Record<string, unknown>[] }).questions) {
+        if (!q || typeof q !== "object") continue;
+        if (!q.answerMode) q.answerMode = "single";
+        if (!Array.isArray(q.correctOptionIndexes)) q.correctOptionIndexes = [];
+        if (typeof q.isAllCorrect !== "boolean") q.isAllCorrect = false;
+        if (Array.isArray(q.options)) {
+          for (const opt of q.options as Record<string, unknown>[]) {
+            if (opt && typeof opt === "object" && typeof opt.isCorrect !== "boolean") {
+              opt.isCorrect = false;
+            }
+          }
+        }
+      }
+    }
     const parsed = PublicationManifest.safeParse(manifest);
     if (!parsed.success || parsed.data.snapshotId !== snapshot.id || parsed.data.version !== snapshot.version) {
+      console.error("[currentPublicationRoute] Stored snapshot failed contract validation:", !parsed.success ? parsed.error.issues.slice(0, 5) : `ID or version mismatch (expected ${snapshot.id} v${snapshot.version})`);
       throw new HttpError("INTERNAL_ERROR", 502, "Stored snapshot failed contract validation");
     }
     const body: z.infer<typeof CurrentPublication> = {
