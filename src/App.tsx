@@ -138,14 +138,17 @@ const canonicalSubjectId = (id?: string | null): string => {
   return LEGACY_ID_TO_UUID[id] || id;
 };
 
-function deduplicateAndEnrichSubjects(loaded: Subject[], defaults: Subject[], currentPapers: Paper[]): Subject[] {
+function deduplicateAndEnrichSubjects(loaded: Subject[], defaults: Subject[], currentPapers: Paper[], deletedIds: Set<string> = new Set()): Subject[] {
   const merged: Subject[] = [];
   const seenKeys = new Map<string, number>();
 
-  const allCandidates = loaded.map(s => ({ ...s, id: canonicalSubjectId(s.id) }));
+  const allCandidates = loaded
+    .filter(s => !deletedIds.has(s.id) && !deletedIds.has(canonicalSubjectId(s.id)))
+    .map(s => ({ ...s, id: canonicalSubjectId(s.id) }));
 
   for (const def of defaults) {
     const defId = canonicalSubjectId(def.id);
+    if (deletedIds.has(defId) || deletedIds.has(def.id)) continue;
     const normName = (def.name || '').toLowerCase().trim();
     const normCode = (def.code || '').toLowerCase().replace(/^(ol|al)[-_]?/, '').trim();
 
@@ -216,6 +219,7 @@ export default function App() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [deletedSubjectIds, setDeletedSubjectIds] = useState<Set<string>>(new Set());
   const [papers, setPapers] = useState<Paper[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [attempts, setAttempts] = useState<UserAttempt[]>([]);
@@ -465,6 +469,10 @@ export default function App() {
         setPapers(INITIAL_PAPERS);
       }
 
+      const storedDeleted = await idbGet('m_deleted_subjects');
+      const loadedDeletedIds = new Set<string>(storedDeleted ? JSON.parse(storedDeleted) : []);
+      setDeletedSubjectIds(loadedDeletedIds);
+
       const storedSubjects = await idbGet('m_subjects');
       let rawSubjects: Subject[] = [];
       if (storedSubjects) {
@@ -473,7 +481,7 @@ export default function App() {
         rawSubjects = [...INITIAL_SUBJECTS];
       }
 
-      const deduplicated = deduplicateAndEnrichSubjects(rawSubjects, INITIAL_SUBJECTS, parsedPapers);
+      const deduplicated = deduplicateAndEnrichSubjects(rawSubjects, INITIAL_SUBJECTS, parsedPapers, loadedDeletedIds);
       setSubjects(deduplicated);
       idbSet('m_subjects', JSON.stringify(deduplicated));
 
@@ -527,17 +535,14 @@ export default function App() {
       }
 
       if (remoteSubjects && remoteSubjects.length > 0) {
-        const deduplicated = deduplicateAndEnrichSubjects(remoteSubjects, INITIAL_SUBJECTS, remotePapers || papers);
+        const deduplicated = deduplicateAndEnrichSubjects(remoteSubjects, INITIAL_SUBJECTS, remotePapers || papers, deletedSubjectIds);
         setSubjects(deduplicated);
         idbSet('m_subjects', JSON.stringify(deduplicated));
       }
 
-      if (remotePapers && remotePapers.length > 0) {
+      if (remotePapers) {
         setPapers(remotePapers);
         idbSet('m_papers', JSON.stringify(remotePapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
-      } else if (INITIAL_PAPERS.length > 0) {
-        // We only use remote papers in v2.
-        // setPapers(INITIAL_PAPERS);
       }
 
       if (remoteAbout) {
@@ -610,18 +615,49 @@ export default function App() {
   };
 
   const handleDeleteSubject = async (subjectId: string) => {
-    const hasPapers = papers.some(p => p.subjectId === subjectId);
-    if (hasPapers) {
-      alert("Cannot delete subject because it has papers associated with it. Please delete the papers first.");
-      return;
+    const subjectPapers = papers.filter(p => p.subjectId === subjectId || canonicalSubjectId(p.subjectId) === subjectId);
+    if (subjectPapers.length > 0) {
+      const ok = confirm(`This subject has ${subjectPapers.length} paper(s) associated with it. Deleting this subject will also remove its papers and questions. Proceed?`);
+      if (!ok) return;
     }
-    const newSubjects = subjects.filter(s => s.id !== subjectId);
+
+    // Update local state immediately
+    const newSubjects = subjects.filter(s => s.id !== subjectId && canonicalSubjectId(s.id) !== subjectId);
     setSubjects(newSubjects);
     idbSet('m_subjects', JSON.stringify(newSubjects));
+
+    // Remove associated papers and questions from local state
+    if (subjectPapers.length > 0) {
+      const newPapers = papers.filter(p => p.subjectId !== subjectId && canonicalSubjectId(p.subjectId) !== subjectId);
+      setPapers(newPapers);
+      idbSet('m_papers', JSON.stringify(newPapers.map(p => ({ ...p, studyMaterialHtml: undefined }))));
+
+      const paperIdSet = new Set(subjectPapers.map(p => p.id));
+      const newQuestions = questions.filter(q => !paperIdSet.has(q.paperId));
+      setQuestions(newQuestions);
+      idbSet('m_questions', JSON.stringify(newQuestions));
+    }
+
+    // Track as deleted so defaults never resurrect it
+    setDeletedSubjectIds(prev => {
+      const next = new Set(prev);
+      next.add(subjectId);
+      const canonical = canonicalSubjectId(subjectId);
+      if (canonical) next.add(canonical);
+      idbSet('m_deleted_subjects', JSON.stringify(Array.from(next)));
+      return next;
+    });
+
     if (selectedSubject?.id === subjectId) {
       setSelectedSubject(null);
     }
-    await dbDeleteSubject(subjectId);
+
+    try {
+      await dbDeleteSubject(subjectId);
+    } catch (err) {
+      console.error("Failed to delete subject from backend:", err);
+      alert("Failed to delete subject from the backend. Check console for details.");
+    }
     dbBuildPublication().catch(() => {});
   };
 
@@ -708,12 +744,22 @@ export default function App() {
     idbSet('m_attempts', JSON.stringify(updatedAttempts));
     idbRemove(`m_study_${paperId}`);
 
-    // Delete from API
-    await Promise.all([
-      dbDeletePaper(paperId),
-      dbDeleteStudyHtml(paperId),
-      dbDeleteQuestionsByPaper(paperId),
-    ]);
+    // Delete questions and study materials from API first, then delete the paper
+    try {
+      await dbDeleteQuestionsByPaper(paperId);
+    } catch (e) {
+      console.warn("Failed to delete paper questions:", e);
+    }
+    try {
+      await dbDeleteStudyHtml(paperId);
+    } catch (e) {
+      console.warn("Failed to delete study material:", e);
+    }
+    try {
+      await dbDeletePaper(paperId);
+    } catch (e) {
+      console.error("Failed to delete paper from API:", e);
+    }
     dbBuildPublication().catch(() => {});
   };
 
@@ -1188,8 +1234,10 @@ export default function App() {
               </div>
             )}
 
-            {/* LIVE USER COUNTER */}
-            <LiveCounterBadge count={activeUsersCount} variant="header" />
+            {/* LIVE USER COUNTER (Admins Only) */}
+            {Boolean(hasAdminToken || showAdminPanel) && (
+              <LiveCounterBadge count={activeUsersCount} variant="header" />
+            )}
 
             {/* THEME TOGGLE BUTTON */}
             <button
@@ -1432,7 +1480,7 @@ export default function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                       {filteredSubjects.map((sub, idx) => {
                         const IconComponent = ICON_MAP[sub.icon] || BookOpen;
-                        const paperCount = papers.filter(p => p.subjectId === sub.id && (p.language || 'si') === language).length;
+                        const paperCount = papers.filter(p => p.subjectId === sub.id && (p.language || 'si') === language && !p.hidden && p.state !== 'archived' && p.state !== 'draft').length;
                         const colorClass = resolveSubjectColor(sub, idx);
                         return (
                           <button
@@ -1492,14 +1540,14 @@ export default function App() {
                     <div className="text-xs text-slate-350">
                       <span className={textMuted}>{isEn ? 'Total Papers' : 'සම්පූර්ණ ප්‍රශ්න පත්‍ර ගණන'}</span>
                       <p className={`text-lg font-bold ${textPrimary} font-mono mt-0.5`}>
-                        {papers.filter(p => p.subjectId === selectedSubject.id && (p.language || 'si') === language).length} Active papers
+                        {papers.filter(p => p.subjectId === selectedSubject.id && (p.language || 'si') === language && !p.hidden && p.state !== 'archived' && p.state !== 'draft').length} Active papers
                       </p>
                     </div>
                   </div>
                 </div>
 
                 {(() => {
-                  const subjectPapers = papers.filter(p => p.subjectId === selectedSubject.id && (p.language || 'si') === language);
+                  const subjectPapers = papers.filter(p => p.subjectId === selectedSubject.id && (p.language || 'si') === language && !p.hidden && p.state !== 'archived' && p.state !== 'draft');
                   if (subjectPapers.length === 0) {
                     return (
                       <div className={`text-center py-12 ${isDark ? 'bg-slate-950/20' : 'bg-slate-50'} rounded-2xl border border-dashed ${cardBdr} ${textFaint} text-xs`}>

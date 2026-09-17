@@ -262,9 +262,14 @@ describe("admin content CRUD", () => {
         body: { entity: "paper", entityId: PAPER, state: "archived", expectedUpdatedAt: "2000-01-01T00:00:00.000Z" },
       }), deps);
     await expect(stale).rejects.toMatchObject({ status: 409 });
-
     expect((await transition(h, "papers", PAPER, "archived")).status).toBe(200);
     expect((await transition(h, "subjects", SUBJ, "archived")).status).toBe(200);
+
+    // Deleting the subject cascades and removes its papers without foreign key failure
+    const delSubj = await adminRouter(adminRequest(`/api/v1/admin/subjects/${SUBJ}`, { method: "DELETE" }), deps);
+    expect(delSubj.status).toBe(200);
+    expect((await adminRouter(adminRequest(`/api/v1/admin/subjects/${SUBJ}`, { method: "GET" }), deps)).status).toBe(404);
+    expect((await adminRouter(adminRequest(`/api/v1/admin/papers/${PAPER}`, { method: "GET" }), deps)).status).toBe(404);
   });
 
   it("creates questions draft-first with normalized answers and cascades deletes", async () => {

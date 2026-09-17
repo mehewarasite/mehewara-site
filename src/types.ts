@@ -21,6 +21,8 @@ export interface Paper {
   questionCount: number;
   studyMaterialHtml?: string; // Themed HTML content uploaded by admin
   language?: 'si' | 'en';     // Paper language
+  hidden?: boolean;           // Whether paper is hidden from students
+  state?: 'draft' | 'published' | 'archived'; // Lifecycle publishing state
 }
 
 export interface Question {

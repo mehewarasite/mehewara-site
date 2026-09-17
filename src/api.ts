@@ -46,32 +46,46 @@ const isUuid = (id?: string | null): boolean =>
 
 export async function dbLoadSubjects(): Promise<Subject[] | null> {
   const manifest = await getPublicManifest();
-  if (!manifest || !manifest.subjects) return [];
-  return manifest.subjects.map((s: any) => ({
-    id: s.id,
-    name: s.title?.en || '',
-    sinhalaName: s.title?.si || '',
-    examType: s.examType || 'al',
-    code: s.code || s.slug || '',
-    icon: s.presentation?.icon || 'BookOpen',
-    color: s.presentation?.color || 'blue'
-  }));
+  if (manifest && manifest.subjects && manifest.subjects.length > 0) {
+    return manifest.subjects.map((s: any) => ({
+      id: s.id,
+      name: s.title?.en || '',
+      sinhalaName: s.title?.si || '',
+      examType: s.examType || 'al',
+      code: s.code || s.slug || '',
+      icon: s.presentation?.icon || 'BookOpen',
+      color: s.presentation?.color || 'blue'
+    }));
+  }
+  // Fallback to D1 direct if admin token is present
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('adminToken')) {
+    const adminSubs = await adminLoadSubjects();
+    if (adminSubs && adminSubs.length > 0) return adminSubs;
+  }
+  return manifest && manifest.subjects ? [] : [];
 }
 
 export async function dbLoadPapers(): Promise<Paper[] | null> {
   const manifest = await getPublicManifest();
-  if (!manifest || !manifest.papers) return [];
-  return manifest.papers.map((p: any) => ({
-    id: p.id,
-    subjectId: p.subjectId,
-    examType: p.examType || 'al',
-    title: p.title?.en || '',
-    sinhalaTitle: p.title?.si || '',
-    year: p.year || 2024,
-    durationMinutes: p.durationMinutes || 120,
-    questionCount: p.questionCount || 0,
-    language: p.language || 'si'
-  }));
+  if (manifest && manifest.papers && manifest.papers.length > 0) {
+    return manifest.papers.map((p: any) => ({
+      id: p.id,
+      subjectId: p.subjectId,
+      examType: p.examType || 'al',
+      title: p.title?.en || '',
+      sinhalaTitle: p.title?.si || '',
+      year: p.year || 2024,
+      durationMinutes: p.durationMinutes || 120,
+      questionCount: p.questionCount || 0,
+      language: p.language || 'si'
+    }));
+  }
+  // Fallback to D1 direct if admin token is present and manifest is empty/unpublished
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('adminToken')) {
+    const adminPapers = await adminLoadPapers();
+    if (adminPapers && adminPapers.length > 0) return adminPapers;
+  }
+  return manifest && manifest.papers ? [] : [];
 }
 
 export async function dbLoadQuestions(): Promise<Question[] | null> {
@@ -218,7 +232,9 @@ export async function adminLoadPapers(): Promise<Paper[] | null> {
       year: p.year || 2024,
       durationMinutes: p.durationMinutes || 120,
       questionCount: p.questionCount || 0,
-      language: p.language || 'si'
+      language: p.language || 'si',
+      state: p.state,
+      hidden: p.state === 'archived' || p.state === 'draft' || Boolean(p.hidden)
     }));
   } catch (e) {
     console.error('Failed to load admin papers from D1:', e);
@@ -405,8 +421,28 @@ export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
 }
 
 export async function dbDeleteSubject(subjectId: string): Promise<void> {
-  await setPublishState('subject', subjectId, 'archived');
-  await api.delete(`/admin/subjects/${subjectId}`).catch(console.error);
+  // 1. Clean up any dependent papers and questions under this subject
+  try {
+    const papers = await adminLoadPapers();
+    const subjectPapers = papers?.filter(p => p.subjectId === subjectId) || [];
+    for (const p of subjectPapers) {
+      await dbDeleteQuestionsByPaper(p.id).catch(() => {});
+      await dbDeleteStudyHtml(p.id).catch(() => {});
+      await dbDeletePaper(p.id).catch(() => {});
+    }
+  } catch (err) {
+    console.warn("Could not clean up papers before deleting subject:", err);
+  }
+
+  // 2. Archive subject first to satisfy backend state guards
+  try {
+    await setPublishState('subject', subjectId, 'archived');
+  } catch (err) {
+    console.warn("Could not archive subject before delete:", err);
+  }
+
+  // 3. Delete subject from D1
+  await api.delete(`/admin/subjects/${subjectId}`);
 }
 
 export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper> {
@@ -511,13 +547,18 @@ export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper>
     throw err;
   }
 
-  await setPublishState('paper', paperId, 'published', savedUpdatedAt);
+  const targetState = (paper.hidden || paper.state === 'archived') ? 'archived' : 'published';
+  await setPublishState('paper', paperId, targetState, savedUpdatedAt);
   return paper;
 }
 
 export async function dbDeletePaper(paperId: string): Promise<void> {
-  await setPublishState('paper', paperId, 'archived');
-  await api.delete(`/admin/papers/${paperId}`).catch(console.error);
+  try {
+    await setPublishState('paper', paperId, 'archived');
+  } catch (err) {
+    console.warn("Could not archive paper before delete:", err);
+  }
+  await api.delete(`/admin/papers/${paperId}`);
 }
 
 export async function dbSaveQuestion(question: Question, isNew?: boolean): Promise<Question> {

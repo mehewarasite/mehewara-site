@@ -322,9 +322,20 @@ export function d1AdminStore(db: D1Database): AdminStore {
     },
     async deleteSubject(id) {
       try {
+        const papers = await all<{ id: string }>("SELECT id FROM papers WHERE subject_id = ?", id);
+        for (const p of papers) {
+          const questions = await all<{ id: string }>("SELECT id FROM questions WHERE paper_id = ?", p.id);
+          for (const q of questions) {
+            await run("DELETE FROM question_options WHERE question_id = ?", q.id);
+          }
+          await run("DELETE FROM questions WHERE paper_id = ?", p.id);
+          await run("DELETE FROM study_materials WHERE paper_id = ?", p.id);
+        }
+        await run("DELETE FROM study_materials WHERE subject_id = ?", id);
+        await run("DELETE FROM papers WHERE subject_id = ?", id);
         const result = await run("DELETE FROM subjects WHERE id = ?", id);
         return (result.meta.changes ?? 0) > 0;
-      } catch (error) { conflict(error, "Subject has dependent papers and cannot be deleted"); }
+      } catch (error) { conflict(error, "Subject has dependent records and cannot be deleted"); }
     },
 
     listPapers: (subjectId, limit, cursor) => subjectId
@@ -356,9 +367,15 @@ export function d1AdminStore(db: D1Database): AdminStore {
     },
     async deletePaper(id) {
       try {
+        const questions = await all<{ id: string }>("SELECT id FROM questions WHERE paper_id = ?", id);
+        for (const q of questions) {
+          await run("DELETE FROM question_options WHERE question_id = ?", q.id);
+        }
+        await run("DELETE FROM questions WHERE paper_id = ?", id);
+        await run("DELETE FROM study_materials WHERE paper_id = ?", id);
         const result = await run("DELETE FROM papers WHERE id = ?", id);
         return (result.meta.changes ?? 0) > 0;
-      } catch (error) { conflict(error, "Paper has dependent questions or study materials and cannot be deleted"); }
+      } catch (error) { conflict(error, "Paper has dependent records and cannot be deleted"); }
     },
 
     listQuestionsByPaper: (paperId, limit, cursor) => page<QuestionRow>("questions", "paper_id = ?", limit, cursor, paperId),

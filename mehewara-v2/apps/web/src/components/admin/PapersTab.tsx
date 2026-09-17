@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { FileText, FileCode, Upload, Edit2, Trash2, X, Save } from 'lucide-react';
+import { FileText, FileCode, Upload, Edit2, Trash2, X, Save, Eye, EyeOff } from 'lucide-react';
 import { Subject, Paper, Question } from '../../types';
 import { renderMathInHtml } from '../../utils/parseTxt';
 import { themeHtml } from '../../utils/themeHtml';
@@ -621,7 +621,7 @@ export default function PapersTab({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                           <div>
                             <label className={`block text-[10px] font-semibold ${textMuted} mb-1`}>Year</label>
                             <input
@@ -649,6 +649,24 @@ export default function PapersTab({
                             >
                               <option value="si">Sinhala (SI)</option>
                               <option value="en">English (EN)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className={`block text-[10px] font-semibold ${textMuted} mb-1`}>Visibility</label>
+                            <select
+                              value={(editPaperData.hidden ?? p.hidden ?? (p.state === 'archived')) ? 'hidden' : 'visible'}
+                              onChange={(e) => {
+                                const isHidden = e.target.value === 'hidden';
+                                setEditPaperData(prev => ({
+                                  ...prev,
+                                  hidden: isHidden,
+                                  state: isHidden ? 'archived' : 'published',
+                                }));
+                              }}
+                              className={`w-full ${inputBg} border ${inputBdr} rounded-lg px-2.5 py-1.5 ${textPrimary} text-xs focus:outline-none focus:border-sky-500`}
+                            >
+                              <option value="visible">Visible (ප්‍රදර්ශනය)</option>
+                              <option value="hidden">Hidden (සැඟවූ)</option>
                             </select>
                           </div>
                         </div>
@@ -721,6 +739,11 @@ export default function PapersTab({
                             <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-semibold ${p.language === 'en' ? 'bg-indigo-500/15 text-indigo-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
                               {p.language === 'en' ? 'EN' : 'SI'}
                             </span>
+                            {(p.hidden || p.state === 'archived') && (
+                              <span className="text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-500 dark:text-amber-400 px-2 py-0.5 rounded-md font-mono font-semibold flex items-center gap-1" title="This paper is hidden from students">
+                                <EyeOff className="w-3 h-3" /> සැඟවූ (Hidden)
+                              </span>
+                            )}
                           </div>
                           <p className={`text-sm font-semibold ${textPrimary}`}>{p.sinhalaTitle}</p>
                           <p className={`text-xs ${textFaint} font-mono italic`}>{p.title} ({p.year})</p>
@@ -745,6 +768,28 @@ export default function PapersTab({
                             className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/30 text-sky-450 hover:text-sky-400 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
                           >
                             + ප්‍රශ්න එකතු කරන්න (+ MCQ)
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const isCurrentlyHidden = Boolean(p.hidden || p.state === 'archived');
+                              const nextHidden = !isCurrentlyHidden;
+                              onUpdatePaper({
+                                ...p,
+                                hidden: nextHidden,
+                                state: nextHidden ? 'archived' : 'published',
+                              });
+                              showFlash(nextHidden ? `"${p.sinhalaTitle}" සඟවන ලදී (Hidden from students)` : `"${p.sinhalaTitle}" ප්‍රදර්ශනය කර ඇත (Visible to students)`);
+                            }}
+                            className={`p-1.5 border rounded-lg transition-all cursor-pointer ${
+                              p.hidden || p.state === 'archived'
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400'
+                                : 'border-transparent text-slate-500 hover:bg-amber-500/10 hover:border-amber-500/20 hover:text-amber-500'
+                            }`}
+                            title={p.hidden || p.state === 'archived' ? 'Unhide paper (Make visible to students)' : 'Hide paper (Hide from students)'}
+                          >
+                            {p.hidden || p.state === 'archived' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
 
                           <button
