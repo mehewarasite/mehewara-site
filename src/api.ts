@@ -425,8 +425,7 @@ export async function dbSaveSubjects(subjects: Subject[]): Promise<void> {
 }
 
 export async function dbDeleteSubject(subjectId: string): Promise<void> {
-  let targetId = subjectId;
-  let existsInD1 = false;
+  let targetId: string | null = null;
   try {
     const existing = await adminLoadSubjects();
     const canonical = INITIAL_SUBJECTS.find(s => s.id === subjectId || s.code === subjectId);
@@ -437,7 +436,6 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
     );
     if (match) {
       targetId = match.id;
-      existsInD1 = true;
     }
   } catch (err) {
     console.warn("Could not check subject presence in D1 before deletion:", err);
@@ -446,7 +444,7 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
   // 1. Clean up any dependent papers and questions under this subject
   try {
     const papers = await adminLoadPapers();
-    const subjectPapers = papers?.filter(p => p.subjectId === targetId || p.subjectId === subjectId) || [];
+    const subjectPapers = papers?.filter(p => (targetId && p.subjectId === targetId) || p.subjectId === subjectId) || [];
     for (const p of subjectPapers) {
       await dbDeleteQuestionsByPaper(p.id).catch(() => {});
       await dbDeleteStudyHtml(p.id).catch(() => {});
@@ -456,14 +454,8 @@ export async function dbDeleteSubject(subjectId: string): Promise<void> {
     console.warn("Could not clean up papers before deleting subject:", err);
   }
 
-  // If the subject never existed in D1, deletion is already complete
-  if (!existsInD1) {
-    try {
-      await api.delete(`/admin/subjects/${subjectId}`);
-    } catch (err: any) {
-      if (err?.response?.status === 404) return;
-      throw err;
-    }
+  // If the subject never existed in D1, it was purely local/default. No backend call needed!
+  if (!targetId) {
     return;
   }
 
@@ -593,15 +585,31 @@ export async function dbSavePaper(paper: Paper, isNew?: boolean): Promise<Paper>
 }
 
 export async function dbDeletePaper(paperId: string): Promise<void> {
+  let targetId: string | null = null;
   try {
-    await setPublishState('paper', paperId, 'archived');
+    const existing = await adminLoadPapers();
+    const match = existing?.find(p => p.id === paperId);
+    if (match) {
+      targetId = match.id;
+    }
+  } catch (err) {
+    console.warn("Could not check paper presence in D1 before deletion:", err);
+  }
+
+  // If the paper never existed in D1, it was purely local/default. No backend call needed!
+  if (!targetId) {
+    return;
+  }
+
+  try {
+    await setPublishState('paper', targetId, 'archived');
   } catch (err: any) {
     if (err?.response?.status !== 404) {
       console.warn("Could not archive paper before delete:", err);
     }
   }
   try {
-    await api.delete(`/admin/papers/${paperId}`);
+    await api.delete(`/admin/papers/${targetId}`);
   } catch (err: any) {
     if (err?.response?.status === 404) return;
     throw err;
