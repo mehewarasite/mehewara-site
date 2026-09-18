@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef as useReactRef, useCallback } from 'react';
-import { Trash2, Images, RefreshCw, ChevronUp, ChevronDown, Pin } from 'lucide-react';
+import { Trash2, Images, RefreshCw, ChevronUp, ChevronDown, Pin, MapPin, Folder } from 'lucide-react';
 import { GalleryPhoto } from '../../types';
 import { dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos } from '../../api';
 import { hexToDataUrl, createPreviewUrl, GALLERY_ACCEPT } from '../../utils/imageHex';
 import { uploadImageToStorage } from '../../utils/mediaUpload';
 import { normalizeMediaUrl } from '../../apiClient';
+import { SRI_LANKA_DISTRICTS, getDistrictInfo, inferPhotoDistrict } from '../../data/districtBackgrounds';
 import type { AdminThemeClasses } from './types';
 
 interface GalleryTabProps {
@@ -21,9 +22,11 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
   const [galleryUploadPreview, setGalleryUploadPreview] = useState<string>('');
   const [galleryUploadTitle, setGalleryUploadTitle] = useState('');
   const [galleryUploadDesc, setGalleryUploadDesc] = useState('');
+  const [galleryUploadDistrict, setGalleryUploadDistrict] = useState('galle');
   const [galleryUploadPinned, setGalleryUploadPinned] = useState(false);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadProgress, setGalleryUploadProgress] = useState(0);
+  const [adminDistrictFilter, setAdminDistrictFilter] = useState<string>('all');
   const galleryFileInputRef = useReactRef<HTMLInputElement>(null);
 
   const fetchGallery = useCallback(async () => {
@@ -61,7 +64,8 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
     setGalleryUploading(true);
     setGalleryUploadProgress(0);
     try {
-      const publicUrl = await uploadImageToStorage(galleryUploadFile, 'gallery');
+      const folder = galleryUploadDistrict ? `gallery/${galleryUploadDistrict}` : 'gallery/items';
+      const publicUrl = await uploadImageToStorage(galleryUploadFile, folder);
       const newPhoto: GalleryPhoto = {
         id: crypto.randomUUID(),
         title: galleryUploadTitle.trim() || undefined,
@@ -71,17 +75,19 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
         sortOrder: galleryPhotos.length,
         createdAt: new Date().toISOString(),
         pinned: galleryUploadPinned,
+        district: galleryUploadDistrict || undefined,
       };
       const { error } = await dbSaveGalleryPhoto(newPhoto);
       if (error) {
         showFlash(`Upload failed: ${error}`, true);
       } else {
-        showFlash('Photo uploaded to storage and saved!');
+        showFlash('Photo uploaded to storage and saved in district folder!');
         setGalleryPhotos(prev => [...prev, newPhoto]);
         setGalleryUploadFile(null);
         setGalleryUploadPreview('');
         setGalleryUploadTitle('');
         setGalleryUploadDesc('');
+        setGalleryUploadDistrict('galle');
         setGalleryUploadPinned(false);
         if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
       }
@@ -202,6 +208,29 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
             />
           </div>
 
+          {/* District Folder Selector */}
+          <div>
+            <label className={`block text-xs font-semibold ${textMuted} mb-1.5 flex items-center gap-1.5`}>
+              <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+              District / Location Folder
+            </label>
+            <select
+              value={galleryUploadDistrict}
+              onChange={(e) => setGalleryUploadDistrict(e.target.value)}
+              className={`w-full ${inputBg} border ${inputBdr} rounded-xl px-3 py-2 ${textPrimary} text-xs focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer`}
+            >
+              <option value="">-- General / No District --</option>
+              {SRI_LANKA_DISTRICTS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} ({d.nameSi}) — {d.province} Province
+                </option>
+              ))}
+            </select>
+            <p className={`text-[10px] mt-1 ${textFaint}`}>
+              Photo is categorized into <code className="text-emerald-400 font-mono">gallery/{galleryUploadDistrict || 'items'}/</code> folder in Cloud Storage and grouped by district in the background slideshow.
+            </p>
+          </div>
+
           {/* Pinned Checkbox */}
           <div className="flex items-center gap-2">
             <input
@@ -236,7 +265,7 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
 
       {/* Gallery List */}
       <div className="lg:col-span-8 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
             <Images className="w-4 h-4 text-emerald-400" />
             Gallery Photos
@@ -263,6 +292,42 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
           </div>
         </div>
 
+        {/* District Filter Pill Bar */}
+        {galleryPhotos.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => setAdminDistrictFilter('all')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                adminDistrictFilter === 'all'
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : `${cardBg} border ${cardBdr} ${textMuted} hover:${textPrimary}`
+              }`}
+            >
+              <Folder className="w-3 h-3" />
+              <span>All ({galleryPhotos.length})</span>
+            </button>
+            {SRI_LANKA_DISTRICTS.map((d) => {
+              const count = galleryPhotos.filter((p) => inferPhotoDistrict(p) === d.id).length;
+              if (count === 0) return null;
+              const isSelected = adminDistrictFilter === d.id;
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => setAdminDistrictFilter(d.id)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : `${cardBg} border ${cardBdr} ${textMuted} hover:${textPrimary}`
+                  }`}
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span>{d.name} ({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {galleryLoading && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[1, 2, 3, 4, 5, 6].map(i => (
@@ -286,12 +351,17 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
 
         {!galleryLoading && galleryPhotos.length > 0 && (
           <div className="space-y-3">
-            {galleryPhotos.map((photo, index) => {
+            {galleryPhotos
+              .filter((photo) => adminDistrictFilter === 'all' || inferPhotoDistrict(photo) === adminDistrictFilter)
+              .map((photo, index) => {
               const dataUrl = photo.imageHex
-                ? (photo.imageHex.startsWith('http') || photo.imageHex.startsWith('data:') || photo.imageHex.startsWith('/api/')
+                ? (photo.imageHex.startsWith('http') || photo.imageHex.startsWith('data:') || photo.imageHex.startsWith('/api/') || photo.imageHex.startsWith('/')
                     ? normalizeMediaUrl(photo.imageHex)
                     : hexToDataUrl(photo.imageHex, photo.mimeType))
                 : '';
+              const photoDistrictSlug = inferPhotoDistrict(photo);
+              const districtInfo = getDistrictInfo(photoDistrictSlug);
+
               return (
                 <div
                   key={photo.id}
@@ -309,12 +379,18 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
                     <div className="flex items-center gap-2 mb-1">
                       {photo.pinned && <Pin className="w-3.5 h-3.5 text-sky-500 shrink-0" />}
                       <p className={`text-sm font-bold ${textPrimary} truncate`}>{photo.title || 'Untitled'}</p>
+                      {districtInfo && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                          <MapPin className="w-2.5 h-2.5" />
+                          {districtInfo.name}
+                        </span>
+                      )}
                     </div>
                     {photo.description && (
                       <p className={`text-xs ${textMuted} mt-0.5 line-clamp-2`}>{photo.description}</p>
                     )}
                     <p className={`text-[10px] font-mono ${textFaint} mt-1`}>
-                      #{index + 1} · {photo.mimeType || 'image/webp'} {photo.imageHex.startsWith('http') || photo.imageHex.startsWith('/api/') ? '· Cloud Storage' : `· ${Math.round(photo.imageHex.length / 2048)} KB`}
+                      #{index + 1} · {photo.mimeType || 'image/webp'} {photo.imageHex.startsWith('http') || photo.imageHex.startsWith('/api/') ? '· Cloud Storage' : photo.imageHex.startsWith('/') ? '· Static District Folder' : `· ${Math.round(photo.imageHex.length / 2048)} KB`}
                     </p>
                   </div>
 

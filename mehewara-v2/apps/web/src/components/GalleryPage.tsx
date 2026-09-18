@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ShieldCheck, Shuffle, Pin } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ShieldCheck, Shuffle, Pin, Folder, MapPin } from 'lucide-react';
 import { GalleryPhoto } from '../types';
 import { hexToDataUrl } from '../utils/imageHex';
 import { normalizeMediaUrl } from '../apiClient';
 import { useTheme } from '../ThemeContext';
+import {
+  inferPhotoDistrict,
+  getDistrictInfo,
+  groupPhotosByDistrictFolder,
+} from '../data/districtBackgrounds';
 
 interface GalleryPageProps {
   photos: GalleryPhoto[];
@@ -15,7 +20,12 @@ const dataUrlCache = new Map<string, string>();
 
 function getDataUrl(photo: GalleryPhoto): string {
   if (!photo?.imageHex) return '';
-  if (photo.imageHex.startsWith('http://') || photo.imageHex.startsWith('https://') || photo.imageHex.startsWith('/api/')) {
+  if (
+    photo.imageHex.startsWith('/') ||
+    photo.imageHex.startsWith('http://') ||
+    photo.imageHex.startsWith('https://') ||
+    photo.imageHex.startsWith('/api/')
+  ) {
     return normalizeMediaUrl(photo.imageHex);
   }
   if (photo.imageHex.startsWith('data:')) {
@@ -414,6 +424,8 @@ interface LightboxProps {
 function Lightbox({ photos, index, onClose, onPrev, onNext, isPageVisible }: LightboxProps) {
   const photo = photos[index];
   const dataUrl = getDataUrl(photo);
+  const districtSlug = photo ? inferPhotoDistrict(photo) : undefined;
+  const districtInfo = getDistrictInfo(districtSlug);
 
   // Keyboard navigation (Arrow keys only — dangerous keys handled by protection hook)
   useEffect(() => {
@@ -485,6 +497,12 @@ function Lightbox({ photos, index, onClose, onPrev, onNext, isPageVisible }: Lig
         <WatermarkOverlay />
 
         <div className="text-center space-y-1 max-w-xl px-4 z-[3]">
+          {districtInfo && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-sky-300 text-xs font-mono mb-2 border border-white/10 shadow-sm">
+              <MapPin className="w-3.5 h-3.5 text-sky-400" />
+              <span>{districtInfo.name} District ({districtInfo.nameSi})</span>
+            </div>
+          )}
           {photo.title && <h3 className="text-white font-bold text-lg leading-snug">{photo.title}</h3>}
           {photo.description && (
             <p className="text-white/60 text-sm leading-relaxed">{photo.description}</p>
@@ -517,6 +535,8 @@ interface PhotoCardProps {
 function PhotoCard({ photo, onClick, isDark, isPageVisible }: PhotoCardProps) {
   const [loaded, setLoaded] = useState(false);
   const src = useMemo(() => getDataUrl(photo), [photo]);
+  const districtSlug = inferPhotoDistrict(photo);
+  const districtInfo = getDistrictInfo(districtSlug);
 
   return (
     <div
@@ -566,6 +586,13 @@ function PhotoCard({ photo, onClick, isDark, isPageVisible }: PhotoCardProps) {
            <div className="absolute top-0 right-4 -mt-3 w-6 h-6 bg-sky-500 rounded-full flex items-center justify-center text-white shadow-lg z-10" title="Pinned">
              <Pin className="w-3 h-3 fill-current" />
            </div>
+        )}
+        {districtInfo && (
+          <div className="flex items-center gap-1 mb-1 text-[10px] font-mono text-sky-400 font-semibold">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span>{districtInfo.name}</span>
+            <span className="text-slate-500 font-normal">({districtInfo.nameSi})</span>
+          </div>
         )}
         {photo.title && (
           <h3 className={`font-bold text-sm leading-snug mb-1 ${isDark ? 'text-white' : 'text-slate-900'} group-hover:text-sky-400 transition-colors line-clamp-1`}>
@@ -622,14 +649,27 @@ export default function GalleryPage({ photos, isLoading = false }: GalleryPagePr
   const [isShuffled, setIsShuffled] = useState(false);
   const [shuffledPhotos, setShuffledPhotos] = useState<GalleryPhoto[]>([]);
   const [shuffleKey, setShuffleKey] = useState(0); // triggers re-render animation
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
+
+  // Use actual gallery photos
+  const allPhotos = useMemo(() => {
+    return photos || [];
+  }, [photos]);
+
+  const districtGroups = useMemo(() => groupPhotosByDistrictFolder(allPhotos), [allPhotos]);
+
+  const filteredPhotos = useMemo(() => {
+    if (selectedDistrict === 'all') return allPhotos;
+    return allPhotos.filter((p) => (inferPhotoDistrict(p) || 'other') === selectedDistrict);
+  }, [allPhotos, selectedDistrict]);
 
   // The display order: pinned first, then unpinned (respecting shuffled order if applicable)
   const displayPhotos = useMemo(() => {
-    const base = isShuffled ? shuffledPhotos : photos;
+    const base = isShuffled ? shuffledPhotos : filteredPhotos;
     const pinned = base.filter(p => p.pinned);
     const unpinned = base.filter(p => !p.pinned);
     return [...pinned, ...unpinned];
-  }, [isShuffled, shuffledPhotos, photos]);
+  }, [isShuffled, shuffledPhotos, filteredPhotos]);
 
   // Activate DRM protection when gallery has photos
   const { isPageVisible, devToolsOpen } = useImageProtection(displayPhotos.length > 0 || lightboxIndex !== null);
@@ -748,6 +788,51 @@ export default function GalleryPage({ photos, isLoading = false }: GalleryPagePr
           )}
         </div>
       </div>
+
+      {/* District Folder Tabs */}
+      {districtGroups.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 scrollbar-none">
+          <button
+            onClick={() => { setSelectedDistrict('all'); setLightboxIndex(null); }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              selectedDistrict === 'all'
+                ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/25'
+                : isDark
+                ? 'bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
+            }`}
+          >
+            <Folder className="w-3.5 h-3.5" />
+            <span>All Districts</span>
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${selectedDistrict === 'all' ? 'bg-white/20 text-white' : isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+              {allPhotos.length}
+            </span>
+          </button>
+
+          {districtGroups.map((group) => {
+            const isSelected = selectedDistrict === group.districtId;
+            return (
+              <button
+                key={group.districtId}
+                onClick={() => { setSelectedDistrict(group.districtId); setLightboxIndex(null); }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/25'
+                    : isDark
+                    ? 'bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{group.districtName}</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-white/20 text-white' : isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                  {group.photos.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Loading Skeletons */}
       {isLoading && (

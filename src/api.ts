@@ -209,15 +209,29 @@ export async function dbLoadGallery(): Promise<GalleryPhoto[] | null> {
   if (!manifest) return [];
   return (manifest.gallery || []).map((g: any) => {
     const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
+    const objKey = g.imageObjectKey || g.image?.url || '';
+    let district: string | undefined = undefined;
+    const galleryMatch = objKey.match(/gallery\/([a-z0-9-]+)\//i);
+    if (galleryMatch && galleryMatch[1] !== 'items') {
+      district = galleryMatch[1].toLowerCase();
+    }
+    const descRaw = g.description?.en || '';
+    const tagMatch = descRaw.match(/\[district:\s*([a-z0-9-]+)\]/i);
+    if (tagMatch) {
+      district = tagMatch[1].toLowerCase();
+    }
+    const cleanDesc = descRaw.replace(/\[district:\s*[a-z0-9-]+\]/gi, '').trim();
+
     return {
       id: g.id,
       title: g.title?.en || '',
-      description: g.description?.en || '',
+      description: cleanDesc,
       imageHex: normalizeMediaUrl(rawUrl),
       mimeType: g.contentType || 'image/webp',
       sortOrder: g.sortOrder || 0,
       createdAt: g.createdAt || '',
-      pinned: g.pinned || false
+      pinned: g.pinned || false,
+      district
     };
   });
 }
@@ -371,15 +385,29 @@ export async function adminLoadGallery(): Promise<GalleryPhoto[] | null> {
 
     return allItems.map((g: any) => {
       const rawUrl = g.image?.url || (g.imageObjectKey ? `${getActiveMediaBaseUrl()}/api/v1/media/${g.imageObjectKey}` : '');
+      const objKey = g.imageObjectKey || g.image?.url || '';
+      let district: string | undefined = undefined;
+      const galleryMatch = objKey.match(/gallery\/([a-z0-9-]+)\//i);
+      if (galleryMatch && galleryMatch[1] !== 'items') {
+        district = galleryMatch[1].toLowerCase();
+      }
+      const descRaw = g.description?.en || '';
+      const tagMatch = descRaw.match(/\[district:\s*([a-z0-9-]+)\]/i);
+      if (tagMatch) {
+        district = tagMatch[1].toLowerCase();
+      }
+      const cleanDesc = descRaw.replace(/\[district:\s*[a-z0-9-]+\]/gi, '').trim();
+
       return {
         id: g.id,
         title: g.title?.en || '',
-        description: g.description?.en || '',
+        description: cleanDesc,
         imageHex: normalizeMediaUrl(rawUrl),
         mimeType: g.contentType || 'image/webp',
         sortOrder: g.sortOrder || 0,
         createdAt: g.createdAt || '',
-        pinned: g.pinned || false
+        pinned: g.pinned || false,
+        district
       };
     });
   } catch (e) {
@@ -894,7 +922,10 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
     : (photo.imageHex.startsWith('gallery/') || photo.imageHex.startsWith('study/') ? photo.imageHex : null);
 
   const titleObj = { en: photo.title || 'Photo', si: photo.title || 'Photo' };
-  const descObj = photo.description ? { en: photo.description, si: photo.description } : null;
+  const districtTag = photo.district ? ` [district: ${photo.district.toLowerCase()}]` : '';
+  const cleanDesc = (photo.description || '').replace(/\[district:\s*[a-z0-9-]+\]/gi, '').trim();
+  const fullDesc = cleanDesc ? `${cleanDesc}${districtTag}` : (photo.district ? districtTag.trim() : null);
+  const descObj = fullDesc ? { en: fullDesc, si: fullDesc } : null;
 
   if (objectKey) {
     const payload = {

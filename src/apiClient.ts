@@ -127,7 +127,14 @@ export function normalizeObjectKeyPrefix(target?: string): string {
     return clean;
   }
   if (clean.includes('about')) return 'about/profile';
-  if (clean.includes('gallery')) return 'gallery/items';
+  if (clean.includes('gallery')) {
+    const parts = clean.split('/');
+    if (parts.length > 1 && parts[1]) {
+      const sub = parts[1].replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+      return `gallery/${sub}`;
+    }
+    return 'gallery/items';
+  }
   if (clean.includes('study')) return 'study/diagrams';
   return 'study/diagrams';
 }

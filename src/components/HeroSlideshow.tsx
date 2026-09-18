@@ -1,7 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { GalleryPhoto } from '../types';
 import { hexToDataUrl } from '../utils/imageHex';
 import { normalizeMediaUrl } from '../apiClient';
+import {
+  inferPhotoDistrict,
+  getDistrictInfo,
+  DistrictInfo,
+} from '../data/districtBackgrounds';
+import { MapPin } from 'lucide-react';
 
 interface HeroSlideshowProps {
   photos: GalleryPhoto[];
@@ -11,7 +17,12 @@ interface HeroSlideshowProps {
 const dataUrlCache = new Map<string, string>();
 function getCachedDataUrl(photo: GalleryPhoto): string {
   if (!photo?.imageHex) return '';
-  if (photo.imageHex.startsWith('http://') || photo.imageHex.startsWith('https://') || photo.imageHex.startsWith('/api/')) {
+  if (
+    photo.imageHex.startsWith('/') ||
+    photo.imageHex.startsWith('http://') ||
+    photo.imageHex.startsWith('https://') ||
+    photo.imageHex.startsWith('/api/')
+  ) {
     return normalizeMediaUrl(photo.imageHex);
   }
   if (photo.imageHex.startsWith('data:')) {
@@ -28,34 +39,41 @@ function getCachedDataUrl(photo: GalleryPhoto): string {
 }
 
 export default function HeroSlideshow({ photos }: HeroSlideshowProps) {
+  const activePhotos = useMemo(() => {
+    return photos || [];
+  }, [photos]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
-    if (photos.length <= 1) return;
+    if (activePhotos.length <= 1) return;
 
     const interval = setInterval(() => {
       setIsTransitioning(true);
-      // Let the CSS transition play, then swap index
       setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % photos.length);
+        setCurrentIndex((prev) => (prev + 1) % activePhotos.length);
         setIsTransitioning(false);
       }, 1200); // matches CSS transition duration
-    }, 4000); // 4 s visible + 1.2 s fade
+    }, 5500); // 5.5 s visible + 1.2 s fade
 
     return () => clearInterval(interval);
-  }, [photos.length]);
+  }, [activePhotos.length]);
 
-  if (photos.length === 0) return null;
+  if (activePhotos.length === 0) return null;
 
-  const nextIndex = (currentIndex + 1) % photos.length;
+  const currentPhoto = activePhotos[currentIndex];
+  const nextIndex = (currentIndex + 1) % activePhotos.length;
+
+  const currentDistrictSlug = inferPhotoDistrict(currentPhoto);
+  const currentDistrictInfo: DistrictInfo | undefined = getDistrictInfo(currentDistrictSlug);
 
   return (
     <div 
       className="absolute inset-0 w-full h-full overflow-hidden bg-black"
       style={{ animation: 'heroFadeIn 1.5s ease-in-out forwards' }}
     >
-      {photos.map((photo, index) => {
+      {activePhotos.map((photo, index) => {
         const isActive = index === currentIndex;
         const isNext = index === nextIndex;
 
@@ -85,6 +103,18 @@ export default function HeroSlideshow({ photos }: HeroSlideshowProps) {
           </div>
         );
       })}
+
+      {/* District location tag watermark at bottom-right of hero */}
+      {currentDistrictInfo && (
+        <div
+          className="absolute bottom-6 right-6 z-10 pointer-events-none transition-opacity duration-1000 hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/80 shadow-lg text-[11px] font-mono tracking-wide"
+          style={{ opacity: isTransitioning ? 0 : 1 }}
+        >
+          <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+          <span>{currentDistrictInfo.name} District</span>
+          <span className="text-white/40 font-sans text-[10px]">({currentDistrictInfo.nameSi})</span>
+        </div>
+      )}
 
       {/* Ken Burns and Fade In keyframes */}
       <style>{`

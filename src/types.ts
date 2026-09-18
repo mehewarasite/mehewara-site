@@ -56,6 +56,7 @@ export interface GalleryPhoto {
   sortOrder: number;
   createdAt: string;  // ISO timestamp
   pinned?: boolean;
+  district?: string;  // District slug e.g. "galle", "colombo", "kandy"
 }
 
 export interface AboutData {

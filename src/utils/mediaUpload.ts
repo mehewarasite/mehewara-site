@@ -124,7 +124,9 @@ export async function uploadImageToStorage(
   const fileName = `${folder}_${Date.now()}_${cleanBase || 'img'}.${fileExt}`;
 
   const { uploadToB2 } = await import('../apiClient');
-  const prefix = folder === 'gallery' ? 'gallery/items' : 'study/diagrams';
+  const prefix = folder.startsWith('gallery')
+    ? (folder === 'gallery' ? 'gallery/items' : folder)
+    : (folder === 'about' ? 'about/profile' : 'study/diagrams');
   const publicUrl = await uploadToB2(new File([blob], fileName, { type: 'image/webp' }), prefix);
 
   return publicUrl;

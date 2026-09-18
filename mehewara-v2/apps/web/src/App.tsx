@@ -33,7 +33,6 @@ import { useLanguage } from './LanguageContext';
 import AboutUsModal from './components/AboutUsModal';
 import HeroSlideshow from './components/HeroSlideshow';
 import SiteEntryGate from './components/SiteEntryGate';
-import LiveCounterBadge from './components/LiveCounterBadge';
 
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const AdminLogin = React.lazy(() => import('./components/AdminLogin'));
@@ -1243,11 +1242,6 @@ export default function App() {
                 </svg>
                 <span className="text-[10px] font-semibold text-sky-400 hidden sm:inline">Syncing</span>
               </div>
-            )}
-
-            {/* LIVE USER COUNTER (Admins Only) */}
-            {Boolean(hasAdminToken || showAdminPanel) && (
-              <LiveCounterBadge count={activeUsersCount} variant="header" />
             )}
 
             {/* THEME TOGGLE BUTTON */}
