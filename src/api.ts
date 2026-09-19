@@ -977,8 +977,12 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
 
 export async function dbDeleteGalleryPhoto(id: string): Promise<{ error?: string }> {
   try {
-    await setPublishState('gallery_item', id, 'archived');
-    await api.delete(`/admin/gallery-items/${id}`);
+    await setPublishState('gallery_item', id, 'archived').catch((e: any) => {
+      if (e?.response?.status !== 404) console.warn("Archive state warning before delete:", e);
+    });
+    await api.delete(`/admin/gallery-items/${id}`).catch((e: any) => {
+      if (e?.response?.status !== 404) throw e;
+    });
     return {};
   } catch (err: any) {
     console.error("Failed to delete gallery photo:", err);

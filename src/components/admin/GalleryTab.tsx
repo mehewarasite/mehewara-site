@@ -31,6 +31,8 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
   const [galleryUploadProgress, setGalleryUploadProgress] = useState(0);
   const [adminDistrictFilter, setAdminDistrictFilter] = useState<string>('all');
   const galleryFileInputRef = useReactRef<HTMLInputElement>(null);
+  const onGalleryUpdateRef = useReactRef(onGalleryUpdate);
+  onGalleryUpdateRef.current = onGalleryUpdate;
 
   const fetchGallery = useCallback(async () => {
     setGalleryLoading(true);
@@ -43,7 +45,6 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
       if (photos) {
         setGalleryPhotos(photos);
         idbSet('m_gallery', JSON.stringify(photos));
-        onGalleryUpdate?.(photos);
       }
     } catch (err: any) {
       console.error('Failed to load admin gallery:', err);
@@ -52,7 +53,7 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
     } finally {
       setGalleryLoading(false);
     }
-  }, [onGalleryUpdate]);
+  }, []);
 
   useEffect(() => {
     fetchGallery();
@@ -61,7 +62,7 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
   const triggerPublicationSync = useCallback(async (updatedPhotos: GalleryPhoto[]) => {
     setGalleryPhotos(updatedPhotos);
     idbSet('m_gallery', JSON.stringify(updatedPhotos));
-    onGalleryUpdate?.(updatedPhotos);
+    onGalleryUpdateRef.current?.(updatedPhotos);
     clearPublicManifestCache();
     setIsPublishing(true);
     try {
@@ -71,7 +72,7 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
     } finally {
       setIsPublishing(false);
     }
-  }, [onGalleryUpdate]);
+  }, []);
 
   const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,9 +115,12 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
       if (error) {
         showFlash(`Upload failed: ${error}`, true);
       } else {
-        showFlash('Photo uploaded to storage, saved to server, and published!');
         const updated = [...galleryPhotos, newPhoto];
-        await triggerPublicationSync(updated);
+        setGalleryPhotos(updated);
+        idbSet('m_gallery', JSON.stringify(updated));
+        onGalleryUpdateRef.current?.(updated);
+        clearPublicManifestCache();
+        showFlash('Photo uploaded to storage and saved to server!');
         setGalleryUploadFile(null);
         setGalleryUploadPreview('');
         setGalleryUploadTitle('');
@@ -124,6 +128,12 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
         setGalleryUploadDistrict('galle');
         setGalleryUploadPinned(false);
         if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
+
+        setIsPublishing(true);
+        dbBuildPublication()
+          .then(() => showFlash('Photo published live to cloud!'))
+          .catch((err) => console.warn('Publication build warning:', err))
+          .finally(() => setIsPublishing(false));
       }
     } catch (err: any) {
       showFlash(`Error: ${err?.message || 'Upload failed'}`, true);
@@ -137,27 +147,52 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
     const updatedPhoto = { ...photo, pinned: !photo.pinned };
     const updated = galleryPhotos.map(p => p.id === photo.id ? updatedPhoto : p);
     setGalleryPhotos(updated);
+    idbSet('m_gallery', JSON.stringify(updated));
+    onGalleryUpdateRef.current?.(updated);
     const { error } = await dbSaveGalleryPhoto(updatedPhoto);
     if (error) {
       showFlash(`Failed to update pin: ${error}`, true);
       setGalleryPhotos(galleryPhotos);
+      idbSet('m_gallery', JSON.stringify(galleryPhotos));
+      onGalleryUpdateRef.current?.(galleryPhotos);
     } else {
-      await triggerPublicationSync(updated);
+      clearPublicManifestCache();
+      setIsPublishing(true);
+      dbBuildPublication()
+        .catch((err) => console.warn('Publication build warning:', err))
+        .finally(() => setIsPublishing(false));
     }
   };
 
   const handleGalleryDelete = async (id: string) => {
     if (!window.confirm('Delete this photo permanently from the gallery?')) return;
+    const previous = galleryPhotos;
+    const updated = galleryPhotos.filter(p => p.id !== id);
+    // Optimistic removal: photo vanishes instantly with zero glitch
+    setGalleryPhotos(updated);
+    idbSet('m_gallery', JSON.stringify(updated));
+    onGalleryUpdateRef.current?.(updated);
     try {
       const { error } = await dbDeleteGalleryPhoto(id);
       if (error) {
+        // Rollback if server rejected
+        setGalleryPhotos(previous);
+        idbSet('m_gallery', JSON.stringify(previous));
+        onGalleryUpdateRef.current?.(previous);
         showFlash(`Delete failed: ${error}`, true);
-      } else {
-        const updated = galleryPhotos.filter(p => p.id !== id);
-        await triggerPublicationSync(updated);
-        showFlash('Photo deleted from server and publication updated.');
+        return;
       }
+      showFlash('Photo deleted from server.');
+      clearPublicManifestCache();
+      setIsPublishing(true);
+      dbBuildPublication()
+        .then(() => showFlash('Photo deleted and publication updated.'))
+        .catch((err) => console.warn('Publication build warning:', err))
+        .finally(() => setIsPublishing(false));
     } catch (err: any) {
+      setGalleryPhotos(previous);
+      idbSet('m_gallery', JSON.stringify(previous));
+      onGalleryUpdateRef.current?.(previous);
       showFlash(`Delete failed: ${err?.message || 'Failed to delete photo'}`, true);
     }
   };
@@ -167,9 +202,18 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
     const updated = [...galleryPhotos];
     [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
     const reordered = updated.map((p, i) => ({ ...p, sortOrder: i }));
-    await triggerPublicationSync(reordered);
-    await dbUpdateGalleryPhotoOrder(reordered[index - 1].id, index - 1);
-    await dbUpdateGalleryPhotoOrder(reordered[index].id, index);
+    setGalleryPhotos(reordered);
+    idbSet('m_gallery', JSON.stringify(reordered));
+    onGalleryUpdateRef.current?.(reordered);
+    await Promise.all([
+      dbUpdateGalleryPhotoOrder(reordered[index - 1].id, index - 1),
+      dbUpdateGalleryPhotoOrder(reordered[index].id, index)
+    ]);
+    clearPublicManifestCache();
+    setIsPublishing(true);
+    dbBuildPublication()
+      .catch((err) => console.warn('Publication build warning:', err))
+      .finally(() => setIsPublishing(false));
   };
 
   const handleGalleryMoveDown = async (index: number) => {
@@ -177,23 +221,47 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
     const updated = [...galleryPhotos];
     [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
     const reordered = updated.map((p, i) => ({ ...p, sortOrder: i }));
-    await triggerPublicationSync(reordered);
-    await dbUpdateGalleryPhotoOrder(reordered[index].id, index);
-    await dbUpdateGalleryPhotoOrder(reordered[index + 1].id, index + 1);
+    setGalleryPhotos(reordered);
+    idbSet('m_gallery', JSON.stringify(reordered));
+    onGalleryUpdateRef.current?.(reordered);
+    await Promise.all([
+      dbUpdateGalleryPhotoOrder(reordered[index].id, index),
+      dbUpdateGalleryPhotoOrder(reordered[index + 1].id, index + 1)
+    ]);
+    clearPublicManifestCache();
+    setIsPublishing(true);
+    dbBuildPublication()
+      .catch((err) => console.warn('Publication build warning:', err))
+      .finally(() => setIsPublishing(false));
   };
 
   const handleGalleryDeleteAll = async () => {
     if (!window.confirm('WARNING: Are you sure you want to delete ALL photos from the gallery? This cannot be undone.')) return;
+    const previous = galleryPhotos;
+    setGalleryPhotos([]);
+    idbSet('m_gallery', JSON.stringify([]));
+    onGalleryUpdateRef.current?.([]);
     setGalleryLoading(true);
     try {
       const { error } = await dbDeleteAllGalleryPhotos();
       if (error) {
+        setGalleryPhotos(previous);
+        idbSet('m_gallery', JSON.stringify(previous));
+        onGalleryUpdateRef.current?.(previous);
         showFlash(`Delete all failed: ${error}`, true);
       } else {
-        await triggerPublicationSync([]);
-        showFlash('All photos have been deleted from server and publication.');
+        clearPublicManifestCache();
+        setIsPublishing(true);
+        dbBuildPublication()
+          .then(() => showFlash('All photos deleted and publication updated.'))
+          .catch((err) => console.warn('Publication build warning:', err))
+          .finally(() => setIsPublishing(false));
+        showFlash('All photos deleted from server.');
       }
     } catch (err: any) {
+      setGalleryPhotos(previous);
+      idbSet('m_gallery', JSON.stringify(previous));
+      onGalleryUpdateRef.current?.(previous);
       showFlash(`Delete all failed: ${err?.message || 'Server error'}`, true);
     } finally {
       setGalleryLoading(false);
