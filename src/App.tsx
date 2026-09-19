@@ -858,6 +858,12 @@ export default function App() {
     dbBuildPublication().catch(() => {});
   };
 
+  const handleGalleryUpdate = (photos: GalleryPhoto[]) => {
+    setGalleryPhotos(photos);
+    try { idbSet('m_gallery', JSON.stringify(photos)); } catch { }
+    clearPublicManifestCache();
+  };
+
   const handleResetToDefaults = async () => {
     if (confirm('Do you want to reset the database to default values? This will delete all custom papers and questions from ALL devices.')) {
       setIsSyncing(true);
@@ -1736,6 +1742,7 @@ export default function App() {
             onEnsureQuestionsLoaded={handleEnsureQuestionsLoaded}
             loadingPaperQuestionsId={loadingPaperQuestionsId}
             onAboutUpdate={setAboutData}
+            onGalleryUpdate={handleGalleryUpdate}
             onClose={handleCloseAdminPanel}
             activeUsersCount={activeUsersCount}
           />

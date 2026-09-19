@@ -919,66 +919,97 @@ export async function dbSaveAboutUs(aboutData: AboutData): Promise<{ error?: str
 export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?: string }> {
   const objectKey = photo.imageHex.includes('/api/v1/media/')
     ? photo.imageHex.split('/api/v1/media/')[1]
-    : (photo.imageHex.startsWith('gallery/') || photo.imageHex.startsWith('study/') ? photo.imageHex : null);
+    : (photo.imageHex.startsWith('gallery/') || photo.imageHex.startsWith('study/') || photo.imageHex.startsWith('legacy/') ? photo.imageHex : null);
+
+  if (!objectKey) {
+    return { error: 'Invalid or missing media object key for gallery photo.' };
+  }
 
   const titleObj = { en: photo.title || 'Photo', si: photo.title || 'Photo' };
   const districtTag = photo.district ? ` [district: ${photo.district.toLowerCase()}]` : '';
   const cleanDesc = (photo.description || '').replace(/\[district:\s*[a-z0-9-]+\]/gi, '').trim();
   const fullDesc = cleanDesc ? `${cleanDesc}${districtTag}` : (photo.district ? districtTag.trim() : null);
   const descObj = fullDesc ? { en: fullDesc, si: fullDesc } : null;
+  const thumbnailObjectKey = objectKey.startsWith('legacy/') ? `${objectKey}.thumb` : objectKey;
 
-  if (objectKey) {
-    const payload = {
-      slug: generateSlug(photo.title, photo.id),
-      title: titleObj,
-      description: descObj,
-      altText: titleObj,
-      imageObjectKey: objectKey,
-      thumbnailObjectKey: objectKey,
-      contentType: photo.mimeType || 'image/webp',
-      width: 800,
-      height: 600,
-      byteSize: 1000,
-      pinned: photo.pinned || false,
-      sortOrder: photo.sortOrder || 0,
-    };
-    let savedUpdatedAt: string | undefined;
-    try {
-      const existing = await api.get(`/admin/gallery-items/${photo.id}`).catch(() => null);
-      if (existing?.data) {
-        const patchRes = await api.patch(`/admin/gallery-items/${photo.id}`, {
-          ...payload,
-          expectedUpdatedAt: existing.data.updatedAt || new Date().toISOString()
-        });
-        savedUpdatedAt = patchRes.data?.updatedAt;
-      } else {
-        const createRes = await api.post('/admin/gallery-items', { id: photo.id, ...payload });
-        savedUpdatedAt = createRes.data?.updatedAt;
-      }
-    } catch (e: any) {
-      console.error("Failed to save gallery item:", e);
+  const payload = {
+    slug: generateSlug(photo.title, photo.id),
+    title: titleObj,
+    description: descObj,
+    altText: titleObj,
+    imageObjectKey: objectKey,
+    thumbnailObjectKey,
+    contentType: photo.mimeType || 'image/webp',
+    width: 800,
+    height: 600,
+    byteSize: 1000,
+    pinned: photo.pinned || false,
+    sortOrder: photo.sortOrder || 0,
+  };
+
+  let savedUpdatedAt: string | undefined;
+  try {
+    const existing = await api.get(`/admin/gallery-items/${photo.id}`).catch(() => null);
+    if (existing?.data) {
+      const patchRes = await api.patch(`/admin/gallery-items/${photo.id}`, {
+        ...payload,
+        expectedUpdatedAt: existing.data.updatedAt || new Date().toISOString()
+      });
+      savedUpdatedAt = patchRes.data?.updatedAt;
+    } else {
+      const createRes = await api.post('/admin/gallery-items', { id: photo.id, ...payload });
+      savedUpdatedAt = createRes.data?.updatedAt;
     }
-    await setPublishState('gallery_item', photo.id, 'published', savedUpdatedAt);
+  } catch (e: any) {
+    console.error("Failed to save gallery item:", e);
+    return { error: e.response?.data?.error?.message || e.message || 'Failed to save gallery item' };
   }
+
+  try {
+    await setPublishState('gallery_item', photo.id, 'published', savedUpdatedAt);
+  } catch (pubErr: any) {
+    console.error("Failed to publish gallery item:", pubErr);
+    return { error: pubErr.message || 'Failed to publish gallery item' };
+  }
+
   return {};
 }
 
 export async function dbDeleteGalleryPhoto(id: string): Promise<{ error?: string }> {
-  await setPublishState('gallery_item', id, 'archived');
-  await api.delete(`/admin/gallery-items/${id}`).catch(console.error);
-  return {};
+  try {
+    await setPublishState('gallery_item', id, 'archived');
+    await api.delete(`/admin/gallery-items/${id}`);
+    return {};
+  } catch (err: any) {
+    console.error("Failed to delete gallery photo:", err);
+    return { error: err.response?.data?.error?.message || err.message || 'Failed to delete gallery photo' };
+  }
 }
 
-export async function dbUpdateGalleryPhotoOrder(id: string, sortOrder: number): Promise<void> {
-  await api.patch(`/admin/gallery-items/${id}`, { sortOrder }).catch(console.error);
+export async function dbUpdateGalleryPhotoOrder(id: string, sortOrder: number): Promise<{ error?: string }> {
+  try {
+    await api.patch(`/admin/gallery-items/${id}`, { sortOrder });
+    return {};
+  } catch (err: any) {
+    console.error("Failed to update photo sort order:", err);
+    return { error: err.response?.data?.error?.message || err.message };
+  }
 }
 
 export async function dbDeleteAllGalleryPhotos(): Promise<{ error?: string }> {
-  const items = await adminLoadGallery();
-  if (items) {
-    for (const item of items) await dbDeleteGalleryPhoto(item.id);
+  try {
+    const items = await adminLoadGallery();
+    if (items && items.length > 0) {
+      for (const item of items) {
+        const { error } = await dbDeleteGalleryPhoto(item.id);
+        if (error) console.warn(`Failed to delete item ${item.id}:`, error);
+      }
+    }
+    return {};
+  } catch (err: any) {
+    console.error("Failed to delete all gallery photos:", err);
+    return { error: err.message || 'Failed to delete all gallery photos' };
   }
-  return {};
 }
 
 let publicationBuildPromise: Promise<{ snapshotId: string; version: number }> | null = null;

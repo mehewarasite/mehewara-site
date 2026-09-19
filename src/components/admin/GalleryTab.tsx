@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useRef as useReactRef, useCallback } from 'react';
-import { Trash2, Images, RefreshCw, ChevronUp, ChevronDown, Pin, MapPin, Folder } from 'lucide-react';
+import { Trash2, Images, RefreshCw, ChevronUp, ChevronDown, Pin, MapPin, Folder, CloudUpload } from 'lucide-react';
 import { GalleryPhoto } from '../../types';
-import { dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos } from '../../api';
+import { adminLoadGallery, dbLoadGallery, dbSaveGalleryPhoto, dbDeleteGalleryPhoto, dbUpdateGalleryPhotoOrder, dbDeleteAllGalleryPhotos, dbBuildPublication, clearPublicManifestCache } from '../../api';
 import { hexToDataUrl, createPreviewUrl, GALLERY_ACCEPT } from '../../utils/imageHex';
 import { uploadImageToStorage } from '../../utils/mediaUpload';
 import { normalizeMediaUrl } from '../../apiClient';
+import { idbSet } from '../../utils/storage';
 import { SRI_LANKA_DISTRICTS, getDistrictInfo, inferPhotoDistrict } from '../../data/districtBackgrounds';
 import type { AdminThemeClasses } from './types';
 
 interface GalleryTabProps {
   theme: AdminThemeClasses;
   showFlash: (message: string, isError?: boolean) => void;
+  onGalleryUpdate?: (photos: GalleryPhoto[]) => void;
 }
 
-export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
+export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: GalleryTabProps) {
   const { isDark, cardBg, cardBdr, inputBg, inputBdr, textPrimary, textMuted, textFaint, subtleBg, subtleBdr } = theme;
 
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [galleryUploadFile, setGalleryUploadFile] = useState<File | null>(null);
   const [galleryUploadPreview, setGalleryUploadPreview] = useState<string>('');
   const [galleryUploadTitle, setGalleryUploadTitle] = useState('');
@@ -31,14 +34,44 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
 
   const fetchGallery = useCallback(async () => {
     setGalleryLoading(true);
-    const photos = await dbLoadGallery();
-    if (photos) setGalleryPhotos(photos);
-    setGalleryLoading(false);
-  }, []);
+    try {
+      // Prioritize live D1 database loader for admin panel
+      let photos = await adminLoadGallery();
+      if (!photos || photos.length === 0) {
+        photos = await dbLoadGallery();
+      }
+      if (photos) {
+        setGalleryPhotos(photos);
+        idbSet('m_gallery', JSON.stringify(photos));
+        onGalleryUpdate?.(photos);
+      }
+    } catch (err: any) {
+      console.error('Failed to load admin gallery:', err);
+      const photos = await dbLoadGallery();
+      if (photos) setGalleryPhotos(photos);
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, [onGalleryUpdate]);
 
   useEffect(() => {
     fetchGallery();
-  }, []);
+  }, [fetchGallery]);
+
+  const triggerPublicationSync = useCallback(async (updatedPhotos: GalleryPhoto[]) => {
+    setGalleryPhotos(updatedPhotos);
+    idbSet('m_gallery', JSON.stringify(updatedPhotos));
+    onGalleryUpdate?.(updatedPhotos);
+    clearPublicManifestCache();
+    setIsPublishing(true);
+    try {
+      await dbBuildPublication();
+    } catch (pubErr) {
+      console.warn('Background publication build warning:', pubErr);
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [onGalleryUpdate]);
 
   const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,8 +114,9 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
       if (error) {
         showFlash(`Upload failed: ${error}`, true);
       } else {
-        showFlash('Photo uploaded to storage and saved in district folder!');
-        setGalleryPhotos(prev => [...prev, newPhoto]);
+        showFlash('Photo uploaded to storage, saved to server, and published!');
+        const updated = [...galleryPhotos, newPhoto];
+        await triggerPublicationSync(updated);
         setGalleryUploadFile(null);
         setGalleryUploadPreview('');
         setGalleryUploadTitle('');
@@ -101,22 +135,30 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
 
   const handleGalleryTogglePin = async (photo: GalleryPhoto) => {
     const updatedPhoto = { ...photo, pinned: !photo.pinned };
-    setGalleryPhotos(prev => prev.map(p => p.id === photo.id ? updatedPhoto : p));
+    const updated = galleryPhotos.map(p => p.id === photo.id ? updatedPhoto : p);
+    setGalleryPhotos(updated);
     const { error } = await dbSaveGalleryPhoto(updatedPhoto);
     if (error) {
       showFlash(`Failed to update pin: ${error}`, true);
-      setGalleryPhotos(prev => prev.map(p => p.id === photo.id ? photo : p));
+      setGalleryPhotos(galleryPhotos);
+    } else {
+      await triggerPublicationSync(updated);
     }
   };
 
   const handleGalleryDelete = async (id: string) => {
-    if (!window.confirm('Delete this photo from the gallery?')) return;
-    const { error } = await dbDeleteGalleryPhoto(id);
-    if (error) {
-      showFlash(`Delete failed: ${error}`, true);
-    } else {
-      setGalleryPhotos(prev => prev.filter(p => p.id !== id));
-      showFlash('Photo deleted.');
+    if (!window.confirm('Delete this photo permanently from the gallery?')) return;
+    try {
+      const { error } = await dbDeleteGalleryPhoto(id);
+      if (error) {
+        showFlash(`Delete failed: ${error}`, true);
+      } else {
+        const updated = galleryPhotos.filter(p => p.id !== id);
+        await triggerPublicationSync(updated);
+        showFlash('Photo deleted from server and publication updated.');
+      }
+    } catch (err: any) {
+      showFlash(`Delete failed: ${err?.message || 'Failed to delete photo'}`, true);
     }
   };
 
@@ -125,7 +167,7 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
     const updated = [...galleryPhotos];
     [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
     const reordered = updated.map((p, i) => ({ ...p, sortOrder: i }));
-    setGalleryPhotos(reordered);
+    await triggerPublicationSync(reordered);
     await dbUpdateGalleryPhotoOrder(reordered[index - 1].id, index - 1);
     await dbUpdateGalleryPhotoOrder(reordered[index].id, index);
   };
@@ -135,7 +177,7 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
     const updated = [...galleryPhotos];
     [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
     const reordered = updated.map((p, i) => ({ ...p, sortOrder: i }));
-    setGalleryPhotos(reordered);
+    await triggerPublicationSync(reordered);
     await dbUpdateGalleryPhotoOrder(reordered[index].id, index);
     await dbUpdateGalleryPhotoOrder(reordered[index + 1].id, index + 1);
   };
@@ -143,14 +185,19 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
   const handleGalleryDeleteAll = async () => {
     if (!window.confirm('WARNING: Are you sure you want to delete ALL photos from the gallery? This cannot be undone.')) return;
     setGalleryLoading(true);
-    const { error } = await dbDeleteAllGalleryPhotos();
-    if (error) {
-      showFlash(`Delete all failed: ${error}`, true);
-    } else {
-      setGalleryPhotos([]);
-      showFlash('All photos have been deleted.');
+    try {
+      const { error } = await dbDeleteAllGalleryPhotos();
+      if (error) {
+        showFlash(`Delete all failed: ${error}`, true);
+      } else {
+        await triggerPublicationSync([]);
+        showFlash('All photos have been deleted from server and publication.');
+      }
+    } catch (err: any) {
+      showFlash(`Delete all failed: ${err?.message || 'Server error'}`, true);
+    } finally {
+      setGalleryLoading(false);
     }
-    setGalleryLoading(false);
   };
 
   return (
@@ -272,6 +319,12 @@ export default function GalleryTab({ theme, showFlash }: GalleryTabProps) {
             <span className={`text-xs font-mono ${textFaint} border ${cardBdr} px-2 py-0.5 rounded-lg`}>{galleryPhotos.length}</span>
           </h2>
           <div className="flex items-center gap-2">
+            {isPublishing && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl animate-pulse">
+                <CloudUpload className="w-3.5 h-3.5 animate-bounce" />
+                Publishing to Cloud...
+              </span>
+            )}
             <button
               onClick={fetchGallery}
               disabled={galleryLoading}

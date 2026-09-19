@@ -33,7 +33,7 @@ import {
   History
 } from 'lucide-react';
 
-import { Subject, Paper, Question } from '../types';
+import { Subject, Paper, Question, GalleryPhoto } from '../types';
 import { useTheme } from '../ThemeContext';
 import { dbAdminGetMe, dbAdminChangePassword, dbAdminForgotPasswordRequest } from '../api';
 import LiveCounterBadge from './LiveCounterBadge';
@@ -75,6 +75,7 @@ interface AdminPanelProps {
   onEnsureQuestionsLoaded?: (paperId: string, force?: boolean) => Promise<void>;
   loadingPaperQuestionsId?: string | null;
   onAboutUpdate?: (data: any) => void;
+  onGalleryUpdate?: (photos: GalleryPhoto[]) => void;
   onClose: () => void;
   activeUsersCount?: number;
 }
@@ -100,6 +101,7 @@ export default function AdminPanel({
   onEnsureQuestionsLoaded,
   loadingPaperQuestionsId,
   onAboutUpdate,
+  onGalleryUpdate,
   onClose,
   activeUsersCount = 1
 }: AdminPanelProps) {
@@ -582,6 +584,7 @@ export default function AdminPanel({
               <GalleryTab
                 theme={adminTheme}
                 showFlash={showFlash}
+                onGalleryUpdate={onGalleryUpdate}
               />
             )}
 
