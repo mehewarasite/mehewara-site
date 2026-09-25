@@ -181,13 +181,24 @@ export async function uploadToB2(file: File | Blob, endpointOrPrefix: string = '
   }
 
   // 3. Confirm upload with API to verify sha256 and promote from staging to final key in D1
-  const confirmRes = await api.post('/media/upload-confirm', {
-    intentId,
-  }, {
-    headers: {
-      'Idempotency-Key': crypto.randomUUID(),
-    },
-  });
+  let confirmRes: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      confirmRes = await api.post('/media/upload-confirm', {
+        intentId,
+      }, {
+        headers: {
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+      });
+      break;
+    } catch (err: any) {
+      if (attempt === 3 || (err.response && err.response.status < 500)) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 800 * attempt));
+    }
+  }
 
   const { objectKey } = confirmRes.data;
 

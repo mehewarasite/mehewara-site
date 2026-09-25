@@ -39,6 +39,18 @@ function generateSlug(text: string, fallbackId: string): string {
   return `item-${fallbackId.replace(/[^a-z0-9]/gi, '').slice(0, 12).toLowerCase()}`;
 }
 
+// Gallery slugs are UNIQUE in D1 and titles often repeat, so suffix with part of the id
+function generateGallerySlug(title: string | undefined, id: string): string {
+  const suffix = id.replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase();
+  const base = (title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50)
+    .replace(/-+$/, '');
+  return base ? `${base}-${suffix}` : `item-${suffix}`;
+}
+
 const isUuid = (id?: string | null): boolean =>
   !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
@@ -929,7 +941,7 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
 
   if (objectKey) {
     const payload = {
-      slug: generateSlug(photo.title, photo.id),
+      slug: generateGallerySlug(photo.title, photo.id),
       title: titleObj,
       description: descObj,
       altText: titleObj,
@@ -948,6 +960,8 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
       if (existing?.data) {
         const patchRes = await api.patch(`/admin/gallery-items/${photo.id}`, {
           ...payload,
+          // Keep the stored slug so edits never collide with another item's slug
+          slug: existing.data.slug || payload.slug,
           expectedUpdatedAt: existing.data.updatedAt || new Date().toISOString()
         });
         savedUpdatedAt = patchRes.data?.updatedAt;
@@ -957,8 +971,16 @@ export async function dbSaveGalleryPhoto(photo: GalleryPhoto): Promise<{ error?:
       }
     } catch (e: any) {
       console.error("Failed to save gallery item:", e);
+      return { error: e.response?.data?.error?.message || e.message || 'Failed to save gallery item' };
     }
-    await setPublishState('gallery_item', photo.id, 'published', savedUpdatedAt);
+    try {
+      await setPublishState('gallery_item', photo.id, 'published', savedUpdatedAt);
+    } catch (pubErr: any) {
+      console.error("Failed to publish gallery item:", pubErr);
+      return { error: pubErr.message || 'Failed to publish gallery item' };
+    }
+  } else {
+    return { error: 'Invalid or missing media object key for gallery photo.' };
   }
   return {};
 }
@@ -981,12 +1003,26 @@ export async function dbDeleteAllGalleryPhotos(): Promise<{ error?: string }> {
   return {};
 }
 
-let publicationBuildPromise: Promise<{ snapshotId: string; version: number }> | null = null;
+type PublicationBuildResult = { snapshotId: string; version: number };
 
-export async function dbBuildPublication(): Promise<{ snapshotId: string; version: number }> {
-  if (publicationBuildPromise) {
-    return publicationBuildPromise;
-  }
+// The API's daily publication budget only allows ~80 builds, so bursts of admin
+// edits (reorders, pins, uploads) are coalesced into a single trailing build.
+const PUBLICATION_BUILD_DEBOUNCE_MS = 4000;
+let publicationBuildPromise: Promise<PublicationBuildResult> | null = null;
+let pendingPublicationBuild: {
+  promise: Promise<PublicationBuildResult>;
+  resolve: (value: PublicationBuildResult) => void;
+  reject: (reason: unknown) => void;
+} | null = null;
+let publicationBuildTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function flushPublicationBuild(): Promise<void> {
+  const batch = pendingPublicationBuild;
+  pendingPublicationBuild = null;
+  publicationBuildTimer = undefined;
+  if (!batch) return;
+  // Never run two builds at once; a build already in flight may predate these edits.
+  if (publicationBuildPromise) await publicationBuildPromise.catch(() => undefined);
   const idempotencyKey = crypto.randomUUID();
   publicationBuildPromise = api.post('/admin/publications/build', {
     idempotencyKey,
@@ -997,7 +1033,19 @@ export async function dbBuildPublication(): Promise<{ snapshotId: string; versio
   }).finally(() => {
     publicationBuildPromise = null;
   });
-  return publicationBuildPromise;
+  publicationBuildPromise.then(batch.resolve, batch.reject);
+}
+
+export function dbBuildPublication(): Promise<PublicationBuildResult> {
+  if (!pendingPublicationBuild) {
+    let resolve!: (value: PublicationBuildResult) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<PublicationBuildResult>((res, rej) => { resolve = res; reject = rej; });
+    pendingPublicationBuild = { promise, resolve, reject };
+  }
+  clearTimeout(publicationBuildTimer);
+  publicationBuildTimer = setTimeout(() => { void flushPublicationBuild(); }, PUBLICATION_BUILD_DEBOUNCE_MS);
+  return pendingPublicationBuild.promise;
 }
 
 export const dbLoadBudgetStatus = async () => {

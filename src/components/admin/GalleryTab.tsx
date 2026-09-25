@@ -59,20 +59,6 @@ export default function GalleryTab({ theme, showFlash, onGalleryUpdate }: Galler
     fetchGallery();
   }, [fetchGallery]);
 
-  const triggerPublicationSync = useCallback(async (updatedPhotos: GalleryPhoto[]) => {
-    setGalleryPhotos(updatedPhotos);
-    idbSet('m_gallery', JSON.stringify(updatedPhotos));
-    onGalleryUpdateRef.current?.(updatedPhotos);
-    clearPublicManifestCache();
-    setIsPublishing(true);
-    try {
-      await dbBuildPublication();
-    } catch (pubErr) {
-      console.warn('Background publication build warning:', pubErr);
-    } finally {
-      setIsPublishing(false);
-    }
-  }, []);
 
   const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
