@@ -182,7 +182,7 @@ export async function uploadToB2(file: File | Blob, endpointOrPrefix: string = '
 
   // 3. Confirm upload with API to verify sha256 and promote from staging to final key in D1
   let confirmRes: any;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       confirmRes = await api.post('/media/upload-confirm', {
         intentId,
@@ -193,7 +193,11 @@ export async function uploadToB2(file: File | Blob, endpointOrPrefix: string = '
       });
       break;
     } catch (err: any) {
-      if (attempt === 3 || (err.response && err.response.status < 500)) {
+      // After a dropped request the server may still be verifying our upload;
+      // that 409 resolves to 200 once it finishes, so keep polling for it.
+      const stillVerifying = attempt > 1 && err.response?.status === 409
+        && /being confirmed/i.test(err.response?.data?.error?.message || '');
+      if (attempt === 5 || (err.response && err.response.status < 500 && !stillVerifying)) {
         throw err;
       }
       await new Promise((resolve) => setTimeout(resolve, 800 * attempt));

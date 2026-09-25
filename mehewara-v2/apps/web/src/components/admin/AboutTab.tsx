@@ -103,12 +103,12 @@ export default function AboutTab({ theme, onAboutUpdate, showFlash }: AboutTabPr
                 // For now, we simply upload the new one and overwrite the pointer.
               }
 
-              const { uploadToB2 } = await import('../../apiClient');
+              const { uploadImageToStorage } = await import('../../utils/mediaUpload');
               const { dbSaveAboutUs } = await import('../../api');
 
               try {
-                // Upload image directly to Backblaze B2 under about namespace
-                const publicUrl = await uploadToB2(file, 'about/profile');
+                // Normalise (HEIC etc.), compress, then upload to B2 under about/profile
+                const publicUrl = await uploadImageToStorage(file, 'about');
 
                 const newAboutData = { ...aboutData, image_url: publicUrl };
                 setAboutData(newAboutData);

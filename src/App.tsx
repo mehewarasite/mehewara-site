@@ -265,6 +265,8 @@ export default function App() {
     let isMounted = true;
     
     const pingLiveUsers = async () => {
+      // Skip while offline so the console isn't flooded with ERR_INTERNET_DISCONNECTED
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
       try {
         const { publicApi } = await import('./apiClient');
         const res = await publicApi.post('/live', { clientId });
@@ -281,9 +283,12 @@ export default function App() {
     
     // Poll every 15 seconds
     const interval = setInterval(pingLiveUsers, 15000);
+    // Re-register right away when the connection comes back
+    window.addEventListener('online', pingLiveUsers);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener('online', pingLiveUsers);
     };
   }, []);
 

@@ -225,16 +225,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
 
   const handleImageUpload = async (file: File) => {
     try {
-      const { compressImageToBlob } = await import('../utils/mediaUpload');
-      const blob = await compressImageToBlob(file, 800, 0.62);
-      
-      const fileExt = 'webp'; // Since compressImageToBlob returns webp
-      const fileName = `editor-${Date.now()}.${fileExt}`;
-      const { uploadToB2 } = await import('../apiClient');
-      const publicUrl = await uploadToB2(new File([blob], fileName, { type: 'image/webp' }), 'study/diagrams');
-      return publicUrl;
-    } catch (e) {
+      // Same pipeline as the other admin uploads: validates, converts HEIC/TIFF, compresses
+      const { uploadImageToStorage } = await import('../utils/mediaUpload');
+      return await uploadImageToStorage(file, 'diagrams', 800, 0.62);
+    } catch (e: any) {
       console.error('Image compression or upload failed:', e);
+      alert(`Image upload failed: ${e?.response?.data?.error?.message || e?.message || 'Unknown error'}`);
       return null;
     }
   };
